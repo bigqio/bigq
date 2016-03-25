@@ -1,0 +1,10 @@
+c:\code\misc\BigQ\BigQ\bin\Debug\sqlite3.dll
+c:\code\misc\BigQ\BigQ\bin\Debug\Mono.Data.Sqlite.dll
+c:\code\misc\BigQ\BigQ\bin\Debug\Newtonsoft.Json.dll
+c:\code\misc\BigQ\BigQ\bin\Debug\System.Data.Portable.dll
+c:\code\misc\BigQ\BigQ\bin\Debug\System.Transactions.Portable.dll
+c:\code\misc\BigQ\BigQ\bin\Debug\Newtonsoft.Json.xml
+c:\code\misc\BigQ\BigQ\bin\Debug\BigQ.dll
+c:\code\misc\BigQ\BigQ\bin\Debug\BigQ.pdb
+c:\code\misc\BigQ\BigQ\obj\Debug\BigQ.dll
+c:\code\misc\BigQ\BigQ\obj\Debug\BigQ.pdb
