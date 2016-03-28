@@ -34,7 +34,7 @@ namespace BigQClientTest
             Console.WriteLine("BigQ Client");
             Console.WriteLine("");
 
-            BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 10000, false);
+            BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
             client.AsyncMessageReceived = AsyncMessageReceived;
             client.SyncMessageReceived = SyncMessageReceived;
             client.ServerDisconnected = ServerDisconnected;
@@ -48,7 +48,7 @@ namespace BigQClientTest
                 Console.WriteLine("Commands: q quit cls echo login listchannels listchannelsubscribers joinchannel");
                 Console.WriteLine("          leavechannel createchannel deletechannel");
                 Console.WriteLine("          sendprivasync sendprivsync sendchannel listclients");
-                Console.WriteLine("          whoami");
+                Console.WriteLine("          whoami pendingsyncrequests");
                 Console.Write("Command: ");
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
@@ -56,6 +56,10 @@ namespace BigQClientTest
                 string guid = "";
                 string msg = "";
                 int priv = 0;
+                List<BigQClient> clients;
+                List<BigQChannel> channels;
+                BigQMessage response;
+                Dictionary<string, DateTime> pendingRequests;
 
                 switch (cmd.ToLower())
                 {
@@ -74,33 +78,81 @@ namespace BigQClientTest
                         break;
 
                     case "login":
-                        client.Login();
+                        if (client.Login(out response))
+                        {
+                            Console.WriteLine("Login success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Login failed");
+                        }
                         break;
 
                     case "listclients":
-                        client.ListClients();
+                        if (client.ListClients(out response, out clients))
+                        {
+                            Console.WriteLine("ListClients success");
+                            if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
+                            else foreach (BigQClient curr in clients) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email);
+                        }
+                        else
+                        {
+                            Console.WriteLine("ListClients failed");
+                        }
                         break;
 
                     case "listchannels":
-                        client.ListChannels();
+                        if (client.ListChannels(out response, out channels))
+                        {
+                            Console.WriteLine("ListChannels success");
+                            if (channels == null || channels.Count < 1) Console.WriteLine("(null)");
+                            else foreach (BigQChannel curr in channels) Console.WriteLine("  " + curr.Guid + " " + curr.ChannelName + " " + curr.OwnerGuid);
+                        }
+                        else
+                        {
+                            Console.WriteLine("ListChannels failed");
+                        }
                         break;
 
                     case "listchannelsubscribers":
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
-                        client.ListChannelSubscribers(guid);
+                        if (client.ListChannelSubscribers(guid, out response, out clients))
+                        {
+                            Console.WriteLine("ListChannelSubscribers success");
+                            if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
+                            else foreach (BigQClient curr in clients) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email);
+                        }
+                        else
+                        {
+                            Console.WriteLine("ListChannelSubscribers failed");
+                        }
                         break;
 
                     case "joinchannel":
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
-                        client.JoinChannel(guid);
+                        if (client.JoinChannel(guid, out response))
+                        {
+                            Console.WriteLine("JoinChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("JoinChannel failed");
+                        }
                         break;
 
                     case "leavechannel":
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
-                        client.LeaveChannel(guid);
+                        if (client.LeaveChannel(guid, out response))
+                        {
+                            Console.WriteLine("LeaveChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("LeaveChannel failed");
+                        }
                         break;
 
                     case "createchannel":
@@ -108,13 +160,27 @@ namespace BigQClientTest
                         guid = Console.ReadLine();
                         Console.Write("Private (0/1): ");
                         priv = Convert.ToInt32(Console.ReadLine());
-                        client.CreateChannel(guid, priv);
+                        if (client.CreateChannel(guid, priv, out response))
+                        {
+                            Console.WriteLine("CreateChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("CreateChannel failed");
+                        }
                         break;
 
                     case "deletechannel":
                         Console.Write("GUID: ");
                         guid = Console.ReadLine();
-                        client.DeleteChannel(guid);
+                        if (client.DeleteChannel(guid, out response))
+                        {
+                            Console.WriteLine("DeleteChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("DeleteChannel failed");
+                        }
                         break;
 
                     case "sendprivasync":
@@ -157,6 +223,25 @@ namespace BigQClientTest
                         Console.WriteLine("You are GUID: " + client.ClientGuid);
                         break;
 
+                    case "pendingsyncrequests":
+                        if (client.PendingSyncRequests(out pendingRequests))
+                        {
+                            Console.WriteLine("PendingSyncRequests success");
+                            Console.Write("Outstanding requests: ");
+                            if (pendingRequests == null) Console.WriteLine("(null)");
+                            else if (pendingRequests.Count < 1) Console.WriteLine("(empty)");
+                            else
+                            {
+                                Console.WriteLine(pendingRequests.Count + " requests");
+                                foreach (KeyValuePair<string, DateTime> curr in pendingRequests) Console.WriteLine("  " + curr.Key + ": " + curr.Value.ToString("MM/dd/yyyy hh:mm:ss"));
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("PendingSyncRequests failed");
+                        }
+                        break;
+
                     default:
                         Console.WriteLine("Unknown command");
                         break;
@@ -184,7 +269,8 @@ namespace BigQClientTest
 
         static bool ServerDisconnected()
         {
-            BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 10000, false);
+            Console.WriteLine("*** Disconnection, attempting reconnection ***");
+            BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
             return true;
         }
 

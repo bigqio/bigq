@@ -150,6 +150,7 @@ namespace BigQServerTest
         static bool ServerStopped()
         {
             // restart
+            Console.WriteLine("*** Server stopped, attempting to restart ***");
             BigQServer server = new BigQServer(null, 8000, false, false, true, true, true);
             return true;
         }

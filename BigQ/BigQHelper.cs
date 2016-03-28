@@ -283,6 +283,18 @@ namespace BigQ
             return ret;
         }
 
+        public static T JArrayToList<T>(object obj)
+        {
+            // 
+            // Call with List<T> as the type, i.e.
+            // foo = JArrayToList<List<foo>>(data);
+            //
+
+            if (obj == null) throw new ArgumentNullException("obj");
+            Newtonsoft.Json.Linq.JArray jarray = (Newtonsoft.Json.Linq.JArray)obj;
+            return jarray.ToObject<T>();
+        }
+
         public static string SerializeJson<T>(T obj)
         {
             string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings { });
@@ -295,10 +307,44 @@ namespace BigQ
             T ret = DeserializeJson<T>(json, false);
             return ret;
         }
-
+        
         public static void Log(string message)
         {
             Console.WriteLine(message);
+        }
+
+        public static bool IsTrue(int? val)
+        {
+            if (val == null) return false;
+            if (Convert.ToInt32(val) == 1) return true;
+            return false;
+        }
+
+        public static bool IsTrue(int val)
+        {
+            if (val == 1) return true;
+            return false;
+        }
+
+        public static bool IsTrue(bool val)
+        {
+            return val;
+        }
+
+        public static bool IsTrue(bool? val)
+        {
+            if (val == null) return false;
+            return Convert.ToBoolean(val);
+        }
+
+        public static bool IsTrue(string val)
+        {
+            if (String.IsNullOrEmpty(val)) return false;
+            val = val.ToLower().Trim();
+            int val_int = 0;
+            if (Int32.TryParse(val, out val_int)) if (val_int == 1) return true;
+            if (String.Compare(val, "true") == 0) return true;
+            return false;
         }
     }
 }

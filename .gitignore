@@ -40,3 +40,6 @@ Thumbs.db
 ##########
 .vs/
 
+# NuGet #
+#########
+*.nupkg

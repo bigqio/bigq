@@ -2022,6 +2022,8 @@ namespace BigQ
         {
             BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
             ResponseMessage = RedactMessage(ResponseMessage);
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+            ResponseMessage.SyncRequest = null;
             ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
@@ -2033,6 +2035,8 @@ namespace BigQ
         {
             BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
             ResponseMessage = RedactMessage(ResponseMessage);
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+            ResponseMessage.SyncRequest = null;
             ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
@@ -2277,6 +2281,8 @@ namespace BigQ
 
                 ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
                 ResponseMessage = RedactMessage(ResponseMessage);
+                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+                ResponseMessage.SyncRequest = null;
                 ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
                 ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
                 ResponseMessage.ChannelGuid = null;
@@ -2313,6 +2319,8 @@ namespace BigQ
 
             ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
             ResponseMessage = RedactMessage(ResponseMessage);
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+            ResponseMessage.SyncRequest = null;
             ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.ChannelGuid = null;
@@ -2324,10 +2332,10 @@ namespace BigQ
 
         private BigQMessage ProcessListChannelSubscribersMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            List<string> ret = new List<string>();
             BigQChannel CurrentChannel = GetChannelByGuid(CurrentMessage.ChannelGuid);
             BigQMessage ResponseMessage = new BigQMessage();
             List<BigQClient> Clients = new List<BigQClient>();
+            List<BigQClient> ret = new List<BigQClient>();
 
             if (CurrentChannel == null)
             {
@@ -2347,11 +2355,23 @@ namespace BigQ
             {
                 foreach (BigQClient curr in Clients)
                 {
-                    ret.Add(curr.ClientGuid);
+                    BigQClient temp = new BigQClient();
+                    temp.Password = null;
+                    temp.SourceIp = null;
+                    temp.SourcePort = 0;
+                    temp.Client = null;
+
+                    temp.Email = curr.Email;
+                    temp.ClientGuid = curr.ClientGuid;
+                    temp.Created = curr.Created;
+                    temp.Updated = curr.Updated;
+                    ret.Add(temp);
                 }
 
                 ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
                 ResponseMessage = RedactMessage(ResponseMessage);
+                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+                ResponseMessage.SyncRequest = null;
                 ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
                 ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
                 ResponseMessage.ChannelGuid = CurrentChannel.Guid;
@@ -2383,6 +2403,8 @@ namespace BigQ
 
             BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
             ResponseMessage = RedactMessage(ResponseMessage);
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+            ResponseMessage.SyncRequest = null;
             ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.ChannelGuid = null;
@@ -2417,8 +2439,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Unknown command '" + ResponseMessage.Command + "'";
             return ResponseMessage;
         }
@@ -2431,8 +2453,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
 
             if (!String.IsNullOrEmpty(ResponseMessage.RecipientGuid))
             {
@@ -2457,8 +2479,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "You are not a member of this channel";
             return ResponseMessage;
         }
@@ -2471,9 +2493,9 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
-            
+
             if (!String.IsNullOrEmpty(CurrentMessage.RecipientGuid))
             {
                 #region Individual-Recipient
@@ -2510,8 +2532,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Unable to send message";
             return ResponseMessage;
         }
@@ -2524,8 +2546,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Channel not found";
             return ResponseMessage;
         }
@@ -2539,8 +2561,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Channel is empty";
             return ResponseMessage;
         }
@@ -2553,8 +2575,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Channel already exists";
             return ResponseMessage;
         }
@@ -2568,8 +2590,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Channel created successfully";
             return ResponseMessage;
         }
@@ -2582,8 +2604,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Unable to create channel";
             return ResponseMessage;
         }
@@ -2597,8 +2619,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Successfully joined channel";
             return ResponseMessage;
         }
@@ -2612,8 +2634,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Successfully left channel";
             return ResponseMessage;
         }
@@ -2627,8 +2649,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Unable to leave channel due to error";
             return ResponseMessage;
         }
@@ -2642,8 +2664,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Failed to join channel";
             return ResponseMessage;
         }
@@ -2656,8 +2678,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Channel deleted by owner";
             return ResponseMessage;
         }
@@ -2671,8 +2693,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Successfully deleted channel";
             return ResponseMessage;
         }
@@ -2686,8 +2708,8 @@ namespace BigQ
             ResponseMessage.ChannelGuid = CurrentChannel.Guid;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Unable to delete channel";
             return ResponseMessage;
         }
@@ -2700,8 +2722,8 @@ namespace BigQ
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
             ResponseMessage.Data = "Data error encountered in your message: " + message;
             return ResponseMessage;
         }
