@@ -29,7 +29,7 @@ server.ClientLogin = ClientLogin;
 server.ClientDisconnected = ClientDisconnected;
 server.LogMessage = LogMessage;
 
-// implement, these methods should return true
+// callback implementation, these methods should return true
 static bool MessageReceived(BigQMessage msg) { ... }
 static bool ClientConnected(BigQClient client) { ... }
 static bool ClientLogin(BigQClient client) { ... }
@@ -41,7 +41,7 @@ static bool LogMessage(string msg) { ... }
 Refer to the BigQClientTest project for a thorough example.
 ```
 using BigQ;
-...
+
 // connect to server
 BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 10000, false);
 
@@ -57,11 +57,17 @@ static bool AsyncMessageReceived(BigQMessage msg) { ... }
 static object SyncMessageReceived(BigQMessage msg) { return "Hello!"; }
 static bool ServerDisconnected() { ... }
 static bool LogMessage(string msg) { ... }
+
+// login
+BigQMessage response;
+if (!client.Login(out response)) { // handle failures }
 ```
 
 ## enumerating clients on the client
 ```
-if (!client.ListClients()) { // handle errors }
+BigQMessage response;
+List<BigQClient> clients;
+if (!client.ListClients(out response, out clients)) { // handle errors }
 ```
 
 ## sending a message on the client
@@ -79,12 +85,17 @@ if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle er
 
 ## managing channels on the client
 ```
-if (!client.CreateChannel(guid, false)) { // handle errors }
-if (!client.JoinChannel(guid)) { // handle errors }
-if (!client.LeaveChannel(guid)) { // handle errors }
-if (!client.DeleteChannel(guid)) { // handle errors }
+BigQMessage response;
+if (!client.CreateChannel(guid, false, out response)) { // handle errors }
+if (!client.JoinChannel(guid, out response)) { // handle errors }
+if (!client.LeaveChannel(guid, out response)) { // handle errors }
+if (!client.DeleteChannel(guid, out response)) { // handle errors }
 
 // send channel message
 // received by 'AsyncMessageReceived' on each client that is a member of that channel
 if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
+
+// list channel members
+List<BigQClient> clients;
+if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
 ```
