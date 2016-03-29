@@ -1,4 +1,3 @@
-D:\Code\Misc\BigQ\BigQClientTest\bin\Release\sqlite3.dll
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe.config
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQClientTest.pdb

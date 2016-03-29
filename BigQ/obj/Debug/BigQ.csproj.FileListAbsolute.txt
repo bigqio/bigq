@@ -9,10 +9,8 @@ c:\code\misc\BigQ\BigQ\bin\Debug\Newtonsoft.Json.xml
 c:\code\misc\BigQ\BigQ\obj\Debug\BigQ.dll
 c:\code\misc\BigQ\BigQ\obj\Debug\BigQ.pdb
 c:\code\misc\BigQ\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache
-D:\Code\Misc\BigQ\BigQ\bin\Debug\sqlite3.dll
 D:\Code\Misc\BigQ\BigQ\bin\Debug\BigQ.dll
 D:\Code\Misc\BigQ\BigQ\bin\Debug\BigQ.pdb
-D:\Code\Misc\BigQ\BigQ\bin\Debug\Mono.Data.Sqlite.dll
 D:\Code\Misc\BigQ\BigQ\bin\Debug\Newtonsoft.Json.dll
 D:\Code\Misc\BigQ\BigQ\bin\Debug\System.Data.Portable.dll
 D:\Code\Misc\BigQ\BigQ\bin\Debug\System.Transactions.Portable.dll

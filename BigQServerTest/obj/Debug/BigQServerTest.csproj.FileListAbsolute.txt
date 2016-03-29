@@ -10,7 +10,6 @@ c:\Code\Misc\BigQ\BigQServerTest\bin\Debug\Newtonsoft.Json.xml
 c:\Code\Misc\BigQ\BigQServerTest\obj\Debug\BigQServerTest.csprojResolveAssemblyReference.cache
 c:\Code\Misc\BigQ\BigQServerTest\obj\Debug\BigQServerTest.exe
 c:\Code\Misc\BigQ\BigQServerTest\obj\Debug\BigQServerTest.pdb
-D:\Code\Misc\BigQ\BigQServerTest\bin\Debug\sqlite3.dll
 D:\Code\Misc\BigQ\BigQServerTest\bin\Debug\BigQServerTest.exe.config
 D:\Code\Misc\BigQ\BigQServerTest\bin\Debug\BigQServerTest.exe
 D:\Code\Misc\BigQ\BigQServerTest\bin\Debug\BigQServerTest.pdb

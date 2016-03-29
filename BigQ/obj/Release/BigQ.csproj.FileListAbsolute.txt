@@ -1,4 +1,3 @@
-D:\Code\Misc\BigQ\BigQ\bin\Release\sqlite3.dll
 D:\Code\Misc\BigQ\BigQ\bin\Release\BigQ.dll
 D:\Code\Misc\BigQ\BigQ\bin\Release\BigQ.pdb
 D:\Code\Misc\BigQ\BigQ\bin\Release\Mono.Data.Sqlite.dll
@@ -6,6 +5,6 @@ D:\Code\Misc\BigQ\BigQ\bin\Release\Newtonsoft.Json.dll
 D:\Code\Misc\BigQ\BigQ\bin\Release\System.Data.Portable.dll
 D:\Code\Misc\BigQ\BigQ\bin\Release\System.Transactions.Portable.dll
 D:\Code\Misc\BigQ\BigQ\bin\Release\Newtonsoft.Json.xml
-D:\Code\Misc\BigQ\BigQ\obj\Release\BigQ.csprojResolveAssemblyReference.cache
 D:\Code\Misc\BigQ\BigQ\obj\Release\BigQ.dll
 D:\Code\Misc\BigQ\BigQ\obj\Release\BigQ.pdb
+D:\Code\Misc\BigQ\BigQ\obj\Release\BigQ.csprojResolveAssemblyReference.cache

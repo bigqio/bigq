@@ -2384,20 +2384,30 @@ namespace BigQ
 
         private BigQMessage ProcessListClientsMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
+            List<BigQClient> Clients = new List<BigQClient>();
             List<BigQClient> ret = new List<BigQClient>();
-            List<string> guids = new List<string>();
 
-            ret = GetAllClients();
-            if (ret == null || ret.Count < 1)
+            Clients = GetAllClients();
+            if (Clients == null || Clients.Count < 1)
             {
                 Log("*** ProcessListClientsMessage no clients retrieved");
                 return null;
             }
             else
             {
-                foreach (BigQClient curr in ret)
+                foreach (BigQClient curr in Clients)
                 {
-                    guids.Add(curr.ClientGuid);
+                    BigQClient temp = new BigQClient();
+                    temp.Password = null;
+                    temp.SourceIp = null;
+                    temp.SourcePort = 0;
+                    temp.Client = null;
+
+                    temp.Email = curr.Email;
+                    temp.ClientGuid = curr.ClientGuid;
+                    temp.Created = curr.Created;
+                    temp.Updated = curr.Updated;
+                    ret.Add(temp);
                 }
             }
 
@@ -2410,7 +2420,7 @@ namespace BigQ
             ResponseMessage.ChannelGuid = null;
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
-            ResponseMessage.Data = guids;
+            ResponseMessage.Data = ret;
             return ResponseMessage;
         }
 
