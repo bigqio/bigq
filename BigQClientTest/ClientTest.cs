@@ -9,6 +9,8 @@ namespace BigQClientTest
 {
     class ClientTest
     {
+        static BigQClient client;
+
         static void Main(string[] args)
         {
             Console.Clear();
@@ -34,7 +36,7 @@ namespace BigQClientTest
             Console.WriteLine("BigQ Client");
             Console.WriteLine("");
 
-            BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
+            client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
             client.AsyncMessageReceived = AsyncMessageReceived;
             client.SyncMessageReceived = SyncMessageReceived;
             client.ServerDisconnected = ServerDisconnected;
@@ -270,7 +272,7 @@ namespace BigQClientTest
         static bool ServerDisconnected()
         {
             Console.WriteLine("*** Disconnection, attempting reconnection ***");
-            BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
+            client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
             return true;
         }
 
