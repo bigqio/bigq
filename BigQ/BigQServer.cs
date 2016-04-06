@@ -825,33 +825,45 @@ namespace BigQ
 
             lock (ClientsLock)
             {
-                bool found = false;
-
+                List<BigQClient> NewClientsList = new List<BigQClient>();
+                
                 foreach (BigQClient curr in Clients)
                 {
                     if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
                     {
                         if (curr.SourcePort == CurrentClient.SourcePort)
                         {
-                            found = true;
-                            break;
+                            // 
+                            // do not add, this is a duplicate
+                            //
+                            continue;
                         }
                     }
-                }
 
-                if (!found)
-                {
-                    Log("AddClient adding client " + CurrentClient.IpPort());
-                    CurrentClient.Created = DateTime.Now.ToUniversalTime();
-                    CurrentClient.Updated = CurrentClient.Created;
-                    Clients.Add(CurrentClient);
+                    if (!String.IsNullOrEmpty(CurrentClient.ClientGuid))
+                    {
+                        if (!String.IsNullOrEmpty(curr.ClientGuid))
+                        {
+                            if (String.Compare(CurrentClient.ClientGuid, curr.ClientGuid) == 0)
+                            {
+                                //
+                                // do not add, this is a duplicate
+                                //
+                                continue;
+                            }
+                        }
+                    }
 
-                    if (ClientConnected != null) ClientConnected(CurrentClient);
+                    NewClientsList.Add(curr);
                 }
-                else
-                {
-                    Log("AddClient client " + CurrentClient.IpPort() + " already exists");
-                }
+                
+                Log("AddClient adding client " + CurrentClient.IpPort());
+                CurrentClient.Created = DateTime.Now.ToUniversalTime();
+                CurrentClient.Updated = CurrentClient.Created;
+                NewClientsList.Add(CurrentClient);
+                Clients = NewClientsList;
+
+                if (ClientConnected != null) ClientConnected(CurrentClient);
             }
 
             return true;
@@ -881,11 +893,23 @@ namespace BigQ
                 {
                     bool found = false;
 
+                    if (!String.IsNullOrEmpty(CurrentClient.ClientGuid))
+                    {
+                        if (!String.IsNullOrEmpty(curr.ClientGuid))
+                        {
+                            if (String.Compare(CurrentClient.ClientGuid, curr.ClientGuid) == 0)
+                            {
+                                Log("RemoveClient matched client GUID in client list, removing: " + CurrentClient.ClientGuid);
+                                found = true;
+                            }
+                        }
+                    }
+
                     if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
                     {
                         if (curr.SourcePort == CurrentClient.SourcePort)
                         {
-                            Log("RemoveClient found client " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " in client list");
+                            Log("RemoveClient matched client IP:port in client list, removing: " + CurrentClient.IpPort());
                             found = true;
                         }
                     }
@@ -919,7 +943,7 @@ namespace BigQ
             {
                 if (Channels == null || Channels.Count < 1)
                 {
-                    Log("*** RemoveClientChannels no channels");
+                    Log("RemoveClientChannels no channels");
                     return false;
                 }
 

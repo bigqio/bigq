@@ -90,7 +90,18 @@ namespace BigQ
 
             #region Start-Client
 
-            Client = new TcpClient(ip, port);
+            try
+            {
+                Client = new TcpClient(ip, port);
+            }
+            catch (Exception e)
+            {
+                //
+                // implement handlers here
+                //
+                throw e;
+            }
+
             Connected = true;
             Task.Factory.StartNew(() => ConnectionDataReceiver());
             Task.Factory.StartNew(() => CleanupSyncRequests());

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using BigQ;
 
@@ -272,8 +273,39 @@ namespace BigQClientTest
         static bool ServerDisconnected()
         {
             Console.WriteLine("*** Disconnection, attempting reconnection ***");
-            client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
-            return true;
+            bool success = false;
+
+            try
+            {
+                client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
+                success = true;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Unable to connect to server: " + e.Message);;
+            }
+
+            if (!success)
+            {
+                Console.WriteLine("Retrying in five seconds...");
+                Thread.Sleep(5000);
+                return ServerDisconnected();                
+            }
+
+            BigQMessage response;
+            if (client.Login(out response))
+            {
+                Console.WriteLine("Login success");
+                return true;
+            }
+            else
+            {
+                Console.WriteLine("Login failed");
+                client = null;
+                Console.WriteLine("Retrying in five seconds...");
+                Thread.Sleep(5000);
+                return ServerDisconnected();
+            }
         }
 
         static bool LogMessage(string msg)
