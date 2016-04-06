@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+    <metadata>
+        <id>BigQ.dll</id>
+        <version>1.0.5</version>
+        <title>BigQ</title>
+        <authors>jchristn</authors>
+        <licenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</licenseUrl>
+        <projectUrl>https://github.com/bigqio/bigq</projectUrl>
+        <iconUrl>http://www.bigq.io/logo-trans-bg-medium-320px.png</iconUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>bigq is a scalable messaging platform using TCP sockets featuring sync, async, channel, and private communications.</description>
+        <summary>bigq is a scalable messaging platform using TCP sockets featuring sync, async, channel, and private communications.</summary>
+        <releaseNotes>Fixed issue with stale client data remaining after a disconnection</releaseNotes>
+        <copyright>(c)2016 Marauder Software Inc</copyright>
+        <language />
+        <tags>mq message queue messaging tcp sockets</tags>
+    </metadata>
+    <files>
+        <file src="..\BigQ\bin\Debug\BigQ.dll" target="lib\BigQ.dll" />
+        <file src="..\BigQ\bin\Debug\Mono.Data.Sqlite.dll" target="lib\Mono.Data.Sqlite.dll" />
+        <file src="..\BigQ\bin\Debug\Newtonsoft.Json.dll" target="lib\Newtonsoft.Json.dll" />
+        <file src="..\BigQ\bin\Debug\System.Data.Portable.dll" target="lib\System.Data.Portable.dll" />
+        <file src="..\BigQ\bin\Debug\System.Transactions.Portable.dll" target="lib\System.Transactions.Portable.dll" />
+    </files>
+</package>
