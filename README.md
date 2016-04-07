@@ -1,6 +1,8 @@
 # bigq
 scalable messaging platform
 
+For a sample app exercising bigq, please see: https://github.com/bigqio/chat
+
 ## description
 bigq is a scalable messaging platform using TCP sockets and JSON (NOT AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.
 
