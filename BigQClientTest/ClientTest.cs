@@ -50,7 +50,7 @@ namespace BigQClientTest
                 Console.WriteLine("---");
                 Console.WriteLine("Commands: q quit cls echo login listchannels listchannelsubscribers joinchannel");
                 Console.WriteLine("          leavechannel createchannel deletechannel");
-                Console.WriteLine("          sendprivasync sendprivsync sendchannel listclients");
+                Console.WriteLine("          sendprivasync sendprivsync sendchannel listclients isclientconnected");
                 Console.WriteLine("          whoami pendingsyncrequests");
                 Console.Write("Command: ");
                 string cmd = Console.ReadLine();
@@ -101,6 +101,19 @@ namespace BigQClientTest
                         else
                         {
                             Console.WriteLine("ListClients failed");
+                        }
+                        break;
+
+                    case "isclientconnected":
+                        Console.Write("Client GUID: ");
+                        guid = Console.ReadLine();
+                        if (client.IsClientConnected(guid, out response))
+                        {
+                            Console.WriteLine("Client " + guid + " is connected");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Client " + guid + " is not connected");
                         }
                         break;
 

@@ -1083,6 +1083,49 @@ namespace BigQ
             return true;
         }
 
+        public bool IsClientConnected(string guid, out BigQMessage response)
+        {
+            response = null;
+            List<BigQClient> clients = null;
+
+            if (!ListClients(out response, out clients))
+            {
+                Log("*** IsClientConnected unable to retrieve client list");
+                return false;
+            }
+            
+            if (response == null)
+            {
+                Log("*** IsClientConnected null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** IsClientConnected failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    if (clients != null)
+                    {
+                        foreach (BigQClient curr in clients)
+                        {
+                            if (String.Compare(curr.ClientGuid, guid) == 0)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                Log("*** IsClientConnected unable to find client " + guid + " in client list");
+                return false;
+            }
+        }
+
         public string IpPort()
         {
             return SourceIp + ":" + SourcePort;
