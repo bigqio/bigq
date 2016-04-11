@@ -40,7 +40,7 @@ namespace BigQServerTest
             // initialize
             // to enable debug, set the second boolean parameter to true
             //
-            server = new BigQServer(null, 8000, false, false, true, true, true);
+            server = new BigQServer(null, 8000, false, true, true, true);
 
             // callbacks
             server.MessageReceived = MessageReceived;
@@ -153,7 +153,7 @@ namespace BigQServerTest
         {
             // restart
             Console.WriteLine("*** Server stopped, attempting to restart ***");
-            server = new BigQServer(null, 8000, false, false, true, true, true);
+            server = new BigQServer(null, 8000, false, true, true, true);
             return true;
         }
 

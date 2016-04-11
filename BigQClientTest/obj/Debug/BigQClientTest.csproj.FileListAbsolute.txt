@@ -15,7 +15,6 @@ D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\BigQClientTest.exe
 D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\BigQClientTest.pdb
 D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\BigQ.dll
 D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\Newtonsoft.Json.dll
-D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\Mono.Data.Sqlite.dll
 D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\BigQ.pdb
 D:\Code\Misc\BigQ\BigQClientTest\bin\Debug\Newtonsoft.Json.xml
 D:\Code\Misc\BigQ\BigQClientTest\obj\Debug\BigQClientTest.csprojResolveAssemblyReference.cache

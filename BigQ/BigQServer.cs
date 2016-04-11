@@ -23,7 +23,6 @@ namespace BigQ
         private int ListenerPort;
         private TcpListener Listener;
         private bool ListenerRunning;
-        private bool RequireAuthentication;
         private bool SendAcknowledgements;
         private bool SendServerJoinNotifications;
         private bool SendChannelJoinNotifications;
@@ -47,7 +46,7 @@ namespace BigQ
 
         #region Constructor
 
-        public BigQServer(string ip, int port, bool auth, bool debug, bool sendAck, bool sendServerJoinNotifications, bool sendChannelJoinNotifications)
+        public BigQServer(string ip, int port, bool debug, bool sendAck, bool sendServerJoinNotifications, bool sendChannelJoinNotifications)
         {
             #region Check-for-Invalid-Values
 
@@ -65,7 +64,6 @@ namespace BigQ
             Channels = new List<BigQChannel>();
             Clients = new List<BigQClient>();
             Created = DateTime.Now.ToUniversalTime();
-            RequireAuthentication = auth;
             SendAcknowledgements = sendAck;
             SendServerJoinNotifications = sendServerJoinNotifications;
             SendChannelJoinNotifications = sendChannelJoinNotifications;
@@ -2109,47 +2107,7 @@ namespace BigQ
             ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
             ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Created = DateTime.Now.ToUniversalTime();
-
-            if (!RequireAuthentication)
-            {
-                CurrentClient.ClientGuid = ResponseMessage.RecipientGuid;
-                CurrentClient.Email = CurrentMessage.Email;
-                if (String.IsNullOrEmpty(CurrentClient.Email)) CurrentClient.Email = CurrentClient.ClientGuid;
-
-                if (!UpdateClient(CurrentClient))
-                {
-                    ResponseMessage.Success = false;
-                    ResponseMessage.Data = "Unable to update client details";
-                }
-                else
-                {
-                    ResponseMessage.Success = true;
-                    ResponseMessage.Data = "Login successful (authentication not enabled)";
-
-                    if (ClientLogin != null) ClientLogin(CurrentClient);
-                    if (SendServerJoinNotifications) ServerJoinEvent(CurrentClient);
-                }
-
-                return ResponseMessage;
-            }
-
-            BigQClient DatabaseClient = BigQSqlite.GetUser(CurrentMessage.Email);
-            bool AuthSuccess = BigQSqlite.AuthenticateUser(CurrentMessage.Email, CurrentMessage.Password);
-
-            if (DatabaseClient == null)
-            {
-                ResponseMessage.Success = false;
-                ResponseMessage.Data = "Unknown email '" + ResponseMessage.Email + "'";
-                return ResponseMessage;
-            }
-
-            if (!AuthSuccess)
-            {
-                ResponseMessage.Success = false;
-                ResponseMessage.Data = "Invalid credentials";
-                return ResponseMessage;
-            }
-
+            
             CurrentClient.ClientGuid = ResponseMessage.RecipientGuid;
             CurrentClient.Email = CurrentMessage.Email;
             if (String.IsNullOrEmpty(CurrentClient.Email)) CurrentClient.Email = CurrentClient.ClientGuid;
@@ -2162,7 +2120,7 @@ namespace BigQ
             else
             {
                 ResponseMessage.Success = true;
-                ResponseMessage.Data = "Welcome to the love shack!";
+                ResponseMessage.Data = "Login successful (authentication not enabled)";
 
                 if (ClientLogin != null) ClientLogin(CurrentClient);
                 if (SendServerJoinNotifications) ServerJoinEvent(CurrentClient);
