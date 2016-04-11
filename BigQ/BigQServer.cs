@@ -205,124 +205,138 @@ namespace BigQ
 
         private void ConnectionDataReceiver(BigQClient CurrentClient)
         {
-            #region Check-for-Null-Values
-
-            if (CurrentClient == null)
+            try
             {
-                Log("*** ConnectionDataReceiver null client supplied");
-                return;
-            }
+                #region Check-for-Null-Values
 
-            if (CurrentClient.Client == null)
-            {
-                Log("*** ConnectionDataReceiver null TcpClient supplied within client");
-                return;
-            }
-
-            #endregion
-
-            #region Wait-for-Data
-
-            TcpClient Client = CurrentClient.Client;
-
-            while (true)
-            {
-                #region Check-if-Client-Connected
-
-                if (!BigQHelper.IsPeerConnected(Client))
+                if (CurrentClient == null)
                 {
-                    Log("ConnectionDataReceiver client " + CurrentClient.IpPort() + " disconnected");
-                    if (!RemoveClient(CurrentClient))
-                    {
-                        Log("*** ConnectionDataReceiver unable to remove client " + CurrentClient.IpPort());
-                    }
-
-                    if (!RemoveClientChannels(CurrentClient))
-                    {
-                        Log("*** ConnectionDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
-                    }
-
-                    if (SendServerJoinNotifications) ServerLeaveEvent(CurrentClient);
-                    break;
+                    Log("*** ConnectionDataReceiver null client supplied");
+                    return;
                 }
-                else
+
+                if (CurrentClient.Client == null)
                 {
-                    // Log("ConnectionDataReceiver client " + CurrentClient.IpPort() + " is still connected");
+                    Log("*** ConnectionDataReceiver null TcpClient supplied within client");
+                    return;
                 }
 
                 #endregion
 
-                #region Read-Data-from-Client
+                #region Wait-for-Data
 
-                byte[] Data;
-                if (!BigQHelper.SocketRead(Client, out Data))
+                TcpClient Client = CurrentClient.Client;
+
+                while (true)
                 {
-                    // Log("ConnectionDataReceiver unable to read from client " + CurrentClient.IpPort());
-                    continue;
-                }
-                else
-                {
-                    if (Data != null && Data.Length > 0)
+                    #region Check-if-Client-Connected
+
+                    if (!BigQHelper.IsPeerConnected(Client))
                     {
-                        Log("ConnectionDataReceiver successfully read " + Data.Length + " bytes from client " + CurrentClient.IpPort() + " email " + CurrentClient.Email + " GUID " + CurrentClient.ClientGuid);
+                        Log("ConnectionDataReceiver client " + CurrentClient.IpPort() + " disconnected");
+                        if (!RemoveClient(CurrentClient))
+                        {
+                            Log("*** ConnectionDataReceiver unable to remove client " + CurrentClient.IpPort());
+                        }
+
+                        if (!RemoveClientChannels(CurrentClient))
+                        {
+                            Log("*** ConnectionDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
+                        }
+
+                        if (SendServerJoinNotifications) ServerLeaveEvent(CurrentClient);
+                        break;
                     }
                     else
                     {
-                        Log("ConnectionDataReceiver failed to read data from client " + CurrentClient.IpPort());
+                        // Log("ConnectionDataReceiver client " + CurrentClient.IpPort() + " is still connected");
+                    }
+
+                    #endregion
+
+                    #region Read-Data-from-Client
+
+                    byte[] Data;
+                    if (!BigQHelper.SocketRead(Client, out Data))
+                    {
+                        // Log("ConnectionDataReceiver unable to read from client " + CurrentClient.IpPort());
                         continue;
                     }
+                    else
+                    {
+                        if (Data != null && Data.Length > 0)
+                        {
+                            Log("ConnectionDataReceiver successfully read " + Data.Length + " bytes from client " + CurrentClient.IpPort() + " email " + CurrentClient.Email + " GUID " + CurrentClient.ClientGuid);
+                        }
+                        else
+                        {
+                            Log("ConnectionDataReceiver failed to read data from client " + CurrentClient.IpPort());
+                            continue;
+                        }
+                    }
+
+                    #endregion
+
+                    #region Deserialize-Data-to-BigQMessage-and-Validate
+
+                    BigQMessage CurrentMessage = null;
+
+                    try
+                    {
+                        CurrentMessage = BigQHelper.DeserializeJson<BigQMessage>(Data, ConsoleDebug);
+                    }
+                    catch (Exception)
+                    {
+                        Log("*** ConnectionDataReceiver unable to deserialize message from client " + CurrentClient.IpPort());
+                        Log(Encoding.UTF8.GetString(Data));
+                        // LogException("ConnectionDataReceiver", e);
+                        CurrentMessage = null;
+                    }
+
+                    if (CurrentMessage == null)
+                    {
+                        Log("ConnectionDataReceiver unable to convert data to message after read from client " + CurrentClient.IpPort());
+                        continue;
+                    }
+                    else
+                    {
+                        Log("ConnectionDataReceiver successfully converted data to message from client " + CurrentClient.IpPort());
+                        Task.Factory.StartNew(() => MessageReceived(CurrentMessage));
+                    }
+
+                    if (!CurrentMessage.IsValid())
+                    {
+                        Log("ConnectionDataReceiver invalid message received from client " + CurrentClient.IpPort());
+                        continue;
+                    }
+                    else
+                    {
+                        Log("ConnectionDataReceiver valid message received from client " + CurrentClient.IpPort());
+                    }
+
+                    #endregion
+
+                    #region Process-Message
+
+                    MessageProcessor(CurrentClient, CurrentMessage);
+                    Log("ConnectionDataReceiver finished processing message from client " + CurrentClient.IpPort());
+
+                    #endregion
                 }
-
-                #endregion
-
-                #region Deserialize-Data-to-BigQMessage-and-Validate
-
-                BigQMessage CurrentMessage = null;
-
-                try
-                {
-                    CurrentMessage = BigQHelper.DeserializeJson<BigQMessage>(Data, ConsoleDebug);
-                }
-                catch (Exception)
-                {
-                    Log("*** ConnectionDataReceiver unable to deserialize message from client " + CurrentClient.IpPort());
-                    Log(Encoding.UTF8.GetString(Data));
-                    // LogException("ConnectionDataReceiver", e);
-                    CurrentMessage = null;
-                }
-
-                if (CurrentMessage == null)
-                {
-                    Log("ConnectionDataReceiver unable to convert data to message after read from client " + CurrentClient.IpPort());
-                    continue;
-                }
-                else
-                {
-                    Log("ConnectionDataReceiver successfully converted data to message from client " + CurrentClient.IpPort());
-                    Task.Factory.StartNew(() => MessageReceived(CurrentMessage));
-                }
-
-                if (!CurrentMessage.IsValid())
-                {
-                    Log("ConnectionDataReceiver invalid message received from client " + CurrentClient.IpPort());
-                    continue;
-                }
-                else
-                {
-                    Log("ConnectionDataReceiver valid message received from client " + CurrentClient.IpPort());
-                }
-
-                #endregion
-
-                #region Process-Message
-
-                MessageProcessor(CurrentClient, CurrentMessage);
-                Log("ConnectionDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
                 #endregion
             }
-
-            #endregion
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("ConnectionDataReceiver (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("ConnectionDataReceiver (null)", EOuter);
+                }
+            }
         }
 
         private bool ConnectionDataSender(BigQClient CurrentClient, BigQMessage Message)
@@ -1358,6 +1372,32 @@ namespace BigQ
             return false;
         }
 
+        private bool IsClientConnected(string guid)
+        {
+            if (String.IsNullOrEmpty(guid))
+            {
+                Log("*** IsClientConnected null GUID supplied");
+                return false;
+            }
+
+            lock (ClientsLock)
+            {
+                foreach (BigQClient curr in Clients)
+                {
+                    if (String.IsNullOrEmpty(curr.ClientGuid)) continue;
+
+                    if (String.Compare(curr.ClientGuid.ToLower().Trim(), guid.ToLower().Trim()) == 0)
+                    {
+                        Log("IsClientConnected client " + guid + " is connected");
+                        return true;
+                    }
+                }
+
+                Log("IsClientConnected client " + guid + " is not connected");
+                return false;
+            }
+        }
+
         #endregion
 
         #region Private-Message-Processing-Methods
@@ -1556,6 +1596,11 @@ namespace BigQ
 
                     case "listclients":
                         ResponseMessage = ProcessListClientsMessage(CurrentClient, CurrentMessage);
+                        ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                        return ResponseSuccess;
+
+                    case "isclientconnected":
+                        ResponseMessage = ProcessIsClientConnectedMessage(CurrentClient, CurrentMessage);
                         ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
                         return ResponseSuccess;
 
@@ -2121,6 +2166,30 @@ namespace BigQ
 
                 if (ClientLogin != null) ClientLogin(CurrentClient);
                 if (SendServerJoinNotifications) ServerJoinEvent(CurrentClient);
+            }
+
+            return ResponseMessage;
+        }
+
+        private BigQMessage ProcessIsClientConnectedMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
+        {
+            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
+            ResponseMessage = RedactMessage(ResponseMessage);
+            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
+            ResponseMessage.SyncRequest = null;
+            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
+            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            ResponseMessage.Created = DateTime.Now.ToUniversalTime();
+            
+            if (CurrentMessage.Data == null)
+            {
+                ResponseMessage.Success = false;
+                ResponseMessage.Data = null;
+            }
+            else
+            {
+                ResponseMessage.Success = true;
+                ResponseMessage.Data = IsClientConnected(CurrentMessage.Data.ToString());
             }
 
             return ResponseMessage;

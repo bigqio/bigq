@@ -116,7 +116,7 @@ namespace BigQClientTest
                             Console.WriteLine("Client " + guid + " is not connected");
                         }
                         break;
-
+                         
                     case "listchannels":
                         if (client.ListChannels(out response, out channels))
                         {

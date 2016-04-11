@@ -1086,42 +1086,42 @@ namespace BigQ
         public bool IsClientConnected(string guid, out BigQMessage response)
         {
             response = null;
-            List<BigQClient> clients = null;
 
-            if (!ListClients(out response, out clients))
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "IsClientConnected";
+            request.Created = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = guid;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                Log("*** IsClientConnected unable to retrieve client list");
+                Log("*** ListClients unable to retrieve server response");
                 return false;
             }
-            
+
             if (response == null)
             {
-                Log("*** IsClientConnected null response from server");
+                Log("*** ListClients null response from server");
                 return false;
             }
 
             if (!BigQHelper.IsTrue(response.Success))
             {
-                Log("*** IsClientConnected failed with response data " + response.Data.ToString());
+                Log("*** ListClients failed with response data " + response.Data.ToString());
                 return false;
             }
             else
             {
                 if (response.Data != null)
                 {
-                    if (clients != null)
-                    {
-                        foreach (BigQClient curr in clients)
-                        {
-                            if (String.Compare(curr.ClientGuid, guid) == 0)
-                            {
-                                return true;
-                            }
-                        }
-                    }
+                    return BigQHelper.IsTrue(response.Data.ToString());
                 }
-
-                Log("*** IsClientConnected unable to find client " + guid + " in client list");
                 return false;
             }
         }
