@@ -3,7 +3,6 @@ D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQClientTest.pdb
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQ.dll
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\Newtonsoft.Json.dll
-D:\Code\Misc\BigQ\BigQClientTest\bin\Release\Mono.Data.Sqlite.dll
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\BigQ.pdb
 D:\Code\Misc\BigQ\BigQClientTest\bin\Release\Newtonsoft.Json.xml
 D:\Code\Misc\BigQ\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
