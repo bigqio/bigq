@@ -48,24 +48,30 @@ namespace BigQ
 
                 #endregion
             }
-            catch (ObjectDisposedException OdInner)
+            catch (ObjectDisposedException ObjDispInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (obj disposed exception): " + OdInner.Message);
+                Log("*** SocketWrite " + SourceIp + ":" + SourcePort + " disconnected (obj disposed exception): " + ObjDispInner.Message);
                 return false;
             }
-            catch (SocketException SeInner)
+            catch (SocketException SockInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (socket exception): " + SeInner.Message);
+                Log("*** SocketWrite " + SourceIp + ":" + SourcePort + " disconnected (socket exception): " + SockInner.Message);
                 return false;
             }
-            catch (InvalidOperationException IoeInner)
+            catch (InvalidOperationException InvOpInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (invalid operation exception): " + IoeInner.Message);
+                Log("*** SocketWrite " + SourceIp + ":" + SourcePort + " disconnected (invalid operation exception): " + InvOpInner.Message);
+                return false;
+            }
+            catch (IOException IOInner)
+            {
+                Log("*** SocketWrite " + SourceIp + ":" + SourcePort + " disconnected (IO exception): " + IOInner.Message);
                 return false;
             }
             catch (Exception EInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
+                Log("*** SocketWrite " + SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
+                LogException("SocketWrite " + SourceIp + ":" + SourcePort, EInner);
                 return false;
             }
         }
@@ -134,24 +140,30 @@ namespace BigQ
                 // Log("Returning " + Data.Length + " bytes from " + SourceIp + ":" + SourcePort);
                 return true;
             }
-            catch (ObjectDisposedException OdInner)
+            catch (ObjectDisposedException ObjDispInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (obj disposed exception): " + OdInner.Message);
+                Log("*** SocketRead " + SourceIp + ":" + SourcePort + " disconnected (obj disposed exception): " + ObjDispInner.Message);
                 return false;
             }
-            catch (SocketException SeInner)
+            catch (SocketException SockInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (socket exception): " + SeInner.Message);
+                Log("*** SocketRead " + SourceIp + ":" + SourcePort + " disconnected (socket exception): " + SockInner.Message);
                 return false;
             }
-            catch (InvalidOperationException IoeInner)
+            catch (InvalidOperationException InvOpInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (invalid operation exception): " + IoeInner.Message);
+                Log("*** SocketRead " + SourceIp + ":" + SourcePort + " disconnected (invalid operation exception): " + InvOpInner.Message);
+                return false;
+            }
+            catch (IOException IOInner)
+            {
+                Log("*** SocketRead " + SourceIp + ":" + SourcePort + " disconnected (IO exception): " + IOInner.Message);
                 return false;
             }
             catch (Exception EInner)
             {
-                Log(SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
+                Log("*** SocketRead " + SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
+                LogException("SocketRead " + SourceIp + ":" + SourcePort, EInner);
                 return false;
             }
         }
@@ -307,10 +319,23 @@ namespace BigQ
             T ret = DeserializeJson<T>(json, false);
             return ret;
         }
-        
+
         public static void Log(string message)
         {
             Console.WriteLine(message);
+        }
+
+        public static void LogException(string method, Exception e)
+        {
+            Log("================================================================================");
+            Log(" = Method: " + method);
+            Log(" = Exception Type: " + e.GetType().ToString());
+            Log(" = Exception Data: " + e.Data);
+            Log(" = Inner Exception: " + e.InnerException);
+            Log(" = Exception Message: " + e.Message);
+            Log(" = Exception Source: " + e.Source);
+            Log(" = Exception StackTrace: " + e.StackTrace);
+            Log("================================================================================");
         }
 
         public static bool IsTrue(int? val)

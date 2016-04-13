@@ -1,0 +1,1 @@
+BigQServerTest\bin\release\BigQServerRelease.exe

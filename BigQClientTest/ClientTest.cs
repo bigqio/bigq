@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +13,7 @@ namespace BigQClientTest
     class ClientTest
     {
         static BigQClient client;
+        const bool DEBUG = true;
 
         static void Main(string[] args)
         {
@@ -37,35 +40,37 @@ namespace BigQClientTest
             Console.WriteLine("BigQ Client");
             Console.WriteLine("");
 
-            client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
-            client.AsyncMessageReceived = AsyncMessageReceived;
-            client.SyncMessageReceived = SyncMessageReceived;
-            client.ServerDisconnected = ServerDisconnected;
-            // client.LogMessage = LogMessage;
+            string guid = "";
+            string msg = "";
+            int priv = 0;
+            List<BigQClient> clients;
+            List<BigQChannel> channels;
+            BigQMessage response;
+            Dictionary<string, DateTime> pendingRequests;
+
+            ConnectToServer();
 
             bool RunForever = true;
             while (RunForever)
             {
-                // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
-                Console.WriteLine("---");
-                Console.WriteLine("Commands: q quit cls echo login listchannels listchannelsubscribers joinchannel");
-                Console.WriteLine("          leavechannel createchannel deletechannel");
-                Console.WriteLine("          sendprivasync sendprivsync sendchannel listclients isclientconnected");
-                Console.WriteLine("          whoami pendingsyncrequests");
-                Console.Write("Command: ");
+                
+                if (client == null) Console.Write("[OFFLINE] ");
+                Console.Write("Command [? for help]: ");
+
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
-
-                string guid = "";
-                string msg = "";
-                int priv = 0;
-                List<BigQClient> clients;
-                List<BigQChannel> channels;
-                BigQMessage response;
-                Dictionary<string, DateTime> pendingRequests;
-
+                
                 switch (cmd.ToLower())
                 {
+                    case "?":
+                        // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
+                        Console.WriteLine("Available Commands:");
+                        Console.WriteLine("  q  cls  echo  login  listchannels  listchannelsubscribers  joinchannel");
+                        Console.WriteLine("  leavechannel  createchannel  deletechannel  sendprivasync  sendprivsync");
+                        Console.WriteLine("  sendchannel  listclients  isclientconnected  whoami  pendingsyncrequests");
+                        Console.WriteLine("");
+                        break;
+
                     case "q":
                     case "quit":
                         RunForever = false;
@@ -77,10 +82,12 @@ namespace BigQClientTest
                         break;
 
                     case "echo":
+                        if (client == null) break;
                         client.Echo();
                         break;
 
                     case "login":
+                        if (client == null) break;
                         if (client.Login(out response))
                         {
                             Console.WriteLine("Login success");
@@ -92,6 +99,7 @@ namespace BigQClientTest
                         break;
 
                     case "listclients":
+                        if (client == null) break;
                         if (client.ListClients(out response, out clients))
                         {
                             Console.WriteLine("ListClients success");
@@ -105,6 +113,7 @@ namespace BigQClientTest
                         break;
 
                     case "isclientconnected":
+                        if (client == null) break;
                         Console.Write("Client GUID: ");
                         guid = Console.ReadLine();
                         if (client.IsClientConnected(guid, out response))
@@ -118,6 +127,7 @@ namespace BigQClientTest
                         break;
                          
                     case "listchannels":
+                        if (client == null) break;
                         if (client.ListChannels(out response, out channels))
                         {
                             Console.WriteLine("ListChannels success");
@@ -131,6 +141,7 @@ namespace BigQClientTest
                         break;
 
                     case "listchannelsubscribers":
+                        if (client == null) break;
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
                         if (client.ListChannelSubscribers(guid, out response, out clients))
@@ -146,6 +157,7 @@ namespace BigQClientTest
                         break;
 
                     case "joinchannel":
+                        if (client == null) break;
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
                         if (client.JoinChannel(guid, out response))
@@ -159,6 +171,7 @@ namespace BigQClientTest
                         break;
 
                     case "leavechannel":
+                        if (client == null) break;
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
                         if (client.LeaveChannel(guid, out response))
@@ -172,6 +185,7 @@ namespace BigQClientTest
                         break;
 
                     case "createchannel":
+                        if (client == null) break;
                         Console.Write("Name: ");
                         guid = Console.ReadLine();
                         Console.Write("Private (0/1): ");
@@ -187,6 +201,7 @@ namespace BigQClientTest
                         break;
 
                     case "deletechannel":
+                        if (client == null) break;
                         Console.Write("GUID: ");
                         guid = Console.ReadLine();
                         if (client.DeleteChannel(guid, out response))
@@ -200,6 +215,7 @@ namespace BigQClientTest
                         break;
 
                     case "sendprivasync":
+                        if (client == null) break;
                         Console.Write("Recipient GUID: ");
                         guid = Console.ReadLine();
                         Console.Write("Message: ");
@@ -208,6 +224,7 @@ namespace BigQClientTest
                         break;
 
                     case "sendprivsync":
+                        if (client == null) break;
                         Console.Write("Recipient GUID: ");
                         guid = Console.ReadLine();
                         Console.Write("Message: ");
@@ -228,6 +245,7 @@ namespace BigQClientTest
                         break;
 
                     case "sendchannel":
+                        if (client == null) break;
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
                         Console.Write("Message: ");
@@ -236,10 +254,14 @@ namespace BigQClientTest
                         break;
 
                     case "whoami":
-                        Console.WriteLine("You are GUID: " + client.ClientGuid);
+                        if (client == null) break;
+                        Console.Write(client.IpPort());
+                        if (!String.IsNullOrEmpty(client.ClientGuid)) Console.WriteLine("  GUID " + client.ClientGuid);
+                        else Console.WriteLine("[not logged in]");
                         break;
 
                     case "pendingsyncrequests":
+                        if (client == null) break;
                         if (client.PendingSyncRequests(out pendingRequests))
                         {
                             Console.WriteLine("PendingSyncRequests success");
@@ -282,42 +304,53 @@ namespace BigQClientTest
             string resp = Console.ReadLine();
             return resp;
         }
-
-        static bool ServerDisconnected()
+        
+        static bool ConnectToServer()
         {
-            Console.WriteLine("*** Disconnection, attempting reconnection ***");
-            bool success = false;
-
             try
             {
-                client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, false);
-                success = true;
+                Console.WriteLine("Attempting to connect to 127.0.0.1:8000");
+                if (client != null) client.Close();
+                client = null;
+                client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, 0, DEBUG);
+
+                client.AsyncMessageReceived = AsyncMessageReceived;
+                client.SyncMessageReceived = SyncMessageReceived;
+                client.ServerDisconnected = ConnectToServer;
+                // client.LogMessage = LogMessage;
+
+                BigQMessage response;
+                if (!client.Login(out response))
+                {
+                    Console.WriteLine("Unable to login, retrying in five seconds");
+                    Thread.Sleep(5000);
+                    return ConnectToServer();
+                }
+
+                Console.WriteLine("Successfully connected to localhost:8000");
+                return true;
+            }
+            catch (SocketException)
+            {
+                Console.WriteLine("*** Unable to connect to localhost:8000 (port not reachable)");
+                Console.WriteLine("*** Retrying in five seconds");
+                Thread.Sleep(5000);
+                return ConnectToServer();
+            }
+            catch (TimeoutException)
+            {
+                Console.WriteLine("*** Timeout connecting to localhost:8000");
+                Console.WriteLine("*** Retrying in five seconds");
+                Thread.Sleep(5000);
+                return ConnectToServer();
             }
             catch (Exception e)
             {
-                Console.WriteLine("Unable to connect to server: " + e.Message);;
-            }
-
-            if (!success)
-            {
-                Console.WriteLine("Retrying in five seconds...");
+                Console.WriteLine("*** Unable to connect to localhost:8000 due to the following exception:");
+                PrintException("ConnectToServer", e);
+                Console.WriteLine("*** Retrying in five seconds");
                 Thread.Sleep(5000);
-                return ServerDisconnected();                
-            }
-
-            BigQMessage response;
-            if (client.Login(out response))
-            {
-                Console.WriteLine("Login success");
-                return true;
-            }
-            else
-            {
-                Console.WriteLine("Login failed");
-                client = null;
-                Console.WriteLine("Retrying in five seconds...");
-                Thread.Sleep(5000);
-                return ServerDisconnected();
+                return ConnectToServer();
             }
         }
 
@@ -325,6 +358,19 @@ namespace BigQClientTest
         {
             Console.WriteLine("BigQClient message: " + msg);
             return true;
+        }
+
+        static void PrintException(string method, Exception e)
+        {
+            Console.WriteLine("================================================================================");
+            Console.WriteLine(" = Method: " + method);
+            Console.WriteLine(" = Exception Type: " + e.GetType().ToString());
+            Console.WriteLine(" = Exception Data: " + e.Data);
+            Console.WriteLine(" = Inner Exception: " + e.InnerException);
+            Console.WriteLine(" = Exception Message: " + e.Message);
+            Console.WriteLine(" = Exception Source: " + e.Source);
+            Console.WriteLine(" = Exception StackTrace: " + e.StackTrace);
+            Console.WriteLine("================================================================================");
         }
 
         #endregion

@@ -69,14 +69,23 @@ namespace BigQ
             ret += Environment.NewLine;
             ret += " | " + Created.ToString("MM/dd/yyyy hh:mm:ss") + " " + SenderGuid + " -> " + RecipientGuid + Environment.NewLine;
 
-            ret += " | ";
-            if (!String.IsNullOrEmpty(Email)) ret += "Email " + Email + " ";
-            if (!String.IsNullOrEmpty(ChannelGuid)) ret += "Channel " + ChannelGuid + " ";
-            if (!String.IsNullOrEmpty(Command)) ret += "Command " + Command + " ";
-            if (Success != null) ret += "Success " + Success + " ";
-            if (SyncRequest != null) ret += "SyncRequest " + SyncRequest + " ";
-            if (SyncResponse != null) ret += "SyncResponse " + SyncResponse + " ";
-            ret += Environment.NewLine;
+            if (!String.IsNullOrEmpty(Email)
+                || !String.IsNullOrEmpty(ChannelGuid)
+                || !String.IsNullOrEmpty(Command)
+                || Success != null
+                || SyncRequest != null
+                || SyncResponse != null
+                )
+            {
+                ret += " | ";
+                if (!String.IsNullOrEmpty(Email)) ret += "Email " + Email + " ";
+                if (!String.IsNullOrEmpty(ChannelGuid)) ret += "Channel " + ChannelGuid + " ";
+                if (!String.IsNullOrEmpty(Command)) ret += "Command " + Command + " ";
+                if (Success != null) ret += "Success " + Success + " ";
+                if (SyncRequest != null) ret += "SyncRequest " + SyncRequest + " ";
+                if (SyncResponse != null) ret += "SyncResponse " + SyncResponse + " ";
+                ret += Environment.NewLine;
+            }
             
             if (Data != null)
             {

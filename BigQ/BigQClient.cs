@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -29,10 +30,18 @@ namespace BigQ
         public bool Connected;
         public bool ConsoleDebug;
 
+        private int HeartbeatIntervalMsec;
+        private int MaxHeartbeatFailures;
+        private CancellationTokenSource CdrTokenSource = null;
+        private CancellationToken CdrToken;
+        private CancellationTokenSource CsrTokenSource = null;
+        private CancellationToken CsrToken;
+        private CancellationTokenSource HbTokenSource = null;
+        private CancellationToken HbToken;
         private ConcurrentDictionary<string, DateTime> SyncRequests;
         private ConcurrentDictionary<string, BigQMessage> SyncResponses;
         private int SyncTimeoutMsec;
-        
+
         #endregion
 
         #region Delegates
@@ -52,13 +61,21 @@ namespace BigQ
         }
 
         // used by the client
-        public BigQClient(string email, string guid, string ip, int port, int syncTimeoutMsec, bool debug)
+        public BigQClient(
+            string email, 
+            string guid, 
+            string ip, 
+            int port, 
+            int syncTimeoutMsec,
+            int heartbeatIntervalMsec,
+            bool debug)
         {
             #region Check-for-Null-or-Invalid-Values
 
             if (String.IsNullOrEmpty(ip)) throw new ArgumentNullException("ip");
             if (port < 1) throw new ArgumentOutOfRangeException("port");
             if (syncTimeoutMsec < 1000) throw new ArgumentOutOfRangeException("syncTimeoutMsec");
+            if (heartbeatIntervalMsec < 100 && heartbeatIntervalMsec != 0) throw new ArgumentOutOfRangeException("heartbeatIntervalMsec");
 
             #endregion
 
@@ -76,7 +93,9 @@ namespace BigQ
             SyncRequests = new ConcurrentDictionary<string, DateTime>();
             SyncResponses = new ConcurrentDictionary<string, BigQMessage>();
             SyncTimeoutMsec = syncTimeoutMsec;
-            
+            HeartbeatIntervalMsec = heartbeatIntervalMsec;
+            MaxHeartbeatFailures = 5;
+
             #endregion
 
             #region Set-Delegates-to-Null
@@ -90,9 +109,41 @@ namespace BigQ
 
             #region Start-Client
 
+            //
+            // see https://social.msdn.microsoft.com/Forums/vstudio/en-US/2281199d-cd28-4b5c-95dc-5a888a6da30d/tcpclientconnect-timeout?forum=csharpgeneral
+            // removed using statement since resources are managed by the caller
+            //
+            Client = new TcpClient();
+            IAsyncResult ar = Client.BeginConnect(ip, port, null, null);
+            WaitHandle wh = ar.AsyncWaitHandle;
+
+            try
+            {
+                if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
+                {
+                    Client.Close();
+                    throw new TimeoutException("Timeout connecting to " + ip + ":" + port);
+                }
+
+                Client.EndConnect(ar);
+
+                SourceIp = ((IPEndPoint)Client.Client.LocalEndPoint).Address.ToString();
+                SourcePort = ((IPEndPoint)Client.Client.LocalEndPoint).Port;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+            finally
+            {
+                wh.Close();
+            }
+            
+            /*
             try
             {
                 Client = new TcpClient(ip, port);
+
             }
             catch (Exception e)
             {
@@ -101,10 +152,33 @@ namespace BigQ
                 //
                 throw e;
             }
+            */
 
             Connected = true;
-            Task.Factory.StartNew(() => ConnectionDataReceiver());
-            Task.Factory.StartNew(() => CleanupSyncRequests());
+
+            #endregion
+
+            #region Stop-Existing-Tasks
+
+            if (CdrTokenSource != null) CdrTokenSource.Cancel();
+            if (CsrTokenSource != null) CsrTokenSource.Cancel();
+            if (HbTokenSource != null) HbTokenSource.Cancel();
+
+            #endregion
+
+            #region Start-Tasks
+
+            CdrTokenSource = new CancellationTokenSource();
+            CdrToken = CdrTokenSource.Token;
+            Task.Factory.StartNew(() => ConnectionDataReceiver(), CdrToken);
+
+            CsrTokenSource = new CancellationTokenSource();
+            CsrToken = CsrTokenSource.Token;
+            Task.Factory.StartNew(() => CleanupSyncRequests(), CsrToken);
+
+            HbTokenSource = new CancellationTokenSource();
+            HbToken = HbTokenSource.Token;
+            Task.Factory.StartNew(() => HeartbeatManager());
 
             #endregion
         }
@@ -112,7 +186,7 @@ namespace BigQ
         #endregion
 
         #region Private-Sync-Methods
-        
+
         //
         // Ensure that none of these methods call another method within this region
         // otherwise you have a lock within a lock!  There should be NO methods
@@ -404,130 +478,113 @@ namespace BigQ
         
         private void ConnectionDataReceiver()
         {
-            #region Wait-for-Data
-            
-            while (true)
+            try
             {
-                #region Check-if-Client-Connected
+                #region Wait-for-Data
 
-                if (!BigQHelper.IsPeerConnected(Client))
+                while (true)
                 {
-                    Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
-                    Connected = false;
+                    #region Check-if-Client-Connected-to-Server
 
-                    if (ServerDisconnected != null) ServerDisconnected();
-                    break;
-                }
-                else
-                {
-                    Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
-                }
-
-                #endregion
-
-                #region Read-Data-from-Client
-
-                byte[] Data;
-                if (!BigQHelper.SocketRead(Client, out Data))
-                {
-                    Log("ConnectionDataReceiver unable to read from server " + ServerIp + ":" + ServerPort);
-                    continue;
-                }
-                else
-                {
-                    if (Data != null && Data.Length > 0)
+                    if (!BigQHelper.IsPeerConnected(Client))
                     {
-                        Log("ConnectionDataReceiver successfully read " + Data.Length + " bytes from server " + ServerIp + ":" + ServerPort);
+                        Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
+                        Connected = false;
+
+                        if (ServerDisconnected != null) ServerDisconnected();
+                        break;
                     }
                     else
                     {
-                        Log("ConnectionDataReceiver failed to read data from server " + ServerIp + ":" + ServerPort);
+                        Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
+                    }
+
+                    #endregion
+
+                    #region Read-Data-from-Client
+
+                    byte[] Data;
+                    if (!BigQHelper.SocketRead(Client, out Data))
+                    {
+                        Log("ConnectionDataReceiver unable to read from server " + ServerIp + ":" + ServerPort);
                         continue;
                     }
-                }
-
-                #endregion
-
-                #region Deserialize-Data-to-BigQMessage
-
-                BigQMessage CurrentMessage = null;
-
-                try
-                {
-                    CurrentMessage = BigQHelper.DeserializeJson<BigQMessage>(Data, ConsoleDebug);
-                }
-                catch (Exception)
-                {
-                    Log("*** ConnectionDataReceiver unable to deserialize message from server " + ServerIp + ":" + ServerPort);
-                    Log(Encoding.UTF8.GetString(Data));
-                    CurrentMessage = null;
-                }
-
-                if (CurrentMessage == null)
-                {
-                    Log("*** ConnectionDataReceiver unable to convert data to message after read from server " + ServerIp + ":" + ServerPort);
-                    continue;
-                }
-
-                Log("ConnectionDataReceiver successfully converted data to message from server " + ServerIp + ":" + ServerPort);
-
-                #endregion
-
-                #region Handle-Message
-
-                if (BigQHelper.IsTrue(CurrentMessage.SyncRequest))
-                {
-                    #region Handle-Incoming-Sync-Request
-
-                    Log("ConnectionDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
- 
-                    if (SyncMessageReceived != null)
-                    {
-                        object ResponseData = SyncMessageReceived(CurrentMessage);
-
-                        CurrentMessage.SyncRequest = false;
-                        CurrentMessage.SyncResponse = true;
-                        CurrentMessage.Data = ResponseData;
-
-                        string TempGuid = String.Copy(CurrentMessage.SenderGuid);
-                        CurrentMessage.SenderGuid = ClientGuid;
-                        CurrentMessage.RecipientGuid = TempGuid;
-
-                        ConnectionDataSender(CurrentMessage);
-                        Log("ConnectionDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
-                    }
                     else
                     {
-                        Log("*** ConnectionDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
-                        if (AsyncMessageReceived != null)
+                        if (Data != null && Data.Length > 0)
                         {
-                            Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                            #region Process-Heartbeat
+
+                            if (Data[0] == 0x00)
+                            {
+                                // Log("(heartbeat)");
+                                continue;
+                            }
+
+                            #endregion
+
+                            Log("ConnectionDataReceiver successfully read " + Data.Length + " bytes from server " + ServerIp + ":" + ServerPort);
                         }
                         else
                         {
-                            Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                            Log("ConnectionDataReceiver failed to read data from server " + ServerIp + ":" + ServerPort);
+                            continue;
                         }
                     }
 
                     #endregion
-                }
-                else if (BigQHelper.IsTrue(CurrentMessage.SyncResponse))
-                {
-                    #region Handle-Incoming-Sync-Response
 
-                    Log("ConnectionDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
+                    #region Deserialize-Data-to-BigQMessage
 
-                    if (SyncRequestExists(CurrentMessage.MessageId))
+                    BigQMessage CurrentMessage = null;
+
+                    try
                     {
-                        Log("ConnectionDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
+                        CurrentMessage = BigQHelper.DeserializeJson<BigQMessage>(Data, ConsoleDebug);
+                    }
+                    catch (Exception)
+                    {
+                        Log("*** ConnectionDataReceiver unable to deserialize message from server " + ServerIp + ":" + ServerPort);
+                        Log(Encoding.UTF8.GetString(Data));
+                        CurrentMessage = null;
+                    }
 
-                        if (AddSyncResponse(CurrentMessage))
+                    if (CurrentMessage == null)
+                    {
+                        Log("*** ConnectionDataReceiver unable to convert data to message after read from server " + ServerIp + ":" + ServerPort);
+                        continue;
+                    }
+
+                    Log("ConnectionDataReceiver successfully converted data to message from server " + ServerIp + ":" + ServerPort);
+
+                    #endregion
+
+                    #region Handle-Message
+
+                    if (BigQHelper.IsTrue(CurrentMessage.SyncRequest))
+                    {
+                        #region Handle-Incoming-Sync-Request
+
+                        Log("ConnectionDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
+
+                        if (SyncMessageReceived != null)
                         {
-                            Log("ConnectionDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
+                            object ResponseData = SyncMessageReceived(CurrentMessage);
+
+                            CurrentMessage.SyncRequest = false;
+                            CurrentMessage.SyncResponse = true;
+                            CurrentMessage.Data = ResponseData;
+
+                            string TempGuid = String.Copy(CurrentMessage.SenderGuid);
+                            CurrentMessage.SenderGuid = ClientGuid;
+                            CurrentMessage.RecipientGuid = TempGuid;
+
+                            ConnectionDataSender(CurrentMessage);
+                            Log("ConnectionDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
                         }
                         else
                         {
-                            Log("*** ConnectionDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
+                            Log("*** ConnectionDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
                             if (AsyncMessageReceived != null)
                             {
                                 Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
@@ -536,12 +593,59 @@ namespace BigQ
                             {
                                 Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
                             }
-
                         }
+
+                        #endregion
+                    }
+                    else if (BigQHelper.IsTrue(CurrentMessage.SyncResponse))
+                    {
+                        #region Handle-Incoming-Sync-Response
+
+                        Log("ConnectionDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
+
+                        if (SyncRequestExists(CurrentMessage.MessageId))
+                        {
+                            Log("ConnectionDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
+
+                            if (AddSyncResponse(CurrentMessage))
+                            {
+                                Log("ConnectionDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
+                            }
+                            else
+                            {
+                                Log("*** ConnectionDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                if (AsyncMessageReceived != null)
+                                {
+                                    Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                }
+                                else
+                                {
+                                    Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                }
+
+                            }
+                        }
+                        else
+                        {
+                            Log("*** ConnectionDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
+                            if (AsyncMessageReceived != null)
+                            {
+                                Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                            }
+                            else
+                            {
+                                Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                            }
+                        }
+
+                        #endregion
                     }
                     else
                     {
-                        Log("*** ConnectionDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
+                        #region Handle-Async
+
+                        Log("ConnectionDataReceiver async message GUID " + CurrentMessage.MessageId);
+
                         if (AsyncMessageReceived != null)
                         {
                             Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
@@ -550,23 +654,8 @@ namespace BigQ
                         {
                             Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
                         }
-                    }
 
-                    #endregion
-                }
-                else
-                {
-                    #region Handle-Async
-
-                    Log("ConnectionDataReceiver async message GUID " + CurrentMessage.MessageId);
-
-                    if (AsyncMessageReceived != null)
-                    {
-                        Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
-                    }
-                    else
-                    {
-                        Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                        #endregion
                     }
 
                     #endregion
@@ -574,10 +663,121 @@ namespace BigQ
 
                 #endregion
             }
-
-            #endregion
+            catch (Exception EOuter)
+            {
+                Log("*** ConnectionDataReceiver outer exception detected");
+                LogException("ConnectionDataReceiver", EOuter);
+                if (ServerDisconnected != null) ServerDisconnected();
+            }
         }
-        
+
+        private void HeartbeatManager()
+        {
+            try
+            {
+                #region Check-for-Disable
+
+                if (HeartbeatIntervalMsec == 0)
+                {
+                    Log("*** HeartbeatManager disabled");
+                    return;
+                }
+
+                #endregion
+
+                #region Check-for-Null-Values
+
+                if (Client == null)
+                {
+                    Log("*** HeartbeatManager null client supplied");
+                    return;
+                }
+                
+                #endregion
+
+                #region Variables
+
+                DateTime threadStart = DateTime.Now;
+                DateTime lastHeartbeatAttempt = DateTime.Now;
+                DateTime lastSuccess = DateTime.Now;
+                DateTime lastFailure = DateTime.Now;
+                int numConsecutiveFailures = 0;
+                bool firstRun = true;
+
+                #endregion
+
+                #region Process
+
+                while (true)
+                {
+                    #region Sleep
+
+                    if (firstRun)
+                    {
+                        firstRun = false;
+                    }
+                    else
+                    {
+                        Thread.Sleep(HeartbeatIntervalMsec);
+                    }
+
+                    #endregion
+
+                    #region Check-if-Client-Connected
+
+                    if (!BigQHelper.IsPeerConnected(Client))
+                    {
+                        Log("HeartbeatManager client disconnected from server " + ServerIp + ":" + ServerPort);
+                        Connected = false;
+
+                        if (ServerDisconnected != null) ServerDisconnected();
+                        return;
+                    }
+
+                    #endregion
+
+                    #region Send-Heartbeat-Message
+
+                    lastHeartbeatAttempt = DateTime.Now;
+
+                    byte[] HeartbeatMessage = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                    if (!BigQHelper.SocketWrite(Client, HeartbeatMessage))
+                    {
+                        numConsecutiveFailures++;
+                        lastFailure = DateTime.Now;
+
+                        Log("*** HeartbeatManager failed to send heartbeat to server " + ServerIp + ":" + ServerPort + " (" + numConsecutiveFailures + ")");
+
+                        if (numConsecutiveFailures >= MaxHeartbeatFailures)
+                        {
+                            Log("*** HeartbeatManager maximum number of failed heartbeats reached");
+                            Connected = false;
+
+                            if (ServerDisconnected != null) ServerDisconnected();
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        numConsecutiveFailures = 0;
+                        lastSuccess = DateTime.Now;
+                    }
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                LogException("HeartbeatManager", EOuter);
+            }
+            finally
+            {
+
+            }
+        }
+
         #endregion
 
         #region Public-Methods
@@ -1125,10 +1325,39 @@ namespace BigQ
                 return false;
             }
         }
-
+        
         public string IpPort()
         {
             return SourceIp + ":" + SourcePort;
+        }
+
+        public void Close()
+        {
+            if (CdrTokenSource != null) CdrTokenSource.Cancel();
+            if (CsrTokenSource != null) CsrTokenSource.Cancel();
+            if (HbTokenSource != null) HbTokenSource.Cancel();
+
+            if (Client != null)
+            {
+                if (Client.Connected)
+                {
+                    //
+                    // close the TCP stream
+                    //
+                    if (Client.GetStream() != null)
+                    {
+                        Client.GetStream().Close();
+                    }
+                }
+                
+                // 
+                // close the client
+                //
+                Client.Close();
+            }
+
+            Client = null;
+            return;
         }
 
         #endregion
@@ -1142,6 +1371,19 @@ namespace BigQ
             {
                 Console.WriteLine(message);
             }
+        }
+
+        private void LogException(string method, Exception e)
+        {
+            Log("================================================================================");
+            Log(" = Method: " + method);
+            Log(" = Exception Type: " + e.GetType().ToString());
+            Log(" = Exception Data: " + e.Data);
+            Log(" = Inner Exception: " + e.InnerException);
+            Log(" = Exception Message: " + e.Message);
+            Log(" = Exception Source: " + e.Source);
+            Log(" = Exception StackTrace: " + e.StackTrace);
+            Log("================================================================================");
         }
 
         #endregion

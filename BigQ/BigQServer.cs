@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -15,7 +16,6 @@ namespace BigQ
 
         public List<BigQChannel> Channels;
         public List<BigQClient> Clients;
-        public List<TcpClient> TcpClients;
         public DateTime Created;
 
         private string ListenerIp;
@@ -28,8 +28,12 @@ namespace BigQ
         private bool SendChannelJoinNotifications;
         public bool ConsoleDebug;
 
+        private int HeartbeatIntervalMsec;
+        private int MaxHeartbeatFailures;
+
         private readonly object ChannelsLock;
         private readonly object ClientsLock;
+        private int ActiveConnectionThreads;
 
         #endregion
 
@@ -46,15 +50,20 @@ namespace BigQ
 
         #region Constructor
 
-        public BigQServer(string ip, int port, bool debug, bool sendAck, bool sendServerJoinNotifications, bool sendChannelJoinNotifications)
+        public BigQServer(
+            string ip, 
+            int port, 
+            bool debug, 
+            bool sendAck, 
+            bool sendServerJoinNotifications, 
+            bool sendChannelJoinNotifications,
+            int heartbeatIntervalMsec)
         {
             #region Check-for-Invalid-Values
 
-            if (port < 1)
-            {
-                throw new ArgumentOutOfRangeException("Port must be greater than zero.");
-            }
-
+            if (port < 1) throw new ArgumentOutOfRangeException("port");
+            if (heartbeatIntervalMsec < 100 && heartbeatIntervalMsec != 0) throw new ArgumentOutOfRangeException("heartbeatIntervalMsec");
+            
             #endregion
 
             #region Set-Class-Variables
@@ -71,7 +80,10 @@ namespace BigQ
 
             ChannelsLock = new object();
             ClientsLock = new object();
-
+            ActiveConnectionThreads = 0;
+            HeartbeatIntervalMsec = heartbeatIntervalMsec;
+            MaxHeartbeatFailures = 5;
+            
             #endregion
 
             #region Set-Delegates-to-Null
@@ -84,19 +96,7 @@ namespace BigQ
             LogMessage = null;
 
             #endregion
-
-            #region Create-Database
-
-            /*
-            if (!BigQSqlite.CreateDatabase())
-            {
-                Log("*** Database creation failed");
-                throw new Exception("Unable to create Sqlite database file bigq.db or its tables.");
-            }
-             */
-
-            #endregion
-
+            
             #region Start-Server
 
             if (String.IsNullOrEmpty(this.ListenerIp))
@@ -133,6 +133,11 @@ namespace BigQ
             return GetAllClients();
         }
         
+        public int ConnectionCount()
+        {
+            return ActiveConnectionThreads;
+        }
+        
         #endregion
 
         #region Private-Connection-Methods
@@ -162,6 +167,8 @@ namespace BigQ
                     #region Accept-Connection
 
                     TcpClient Client = Listener.AcceptTcpClient();
+
+                    ActiveConnectionThreads++;
                     ClientIp = ((IPEndPoint)Client.Client.RemoteEndPoint).Address.ToString();
                     ClientPort = ((IPEndPoint)Client.Client.RemoteEndPoint).Port;
 
@@ -185,8 +192,11 @@ namespace BigQ
 
                     #region Pass-to-Connection-Data-Receiver
 
-                    Log("AcceptConnections added " + CurrentClient.IpPort() + " to clients list");
+                    Log("AcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + ActiveConnectionThreads + " connections active)");
                     Task.Factory.StartNew(() => ConnectionDataReceiver(CurrentClient));
+
+                    Log("AcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
+                    Task.Factory.StartNew(() => HeartbeatManager(CurrentClient));
 
                     #endregion
                 }
@@ -264,6 +274,16 @@ namespace BigQ
                     {
                         if (Data != null && Data.Length > 0)
                         {
+                            #region Process-Heartbeat
+
+                            if (Data[0] == 0x00)
+                            { 
+                                // Log("(heartbeat)");
+                                continue;
+                            }
+
+                            #endregion
+
                             Log("ConnectionDataReceiver successfully read " + Data.Length + " bytes from client " + CurrentClient.IpPort() + " email " + CurrentClient.Email + " GUID " + CurrentClient.ClientGuid);
                         }
                         else
@@ -283,11 +303,11 @@ namespace BigQ
                     {
                         CurrentMessage = BigQHelper.DeserializeJson<BigQMessage>(Data, ConsoleDebug);
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
                         Log("*** ConnectionDataReceiver unable to deserialize message from client " + CurrentClient.IpPort());
+                        Log("*** ConnectionDataReceiver exception message: " + e.Message);
                         Log(Encoding.UTF8.GetString(Data));
-                        // LogException("ConnectionDataReceiver", e);
                         CurrentMessage = null;
                     }
 
@@ -334,6 +354,11 @@ namespace BigQ
                 {
                     LogException("ConnectionDataReceiver (null)", EOuter);
                 }
+            }
+            finally
+            {
+                Log("ConnectionDataReceiver closing data receiver for " + CurrentClient.IpPort() + " (now " + ActiveConnectionThreads + " connections active)"); 
+                ActiveConnectionThreads--;
             }
         }
 
@@ -426,6 +451,144 @@ namespace BigQ
             }
 
             return true;
+        }
+
+        private void HeartbeatManager(BigQClient CurrentClient)
+        {
+            try
+            {
+                #region Check-for-Disable
+
+                if (HeartbeatIntervalMsec == 0)
+                {
+                    Log("*** HeartbeatManager disabled");
+                    return;
+                }
+
+                #endregion
+
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** HeartbeatManager null client supplied");
+                    return;
+                }
+
+                if (CurrentClient.Client == null)
+                {
+                    Log("*** HeartbeatManager null TcpClient supplied within client");
+                    return;
+                }
+
+                #endregion
+
+                #region Variables
+
+                DateTime threadStart = DateTime.Now;
+                DateTime lastHeartbeatAttempt = DateTime.Now;
+                DateTime lastSuccess = DateTime.Now;
+                DateTime lastFailure = DateTime.Now;
+                int numConsecutiveFailures = 0;
+                bool firstRun = true;
+
+                #endregion
+
+                #region Process
+
+                while (true)
+                {
+                    #region Sleep
+
+                    if (firstRun)
+                    {
+                        firstRun = false;
+                    }
+                    else
+                    {
+                        Thread.Sleep(HeartbeatIntervalMsec);
+                    }
+
+                    #endregion
+                    
+                    #region Check-if-Client-Connected
+
+                    if (!BigQHelper.IsPeerConnected(CurrentClient.Client))
+                    {
+                        Log("HeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
+                        if (!RemoveClient(CurrentClient))
+                        {
+                            Log("*** HeartbeatManager unable to remove client " + CurrentClient.IpPort());
+                        }
+
+                        if (!RemoveClientChannels(CurrentClient))
+                        {
+                            Log("*** HeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
+                        }
+
+                        if (SendServerJoinNotifications) ServerLeaveEvent(CurrentClient);
+                        return;
+                    }
+
+                    #endregion
+
+                    #region Send-Heartbeat-Message
+                    
+                    lastHeartbeatAttempt = DateTime.Now;
+
+                    byte[] HeartbeatMessage = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                    if (!BigQHelper.SocketWrite(CurrentClient.Client, HeartbeatMessage))
+                    {
+                        numConsecutiveFailures++;
+                        lastFailure = DateTime.Now;
+
+                        Log("*** HeartbeatManager failed to send heartbeat to client " + CurrentClient.IpPort() + " (" + numConsecutiveFailures + ")");
+
+                        if (numConsecutiveFailures >= MaxHeartbeatFailures)
+                        {
+                            Log("*** HeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
+
+                            if (!RemoveClient(CurrentClient))
+                            {
+                                Log("*** HeartbeatManager unable to remove client " + CurrentClient.IpPort());
+                            }
+
+                            if (!RemoveClientChannels(CurrentClient))
+                            {
+                                Log("*** HeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
+                            }
+
+                            if (SendServerJoinNotifications) ServerLeaveEvent(CurrentClient);
+
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        numConsecutiveFailures = 0;
+                        lastSuccess = DateTime.Now;
+                    }
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("HeartbeatManager (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("HeartbeatManager (null)", EOuter);
+                }
+            }
+            finally
+            {
+
+            }
         }
 
         #endregion
@@ -834,46 +997,67 @@ namespace BigQ
                 Log("*** AddClient null client supplied");
                 return false;
             }
-
+            
             lock (ClientsLock)
             {
+                Log("AddClient entering with " + Clients.Count + " entries in client list");
+
                 List<BigQClient> NewClientsList = new List<BigQClient>();
                 
-                foreach (BigQClient curr in Clients)
+                if (Clients.Count < 1)
                 {
-                    if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
+                    #region First-Client
+
+                    NewClientsList.Add(CurrentClient);
+
+                    #endregion
+                }
+                else
+                {
+                    #region Subsequent-Client
+
+                    bool matchFound = false;
+
+                    foreach (BigQClient curr in Clients)
                     {
-                        if (curr.SourcePort == CurrentClient.SourcePort)
+                        if (curr.SourceIp == CurrentClient.SourceIp
+                            && curr.SourcePort == CurrentClient.SourcePort)
                         {
-                            // 
-                            // do not add, this is a duplicate
-                            //
+                            #region Overwrite-Existing-Entry
+
+                            curr.Client = CurrentClient.Client;
+                            curr.Updated = DateTime.Now.ToUniversalTime();
+                            matchFound = true;
+                            NewClientsList.Add(curr);
                             continue;
-                        }
-                    }
 
-                    if (!String.IsNullOrEmpty(CurrentClient.ClientGuid))
-                    {
-                        if (!String.IsNullOrEmpty(curr.ClientGuid))
+                            #endregion
+                        }
+                        else
                         {
-                            if (String.Compare(CurrentClient.ClientGuid, curr.ClientGuid) == 0)
-                            {
-                                //
-                                // do not add, this is a duplicate
-                                //
-                                continue;
-                            }
+                            #region Add-Entry
+
+                            NewClientsList.Add(curr);
+                            continue;
+
+                            #endregion
                         }
                     }
 
-                    NewClientsList.Add(curr);
+                    if (!matchFound)
+                    {
+                        #region New-Entry
+
+                        NewClientsList.Add(CurrentClient);
+
+                        #endregion
+                    }
+
+                    #endregion
                 }
                 
-                Log("AddClient adding client " + CurrentClient.IpPort());
-                CurrentClient.Created = DateTime.Now.ToUniversalTime();
-                CurrentClient.Updated = CurrentClient.Created;
-                NewClientsList.Add(CurrentClient);
                 Clients = NewClientsList;
+                Log("AddClient exiting with " + Clients.Count + " entries in client list");
 
                 if (ClientConnected != null) ClientConnected(CurrentClient);
             }
@@ -899,44 +1083,46 @@ namespace BigQ
                     return false;
                 }
 
+                Log("RemoveClient entering with " + Clients.Count + " entries in client list");
+
                 List<BigQClient> UpdatedList = new List<BigQClient>();
 
-                foreach (BigQClient curr in Clients)
+                if (String.IsNullOrEmpty(CurrentClient.ClientGuid))
                 {
-                    bool found = false;
+                    #region Remove-Using-IP-Port
 
-                    if (!String.IsNullOrEmpty(CurrentClient.ClientGuid))
+                    foreach (BigQClient curr in Clients)
                     {
-                        if (!String.IsNullOrEmpty(curr.ClientGuid))
+                        if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0
+                            && curr.SourcePort == CurrentClient.SourcePort)
                         {
-                            if (String.Compare(CurrentClient.ClientGuid, curr.ClientGuid) == 0)
-                            {
-                                Log("RemoveClient matched client GUID in client list, removing: " + CurrentClient.ClientGuid);
-                                found = true;
-                            }
+                            continue;
                         }
-                    }
 
-                    if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
-                    {
-                        if (curr.SourcePort == CurrentClient.SourcePort)
-                        {
-                            Log("RemoveClient matched client IP:port in client list, removing: " + CurrentClient.IpPort());
-                            found = true;
-                        }
-                    }
-
-                    if (!found)
-                    {
                         UpdatedList.Add(curr);
                     }
-                    else
+
+                    #endregion
+                }
+                else
+                {
+                    #region Remove-Using-GUID
+
+                    foreach (BigQClient curr in Clients)
                     {
-                        // do not add, we want to remove this element
+                        if (String.Compare(curr.ClientGuid.ToLower().Trim(), CurrentClient.ClientGuid.ToLower().Trim()) == 0)
+                        {
+                            continue;
+                        }
+
+                        UpdatedList.Add(curr);
                     }
+
+                    #endregion
                 }
 
                 Clients = UpdatedList;
+                Log("RemoveClient exiting with " + Clients.Count + " entries in client list");
             }
 
             if (ClientDisconnected != null) ClientDisconnected(CurrentClient);
@@ -1007,52 +1193,112 @@ namespace BigQ
                 return false;
             }
 
+            if (String.IsNullOrEmpty(CurrentClient.ClientGuid))
+            {
+                Log("UpdateClient client " + CurrentClient.IpPort() + " cannot update without a client GUID (login required)");
+                return false;
+            }
+
             lock (ClientsLock)
             {
-                List<BigQClient> UpdatedList = new List<BigQClient>();
-                BigQClient UpdatedClient = new BigQClient();
+                if (Clients == null || Clients.Count < 1)
+                {
+                    Log("*** UpdateClient no entries, nothing to update");
+                    return false;
+                }
+             
+                Log("UpdateClient entering with " + Clients.Count + " entries in client list");
 
+                List<BigQClient> UpdatedList = new List<BigQClient>();
+                bool clientFound = false;
+                
                 foreach (BigQClient curr in Clients)
                 {
-                    Log("UpdateClient comparing current client " + CurrentClient.IpPort() +
-                        " with list item " + curr.IpPort());
-
-                    if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
+                    if (String.IsNullOrEmpty(curr.ClientGuid))
                     {
-                        if (curr.SourcePort == CurrentClient.SourcePort)
+                        #region Client-That-Hasnt-Yet-Logged-In
+
+                        if ((String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
+                            && curr.SourcePort == CurrentClient.SourcePort)
                         {
-                            Log("UpdateClient matched existing client " + curr.IpPort() + ", updating");
-                            Log("UpdateClient existing client details: Email " + curr.Email + " GUID " + curr.ClientGuid);
-                            Log("UpdateClient new details: Email " + CurrentClient.Email + " GUID " + curr.ClientGuid);
+                            #region Match
 
-                            UpdatedClient = new BigQClient();
-                            UpdatedClient.Email = CurrentClient.Email;
-                            UpdatedClient.Password = CurrentClient.Password;
-                            UpdatedClient.ClientGuid = CurrentClient.ClientGuid;
-                            UpdatedClient.Created = CurrentClient.Created;
-                            UpdatedClient.Updated = DateTime.Now.ToUniversalTime();
-                            UpdatedClient.SourceIp = CurrentClient.SourceIp;
-                            UpdatedClient.SourcePort = CurrentClient.SourcePort;
-                            UpdatedClient.Client = CurrentClient.Client;
+                            //
+                            // Original unauthenticated entry
+                            // Update
+                            //
+                            curr.Email = CurrentClient.Email;
+                            curr.Password = CurrentClient.Password;
+                            curr.Updated = DateTime.Now.ToUniversalTime();
+                            curr.Client = CurrentClient.Client;
+                            if (!clientFound) UpdatedList.Add(curr);
+                            clientFound = true;
+                            continue;
 
-                            UpdatedList.Add(UpdatedClient);
+                            #endregion
                         }
                         else
                         {
-                            // IP match but not port match
-                            Log("UpdateClient IP match but no port match for current client " + CurrentClient.IpPort());
+                            #region Not-Match
+
                             UpdatedList.Add(curr);
+                            continue;
+
+                            #endregion
                         }
+
+                        #endregion
                     }
                     else
                     {
-                        // No match on either IP or port
-                        Log("UpdateClient no IP or port match for current client " + CurrentClient.IpPort());
-                        UpdatedList.Add(curr);
+                        #region Existing-Client-Update
+
+                        if (String.Compare(curr.ClientGuid.ToLower().Trim(), CurrentClient.ClientGuid.ToLower().Trim()) == 0)
+                        {
+                            if ((String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
+                                && curr.SourcePort == CurrentClient.SourcePort)
+                            {
+                                #region Match
+
+                                curr.Email = CurrentClient.Email;
+                                curr.Password = CurrentClient.Password;
+                                curr.Updated = DateTime.Now.ToUniversalTime();
+                                curr.Client = CurrentClient.Client;
+                                if (!clientFound) UpdatedList.Add(curr);
+                                clientFound = true;
+                                continue;
+
+                                #endregion
+                            }
+                            else
+                            {
+                                #region Stale
+
+                                //
+                                // do not add
+                                // source IP and/or source port do not match
+                                //
+                                continue;
+
+                                #endregion
+                            }
+                        }
+                        else
+                        {
+                            #region Not-Match
+
+                            UpdatedList.Add(curr);
+                            continue;
+
+                            #endregion
+                        }
+
+                        #endregion
                     }
                 }
-
+                
                 Clients = UpdatedList;
+                Log("UpdateClient exiting with " + Clients.Count + " entries in client list");
             }
 
             return true;

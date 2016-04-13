@@ -10,6 +10,7 @@ namespace BigQServerTest
     class ServerTest
     {
         static BigQServer server;
+        const bool DEBUG = true;
 
         static void Main(string[] args)
         {
@@ -40,7 +41,7 @@ namespace BigQServerTest
             // initialize
             // to enable debug, set the second boolean parameter to true
             //
-            server = new BigQServer(null, 8000, false, true, true, true);
+            server = new BigQServer(null, 8000, DEBUG, true, true, true, 0);
 
             // callbacks
             server.MessageReceived = MessageReceived;
@@ -55,7 +56,7 @@ namespace BigQServerTest
             {
                 // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
                 Console.WriteLine("---");
-                Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers listclients");
+                Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers listclients count");
                 Console.Write("Command: ");
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
@@ -133,6 +134,10 @@ namespace BigQServerTest
                             Console.WriteLine("(null)");
                         }
                         break;
+
+                    case "count":
+                        Console.WriteLine("Active connection count: " + server.ConnectionCount());
+                        break;
                         
                     default:
                         Console.WriteLine("Unknown command");
@@ -153,7 +158,14 @@ namespace BigQServerTest
         {
             // restart
             Console.WriteLine("*** Server stopped, attempting to restart ***");
-            server = new BigQServer(null, 8000, false, true, true, true);
+            server = null;
+            server = new BigQServer(null, 8000, DEBUG, true, true, true, 0);
+            server.MessageReceived = MessageReceived;
+            server.ServerStopped = ServerStopped;
+            server.ClientConnected = ClientConnected;
+            server.ClientLogin = ClientLogin;
+            server.ClientDisconnected = ClientDisconnected;
+            // server.LogMessage = LogMessage;
             return true;
         }
 
