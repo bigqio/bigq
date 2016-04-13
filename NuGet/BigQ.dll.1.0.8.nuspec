@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
     <metadata>
         <id>BigQ.dll</id>
-        <version>1.0.7</version>
+        <version>1.0.8</version>
         <title>BigQ</title>
         <authors>jchristn</authors>
         <licenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</licenseUrl>
@@ -11,7 +11,7 @@
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
         <description>bigq is a scalable messaging platform using TCP sockets featuring sync, async, channel, and private communications.</description>
         <summary>bigq is a scalable messaging platform using TCP sockets featuring sync, async, channel, and private communications.</summary>
-        <releaseNotes>Numerous stability bugfixes and minor enhancements</releaseNotes>
+        <releaseNotes>Logo change</releaseNotes>
         <copyright>(c)2016 Marauder Software Inc</copyright>
         <language />
         <tags>mq message queue messaging tcp sockets</tags>
