@@ -295,14 +295,15 @@ namespace BigQClientTest
             return true;
         }
 
-        static object SyncMessageReceived(BigQMessage msg)
+        static byte[] SyncMessageReceived(BigQMessage msg)
         {
             Console.WriteLine("Received sync message: " + msg.ToString());
             Console.WriteLine("Press ENTER and then type your response");
             Console.WriteLine("(The menu command parser is expecting input so press ENTER first!)");
             Console.Write("Response [ENTER for 'hello!']: ");
             string resp = Console.ReadLine();
-            return resp;
+            if (!String.IsNullOrEmpty(resp)) return Encoding.UTF8.GetBytes(resp);
+            return null;
         }
         
         static bool ConnectToServer()

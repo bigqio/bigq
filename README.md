@@ -1,16 +1,20 @@
 # bigq
-scalable messaging platform
+messaging platform in C#
 
 For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 
 ## description
-bigq is a scalable messaging platform using TCP sockets and JSON (NOT AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.
+bigq is a messaging platform using TCP sockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.
 
 Core use cases for bigq:
+- simple sockets wrapper - we make sockets programming easier
 - real-time messaging like chat applications
 - message distribution/publisher-subscriber using channels
 - cluster management
 - notifications and events
+
+## performance
+bigq is still early in development.  While we have high aspirations on performance, it's not there yet.  The software has excellent stability in lower throughput environments with lower rates of network change (adds, removes).  Performance will be a focus area in the coming releases.
 
 ## components
 Two main components to bigq: client and server.  The server can be run independently or instantiated within your own application.  Clients initiate connections to the server and maintain them to avoid issues with intermediary firewalls.  
@@ -23,7 +27,7 @@ using BigQ;
 //
 // start the server
 //
-BigQServer server = new BigQServer(null, 8000, false, false, true, true, true);
+BigQServer server = new BigQServer(null, 8000, false, false, true, true, 0);
 
 //
 // set callbacks
@@ -53,7 +57,7 @@ using BigQ;
 //
 // connect to server
 //
-BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 10000, false);
+BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 10000, 0, false);
 
 //
 // set callbacks
@@ -68,7 +72,7 @@ client.LogMessage = LogMessage;
 // sync message callback should return the data to be returned to requestor
 //
 static bool AsyncMessageReceived(BigQMessage msg) { ... }
-static object SyncMessageReceived(BigQMessage msg) { return "Hello!"; }
+static byte[] SyncMessageReceived(BigQMessage msg) { return Encoding.UTF8.GetBytes("Hello!"); }
 static bool ServerDisconnected() { ... }
 static bool LogMessage(string msg) { ... }
 

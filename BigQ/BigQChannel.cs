@@ -14,9 +14,9 @@ namespace BigQ
         public string Guid;
         public string ChannelName;
         public string OwnerGuid;
-        public DateTime Created;
-        public DateTime Updated;
-        public int Private;
+        public DateTime? CreatedUTC;
+        public DateTime? UpdatedUTC;
+        public int? Private;
 
         public List<BigQClient> Subscribers;
 

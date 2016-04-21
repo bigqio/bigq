@@ -23,11 +23,12 @@ namespace BigQ
         public int SourcePort;
         public string ServerIp;
         public int ServerPort;
-        public DateTime Created;
-        public DateTime Updated;
+        public DateTime? CreatedUTC;
+        public DateTime? UpdatedUTC;
         public TcpClient Client;
         
         public bool Connected;
+        public bool LoggedIn;
         public bool ConsoleDebug;
 
         private int HeartbeatIntervalMsec;
@@ -47,7 +48,7 @@ namespace BigQ
         #region Delegates
 
         public Func<BigQMessage, bool> AsyncMessageReceived;
-        public Func<BigQMessage, object> SyncMessageReceived;
+        public Func<BigQMessage, byte[]> SyncMessageReceived;
         public Func<bool> ServerDisconnected;
         public Func<string, bool> LogMessage;
 
@@ -95,6 +96,8 @@ namespace BigQ
             SyncTimeoutMsec = syncTimeoutMsec;
             HeartbeatIntervalMsec = heartbeatIntervalMsec;
             MaxHeartbeatFailures = 5;
+            Connected = false;
+            LoggedIn = false;
 
             #endregion
 
@@ -139,21 +142,6 @@ namespace BigQ
                 wh.Close();
             }
             
-            /*
-            try
-            {
-                Client = new TcpClient(ip, port);
-
-            }
-            catch (Exception e)
-            {
-                //
-                // implement handlers here
-                //
-                throw e;
-            }
-            */
-
             Connected = true;
 
             #endregion
@@ -176,9 +164,18 @@ namespace BigQ
             CsrToken = CsrTokenSource.Token;
             Task.Factory.StartNew(() => CleanupSyncRequests(), CsrToken);
 
-            HbTokenSource = new CancellationTokenSource();
-            HbToken = HbTokenSource.Token;
-            Task.Factory.StartNew(() => HeartbeatManager());
+            //
+            //
+            //
+            // do not start heartbeat until successful login
+            // design goal: server needs to free up connections fast
+            // client just needs to keep socket open
+            //
+            //
+            //
+            // HbTokenSource = new CancellationTokenSource();
+            // HbToken = HbTokenSource.Token;
+            // Task.Factory.StartNew(() => HeartbeatManager());
 
             #endregion
         }
@@ -451,17 +448,10 @@ namespace BigQ
             }
 
             #endregion
-
-            #region Serialize-Message
-
-            string json = BigQHelper.SerializeJson<BigQMessage>(Message);
-            byte[] Data = Encoding.UTF8.GetBytes(json);
-
-            #endregion
-
+            
             #region Send-Message
 
-            if (!BigQHelper.SocketWrite(Client, Data))
+            if (!BigQHelper.MessageWrite(Client, Message))
             {
                 Log("Unable to send data to server " + ServerIp + ":" + ServerPort);
                 return false;
@@ -480,140 +470,100 @@ namespace BigQ
         {
             try
             {
+                #region Attach-to-Stream
+
+                if (!Client.Connected)
+                {
+                    Log("*** ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is no longer connected");
+                    return;
+                }
+
+                NetworkStream ClientStream = Client.GetStream();
+
+                #endregion
+
                 #region Wait-for-Data
 
                 while (true)
                 {
                     #region Check-if-Client-Connected-to-Server
 
-                    if (!BigQHelper.IsPeerConnected(Client))
+                    if (!Client.Connected || !BigQHelper.IsPeerConnected(Client))
                     {
-                        Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
+                        Log("*** ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
                         Connected = false;
 
-                        if (ServerDisconnected != null) ServerDisconnected();
+                        if (ServerDisconnected != null) Task.Factory.StartNew(() => ServerDisconnected());
                         break;
                     }
                     else
                     {
-                        Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
+                        // Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
                     }
 
                     #endregion
 
-                    #region Read-Data-from-Client
+                    #region Read-and-Process-Message
 
-                    byte[] Data;
-                    if (!BigQHelper.SocketRead(Client, out Data))
+                    if (ClientStream.DataAvailable)
                     {
-                        Log("ConnectionDataReceiver unable to read from server " + ServerIp + ":" + ServerPort);
-                        continue;
-                    }
-                    else
-                    {
-                        if (Data != null && Data.Length > 0)
+                        #region Read-Message
+
+                        BigQMessage CurrentMessage = null;
+                        if (!BigQHelper.MessageRead(Client, out CurrentMessage))
                         {
-                            #region Process-Heartbeat
-
-                            if (Data[0] == 0x00)
-                            {
-                                // Log("(heartbeat)");
-                                continue;
-                            }
-
-                            #endregion
-
-                            Log("ConnectionDataReceiver successfully read " + Data.Length + " bytes from server " + ServerIp + ":" + ServerPort);
-                        }
-                        else
-                        {
-                            Log("ConnectionDataReceiver failed to read data from server " + ServerIp + ":" + ServerPort);
+                            Log("ConnectionDataReceiver unable to read message from server " + ServerIp + ":" + ServerPort);
                             continue;
                         }
-                    }
 
-                    #endregion
-
-                    #region Deserialize-Data-to-BigQMessage
-
-                    BigQMessage CurrentMessage = null;
-
-                    try
-                    {
-                        CurrentMessage = BigQHelper.DeserializeJson<BigQMessage>(Data, ConsoleDebug);
-                    }
-                    catch (Exception)
-                    {
-                        Log("*** ConnectionDataReceiver unable to deserialize message from server " + ServerIp + ":" + ServerPort);
-                        Log(Encoding.UTF8.GetString(Data));
-                        CurrentMessage = null;
-                    }
-
-                    if (CurrentMessage == null)
-                    {
-                        Log("*** ConnectionDataReceiver unable to convert data to message after read from server " + ServerIp + ":" + ServerPort);
-                        continue;
-                    }
-
-                    Log("ConnectionDataReceiver successfully converted data to message from server " + ServerIp + ":" + ServerPort);
-
-                    #endregion
-
-                    #region Handle-Message
-
-                    if (BigQHelper.IsTrue(CurrentMessage.SyncRequest))
-                    {
-                        #region Handle-Incoming-Sync-Request
-
-                        Log("ConnectionDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
-
-                        if (SyncMessageReceived != null)
+                        if (CurrentMessage == null)
                         {
-                            object ResponseData = SyncMessageReceived(CurrentMessage);
-
-                            CurrentMessage.SyncRequest = false;
-                            CurrentMessage.SyncResponse = true;
-                            CurrentMessage.Data = ResponseData;
-
-                            string TempGuid = String.Copy(CurrentMessage.SenderGuid);
-                            CurrentMessage.SenderGuid = ClientGuid;
-                            CurrentMessage.RecipientGuid = TempGuid;
-
-                            ConnectionDataSender(CurrentMessage);
-                            Log("ConnectionDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
-                        }
-                        else
-                        {
-                            Log("*** ConnectionDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
-                            if (AsyncMessageReceived != null)
-                            {
-                                Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
-                            }
-                            else
-                            {
-                                Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
-                            }
+                            Log("*** ConnectionDataReceiver null message read from server " + ServerIp + ":" + ServerPort);
+                            continue;
                         }
 
                         #endregion
-                    }
-                    else if (BigQHelper.IsTrue(CurrentMessage.SyncResponse))
-                    {
-                        #region Handle-Incoming-Sync-Response
 
-                        Log("ConnectionDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
+                        #region Handle-Message
 
-                        if (SyncRequestExists(CurrentMessage.MessageId))
+                        if (String.Compare(CurrentMessage.SenderGuid, "00000000-0000-0000-0000-000000000000") == 0
+                            && !String.IsNullOrEmpty(CurrentMessage.Command)
+                            && String.Compare(CurrentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
                         {
-                            Log("ConnectionDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
+                            #region Handle-Incoming-Server-Heartbeat
 
-                            if (AddSyncResponse(CurrentMessage))
+                            // 
+                            //
+                            // do nothing, just continue
+                            //
+                            //
+
+                            #endregion
+                        }
+                        else if (BigQHelper.IsTrue(CurrentMessage.SyncRequest))
+                        {
+                            #region Handle-Incoming-Sync-Request
+
+                            Log("ConnectionDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
+
+                            if (SyncMessageReceived != null)
                             {
-                                Log("ConnectionDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
+                                byte[] ResponseData = SyncMessageReceived(CurrentMessage);
+
+                                CurrentMessage.SyncRequest = false;
+                                CurrentMessage.SyncResponse = true;
+                                CurrentMessage.Data = ResponseData;
+
+                                string TempGuid = String.Copy(CurrentMessage.SenderGuid);
+                                CurrentMessage.SenderGuid = ClientGuid;
+                                CurrentMessage.RecipientGuid = TempGuid;
+
+                                ConnectionDataSender(CurrentMessage);
+                                Log("ConnectionDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
                             }
                             else
                             {
-                                Log("*** ConnectionDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                Log("*** ConnectionDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
                                 if (AsyncMessageReceived != null)
                                 {
                                     Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
@@ -622,12 +572,59 @@ namespace BigQ
                                 {
                                     Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
                                 }
-
                             }
+
+                            #endregion
+                        }
+                        else if (BigQHelper.IsTrue(CurrentMessage.SyncResponse))
+                        {
+                            #region Handle-Incoming-Sync-Response
+
+                            Log("ConnectionDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
+
+                            if (SyncRequestExists(CurrentMessage.MessageId))
+                            {
+                                Log("ConnectionDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
+
+                                if (AddSyncResponse(CurrentMessage))
+                                {
+                                    Log("ConnectionDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
+                                }
+                                else
+                                {
+                                    Log("*** ConnectionDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                    if (AsyncMessageReceived != null)
+                                    {
+                                        Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                    }
+                                    else
+                                    {
+                                        Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                    }
+
+                                }
+                            }
+                            else
+                            {
+                                Log("*** ConnectionDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                if (AsyncMessageReceived != null)
+                                {
+                                    Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                }
+                                else
+                                {
+                                    Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                }
+                            }
+
+                            #endregion
                         }
                         else
                         {
-                            Log("*** ConnectionDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
+                            #region Handle-Async
+
+                            Log("ConnectionDataReceiver async message GUID " + CurrentMessage.MessageId);
+
                             if (AsyncMessageReceived != null)
                             {
                                 Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
@@ -636,23 +633,8 @@ namespace BigQ
                             {
                                 Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
                             }
-                        }
 
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Handle-Async
-
-                        Log("ConnectionDataReceiver async message GUID " + CurrentMessage.MessageId);
-
-                        if (AsyncMessageReceived != null)
-                        {
-                            Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
-                        }
-                        else
-                        {
-                            Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                            #endregion
                         }
 
                         #endregion
@@ -739,21 +721,21 @@ namespace BigQ
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
-
-                    byte[] HeartbeatMessage = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-                    if (!BigQHelper.SocketWrite(Client, HeartbeatMessage))
-                    {
+                    BigQMessage HeartbeatMessage = HeartbeatRequestMessage();
+                    
+                    if (!SendServerMessageAsync(HeartbeatMessage))
+                    { 
                         numConsecutiveFailures++;
                         lastFailure = DateTime.Now;
 
-                        Log("*** HeartbeatManager failed to send heartbeat to server " + ServerIp + ":" + ServerPort + " (" + numConsecutiveFailures + ")");
+                        Log("*** HeartbeatManager failed to send heartbeat to server " + ServerIp + ":" + ServerPort + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
 
                         if (numConsecutiveFailures >= MaxHeartbeatFailures)
                         {
                             Log("*** HeartbeatManager maximum number of failed heartbeats reached");
                             Connected = false;
 
-                            if (ServerDisconnected != null) ServerDisconnected();
+                            if (ServerDisconnected != null) Task.Factory.StartNew(() => ServerDisconnected());
                             return;
                         }
                     }
@@ -778,6 +760,18 @@ namespace BigQ
             }
         }
 
+        private BigQMessage HeartbeatRequestMessage()
+        {
+            BigQMessage ResponseMessage = new BigQMessage();
+            ResponseMessage.MessageId = Guid.NewGuid().ToString();
+            ResponseMessage.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            ResponseMessage.Command = "HeartbeatRequest";
+            ResponseMessage.SenderGuid = ClientGuid;
+            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.Data = null;
+            return ResponseMessage;
+        }
+
         #endregion
 
         #region Public-Methods
@@ -794,7 +788,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "Echo";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -811,7 +805,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "Login";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -838,6 +832,16 @@ namespace BigQ
             }
             else
             {
+                LoggedIn = true;
+
+                // stop existing heartbeat thread
+                if (HbTokenSource != null) HbTokenSource.Cancel();
+                
+                // start new heartbeat thread
+                HbTokenSource = new CancellationTokenSource();
+                HbToken = HbTokenSource.Token;
+                Task.Factory.StartNew(() => HeartbeatManager());
+
                 return true;
             }
         }
@@ -851,7 +855,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "ListClients";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -880,7 +884,7 @@ namespace BigQ
             {
                 if (response.Data != null)
                 {
-                    clients = BigQHelper.JArrayToList<List<BigQClient>>(response.Data);
+                    clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
                 }
                 return true;
             }
@@ -895,7 +899,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "ListChannels";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -924,7 +928,7 @@ namespace BigQ
             {
                 if (response.Data != null)
                 {
-                    channels = BigQHelper.JArrayToList<List<BigQChannel>>(response.Data);
+                    channels = BigQHelper.DeserializeJson<List<BigQChannel>>(response.Data, false);
                 }
                 return true;
             }
@@ -941,7 +945,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "ListChannelSubscribers";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -971,7 +975,7 @@ namespace BigQ
                 Console.WriteLine(response.Data);
                 if (response.Data != null)
                 {
-                    clients = BigQHelper.JArrayToList<List<BigQClient>>(response.Data);
+                    clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
                 }
                 return true;
             }
@@ -986,7 +990,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "JoinChannel";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -1026,7 +1030,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "LeaveChannel";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -1073,13 +1077,13 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "CreateChannel";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
             request.SyncRequest = true;
             request.ChannelGuid = CurrentChannel.Guid;
-            request.Data = CurrentChannel;
+            request.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(CurrentChannel));
 
             if (!SendServerMessageSync(request, out response))
             {
@@ -1113,7 +1117,7 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "DeleteChannel";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
@@ -1144,7 +1148,14 @@ namespace BigQ
             }
         }
         
-        public bool SendPrivateMessageAsync(string guid, object data)
+        public bool SendPrivateMessageAsync(string guid, string data)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+            return SendPrivateMessageAsync(guid, Encoding.UTF8.GetBytes(data));
+        }
+
+        public bool SendPrivateMessageAsync(string guid, byte[] data)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
             if (data == null) throw new ArgumentNullException("data");
@@ -1153,7 +1164,7 @@ namespace BigQ
             CurrentMessage.Email = Email;
             CurrentMessage.Password = Password;
             CurrentMessage.Command = null;
-            CurrentMessage.Created = DateTime.Now.ToUniversalTime();
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             CurrentMessage.MessageId = Guid.NewGuid().ToString();
             CurrentMessage.SenderGuid = ClientGuid;
             CurrentMessage.RecipientGuid = guid;
@@ -1162,7 +1173,14 @@ namespace BigQ
             return ConnectionDataSender(CurrentMessage);
         }
         
-        public bool SendPrivateMessageSync(string guid, object data, out BigQMessage response)
+        public bool SendPrivateMessageSync(string guid, string data, out BigQMessage response)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+            return SendPrivateMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
+        }
+
+        public bool SendPrivateMessageSync(string guid, byte[] data, out BigQMessage response)
         {
             response = null;
 
@@ -1173,7 +1191,7 @@ namespace BigQ
             CurrentMessage.Email = Email;
             CurrentMessage.Password = Password;
             CurrentMessage.Command = null;
-            CurrentMessage.Created = DateTime.Now.ToUniversalTime();
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             CurrentMessage.MessageId = Guid.NewGuid().ToString();
             CurrentMessage.SenderGuid = ClientGuid;
             CurrentMessage.RecipientGuid = guid;
@@ -1255,7 +1273,14 @@ namespace BigQ
             return true;
         }
 
-        public bool SendChannelMessage(string guid, object data)
+        public bool SendChannelMessage(string guid, string data)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+            return SendChannelMessage(guid, Encoding.UTF8.GetBytes(data));
+        }
+
+        public bool SendChannelMessage(string guid, byte[] data)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
             if (data == null) throw new ArgumentNullException("data");
@@ -1264,7 +1289,7 @@ namespace BigQ
             CurrentMessage.Email = Email;
             CurrentMessage.Password = Password;
             CurrentMessage.Command = null;
-            CurrentMessage.Created = DateTime.Now.ToUniversalTime();
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             CurrentMessage.MessageId = Guid.NewGuid().ToString();
             CurrentMessage.SenderGuid = ClientGuid;
             CurrentMessage.RecipientGuid = null;
@@ -1291,13 +1316,13 @@ namespace BigQ
             request.Email = Email;
             request.Password = Password;
             request.Command = "IsClientConnected";
-            request.Created = DateTime.Now.ToUniversalTime();
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
             request.MessageId = Guid.NewGuid().ToString();
             request.SenderGuid = ClientGuid;
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
             request.SyncRequest = true;
             request.ChannelGuid = null;
-            request.Data = guid;
+            request.Data = Encoding.UTF8.GetBytes(guid);
 
             if (!SendServerMessageSync(request, out response))
             {
@@ -1320,7 +1345,7 @@ namespace BigQ
             {
                 if (response.Data != null)
                 {
-                    return BigQHelper.IsTrue(response.Data.ToString());
+                    return BigQHelper.IsTrue(Encoding.UTF8.GetString(response.Data));
                 }
                 return false;
             }
@@ -1349,11 +1374,12 @@ namespace BigQ
                         Client.GetStream().Close();
                     }
                 }
-                
+
                 // 
                 // close the client
                 //
-                Client.Close();
+
+                if (Client != null) Client.Close();
             }
 
             Client = null;
