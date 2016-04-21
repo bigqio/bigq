@@ -141,3 +141,6 @@ if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
 //
 if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
 ```
+
+## contact us
+need help or have feedback?  Contact me at joel at maraudersoftware.com dot com
