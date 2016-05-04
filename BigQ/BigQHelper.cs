@@ -381,8 +381,8 @@ namespace BigQ
                 #region Variables
 
                 int BytesRead = 0;
-                int sleepInterval = 1;
-                int maxTimeout = 100;
+                int sleepInterval = 25;
+                int maxTimeout = 500;
                 int currentTimeout = 0;
                 bool timeout = false;
 
@@ -430,6 +430,11 @@ namespace BigQ
                         {
                             headerMs.Write(headerBuffer, 0, read);
                             BytesRead += read;
+
+                            //
+                            // reset timeout since there was a successful read
+                            //
+                            currentTimeout = 0;
                         }
 
                         if (read == 1)

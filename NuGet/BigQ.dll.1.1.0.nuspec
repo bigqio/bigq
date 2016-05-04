@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+    <metadata>
+        <id>BigQ.dll</id>
+        <version>1.1.0</version>
+        <title>BigQ</title>
+        <authors>jchristn</authors>
+        <licenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</licenseUrl>
+        <projectUrl>https://github.com/bigqio/bigq</projectUrl>
+        <iconUrl>http://www.bigq.io/ascii-art-q-small.png</iconUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>bigq is a messaging platform using TCP sockets featuring sync, async, channel, and private communications.</description>
+        <summary>bigq is a messaging platform using TCP sockets featuring sync, async, channel, and private communications.</summary>
+        <releaseNotes>Bugfix: reset timeout on successful socket read</releaseNotes>
+        <copyright>(c)2016 Marauder Software Inc</copyright>
+        <language />
+        <tags>mq message queue messaging tcp sockets</tags>
+    </metadata>
+    <files>
+        <file src="..\bigq\bin\debug\BigQ.dll" target="lib\BigQ.dll" />
+        <file src="..\bigq\bin\debug\Newtonsoft.Json.dll" target="lib\Newtonsoft.Json.dll" />
+        <file src="..\bigq\bin\debug\System.Data.Portable.dll" target="lib\System.Data.Portable.dll" />
+        <file src="..\bigq\bin\debug\System.Transactions.Portable.dll" target="lib\System.Transactions.Portable.dll" />
+    </files>
+</package>

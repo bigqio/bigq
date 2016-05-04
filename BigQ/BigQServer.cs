@@ -15,8 +15,10 @@ namespace BigQ
     {
         #region Class-Members
 
-        public List<BigQChannel> Channels;
-        public List<BigQClient> Clients;
+        public volatile List<BigQClient> Clients;
+        private readonly object ClientsLock;
+        public volatile List<BigQChannel> Channels;
+        private readonly object ChannelsLock;
         public DateTime Created;
 
         private string ListenerIp;
@@ -31,9 +33,6 @@ namespace BigQ
         
         private int HeartbeatIntervalMsec;
         private int MaxHeartbeatFailures;
-
-        private readonly object ChannelsLock;
-        private readonly object ClientsLock;
         private int ActiveConnectionThreads;
 
         private bool LogLockMethodResponseTime = false;
@@ -74,16 +73,18 @@ namespace BigQ
 
             this.ListenerIp = ip;
             this.ListenerPort = port;
-            Channels = new List<BigQChannel>();
+
             Clients = new List<BigQClient>();
+            ClientsLock = new object();
+            Channels = new List<BigQChannel>();
+            ChannelsLock = new object();
             Created = DateTime.Now.ToUniversalTime();
+
             SendAcknowledgements = sendAck;
             SendServerJoinNotifications = sendServerJoinNotifications;
             SendChannelJoinNotifications = sendChannelJoinNotifications;
             ConsoleDebug = debug;
 
-            ChannelsLock = new object();
-            ClientsLock = new object();
             ActiveConnectionThreads = 0;
             HeartbeatIntervalMsec = heartbeatIntervalMsec;
             MaxHeartbeatFailures = 5;
@@ -820,18 +821,16 @@ namespace BigQ
                 }
 
                 BigQClient ret = null;
-                lock (ClientsLock)
+                List<BigQClient> ClientsCache = Clients;
+                foreach (BigQClient curr in ClientsCache)
                 {
-                    foreach (BigQClient curr in Clients)
+                    if (String.Compare(curr.ClientGuid, guid) == 0)
                     {
-                        if (String.Compare(curr.ClientGuid, guid) == 0)
-                        {
-                            ret = curr;
-                            break;
-                        }
+                        ret = curr;
+                        break;
                     }
                 }
-
+            
                 if (ret == null)
                 {
                     Log("*** GetClientByGuid unable to find client by GUID " + guid);
@@ -864,14 +863,12 @@ namespace BigQ
                 }
 
                 List<BigQClient> ret = new List<BigQClient>();
-                lock (ClientsLock)
+                List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
+                foreach (BigQClient curr in ClientsCache)
                 {
-                    foreach (BigQClient curr in Clients)
+                    if (!String.IsNullOrEmpty(curr.ClientGuid))
                     {
-                        if (!String.IsNullOrEmpty(curr.ClientGuid))
-                        {
-                            ret.Add(curr);
-                        }
+                        ret.Add(curr);
                     }
                 }
 
@@ -905,22 +902,21 @@ namespace BigQ
                 }
 
                 BigQChannel ret = null;
-                lock (ChannelsLock)
+                List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
+
+                foreach (BigQChannel curr in ChannelsCache)
                 {
-                    foreach (BigQChannel curr in Channels)
+                    if (String.Compare(curr.Guid, guid) == 0)
                     {
-                        if (String.Compare(curr.Guid, guid) == 0)
-                        {
-                            ret = new BigQChannel();
-                            ret.Guid = curr.Guid;
-                            ret.ChannelName = curr.ChannelName;
-                            ret.OwnerGuid = curr.OwnerGuid;
-                            ret.CreatedUTC = curr.CreatedUTC;
-                            ret.UpdatedUTC = curr.UpdatedUTC;
-                            ret.Private = curr.Private;
-                            ret.Subscribers = curr.Subscribers;
-                            break;
-                        }
+                        ret = new BigQChannel();
+                        ret.Guid = curr.Guid;
+                        ret.ChannelName = curr.ChannelName;
+                        ret.OwnerGuid = curr.OwnerGuid;
+                        ret.CreatedUTC = curr.CreatedUTC;
+                        ret.UpdatedUTC = curr.UpdatedUTC;
+                        ret.Private = curr.Private;
+                        ret.Subscribers = curr.Subscribers;
+                        break;
                     }
                 }
 
@@ -955,15 +951,7 @@ namespace BigQ
                     return null;
                 }
 
-                List<BigQChannel> ret = new List<BigQChannel>();
-                lock (ChannelsLock)
-                {
-                    foreach (BigQChannel curr in Channels)
-                    {
-                        ret.Add(curr);
-                    }
-                }
-
+                List<BigQChannel> ret = new List<BigQChannel>(Channels);
                 Log("GetAllChannels returning " + ret.Count + " channels");
                 return ret;
             }
@@ -994,16 +982,15 @@ namespace BigQ
                 }
 
                 List<BigQClient> ret = new List<BigQClient>();
-                lock (ChannelsLock)
+                List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
+                
+                foreach (BigQChannel curr in ChannelsCache)
                 {
-                    foreach (BigQChannel curr in Channels)
+                    if (String.Compare(curr.Guid, guid) == 0)
                     {
-                        if (String.Compare(curr.Guid, guid) == 0)
+                        foreach (BigQClient CurrentClient in curr.Subscribers)
                         {
-                            foreach (BigQClient CurrentClient in curr.Subscribers)
-                            {
-                                ret.Add(CurrentClient);
-                            }
+                            ret.Add(CurrentClient);
                         }
                     }
                 }
@@ -1031,20 +1018,20 @@ namespace BigQ
                     return null;
                 }
 
-                if (Channels == null || Channels.Count < 1) return null;
                 BigQChannel ret = null;
-                lock (ChannelsLock)
+                List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
+                
+                foreach (BigQChannel curr in ChannelsCache)
                 {
-                    foreach (BigQChannel curr in Channels)
+                    if (String.IsNullOrEmpty(curr.ChannelName)) continue;
+
+                    if (String.Compare(curr.ChannelName.ToLower(), name.ToLower()) == 0)
                     {
-                        if (String.Compare(curr.ChannelName.ToLower(), name.ToLower()) == 0)
-                        {
-                            ret = curr;
-                            break;
-                        }
+                        ret = curr;
+                        break;
                     }
                 }
-
+                
                 return ret;
             }
             finally
@@ -1072,7 +1059,8 @@ namespace BigQ
                 lock (ClientsLock)
                 {
                     Log("AddClient " + CurrentClient.IpPort() + " entering with " + Clients.Count + " entries in client list");
-                    
+                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
+
                     if (Clients.Count < 1)
                     {
                         #region First-Client
@@ -1087,7 +1075,7 @@ namespace BigQ
 
                         bool matchFound = false;
 
-                        foreach (BigQClient curr in Clients)
+                        foreach (BigQClient curr in ClientsCache)
                         {
                             if (curr.SourceIp == CurrentClient.SourceIp
                                 && curr.SourcePort == CurrentClient.SourcePort)
@@ -1158,19 +1146,22 @@ namespace BigQ
 
                 lock (ClientsLock)
                 {
-                    if (Clients == null || Clients.Count < 1)
+                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
+
+                    if (ClientsCache == null || ClientsCache.Count < 1)
                     {
                         Log("RemoveClient no clients");
                         return true;
                     }
 
-                    Log("RemoveClient entering with " + Clients.Count + " entries in client list");
-                    
+                    Log("RemoveClient entering with " + ClientsCache.Count + " entries in client list");
+                    UpdatedList = new List<BigQClient>();
+
                     if (String.IsNullOrEmpty(CurrentClient.ClientGuid))
                     {
                         #region Remove-Using-IP-Port
 
-                        foreach (BigQClient curr in Clients)
+                        foreach (BigQClient curr in ClientsCache)
                         {
                             if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0
                                 && curr.SourcePort == CurrentClient.SourcePort)
@@ -1187,7 +1178,7 @@ namespace BigQ
                     {
                         #region Remove-Using-GUID
 
-                        foreach (BigQClient curr in Clients)
+                        foreach (BigQClient curr in ClientsCache)
                         {
                             if (!String.IsNullOrEmpty(curr.ClientGuid))
                             {
@@ -1237,7 +1228,9 @@ namespace BigQ
 
                 lock (ChannelsLock)
                 {
-                    if (Channels == null || Channels.Count < 1)
+                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
+
+                    if (ChannelsCache == null || ChannelsCache.Count < 1)
                     {
                         Log("RemoveClientChannels no channels");
                         return true;
@@ -1245,7 +1238,7 @@ namespace BigQ
 
                     List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
 
-                    foreach (BigQChannel curr in Channels)
+                    foreach (BigQChannel curr in ChannelsCache)
                     {
                         if (String.Compare(curr.OwnerGuid, CurrentClient.ClientGuid) != 0)
                         {
@@ -1263,7 +1256,7 @@ namespace BigQ
                                     // create another reference in case list is modified
                                     //
                                     BigQChannel TempChannel = curr;
-                                    List<BigQClient> TempSubscribers = curr.Subscribers;
+                                    List<BigQClient> TempSubscribers = new List<BigQClient>(curr.Subscribers);
 
                                     Task.Factory.StartNew(() =>
                                         {
@@ -1324,15 +1317,17 @@ namespace BigQ
 
                 lock (ClientsLock)
                 {
-                    if (Clients == null || Clients.Count < 1)
+                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
+
+                    if (ClientsCache == null || ClientsCache.Count < 1)
                     {
                         Log("*** UpdateClient " + CurrentClient.IpPort() + " no entries, nothing to update");
                         return false;
                     }
 
-                    Log("UpdateClient " + CurrentClient.IpPort() + " entering with " + Clients.Count + " entries in client list");
+                    Log("UpdateClient " + CurrentClient.IpPort() + " entering with " + ClientsCache.Count + " entries in client list");
                     
-                    foreach (BigQClient curr in Clients)
+                    foreach (BigQClient curr in ClientsCache)
                     {
                         if (String.IsNullOrEmpty(curr.ClientGuid))
                         {
@@ -1455,16 +1450,24 @@ namespace BigQ
                     return false;
                 }
 
+                List<BigQChannel> UpdatedList = new List<BigQChannel>();
+
                 lock (ChannelsLock)
                 {
+                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
                     bool found = false;
 
-                    foreach (BigQChannel curr in Channels)
+                    foreach (BigQChannel curr in ChannelsCache)
                     {
                         if (String.Compare(curr.Guid, CurrentChannel.Guid) == 0)
                         {
+                            Log("Channel with GUID " + CurrentChannel.Guid + " already exists");
                             found = true;
-                            break;
+                            UpdatedList.Add(curr);
+                        }
+                        else
+                        {
+                            UpdatedList.Add(curr);
                         }
                     }
 
@@ -1477,12 +1480,10 @@ namespace BigQ
                         CurrentChannel.Subscribers = new List<BigQClient>();
                         CurrentChannel.Subscribers.Add(CurrentClient);
                         CurrentChannel.OwnerGuid = CurrentClient.ClientGuid;
-                        Channels.Add(CurrentChannel);
+                        UpdatedList.Add(CurrentChannel);
                     }
-                    else
-                    {
-                        Log("*** Channel with GUID " + CurrentChannel.Guid + " already exists");
-                    }
+
+                    Channels = UpdatedList;
                 }
 
                 return true;
@@ -1509,7 +1510,9 @@ namespace BigQ
 
                 lock (ChannelsLock)
                 {
-                    if (Channels == null || Channels.Count < 1)
+                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
+
+                    if (ChannelsCache == null || ChannelsCache.Count < 1)
                     {
                         Log("RemoveChannel no channels");
                         return true;
@@ -1517,7 +1520,7 @@ namespace BigQ
 
                     List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
 
-                    foreach (BigQChannel Channel in Channels)
+                    foreach (BigQChannel Channel in ChannelsCache)
                     {
                         if (String.Compare(Channel.Guid, CurrentChannel.Guid) != 0)
                         {
@@ -1536,7 +1539,7 @@ namespace BigQ
                                     // create another reference in case list is modified
                                     //
                                     BigQChannel TempChannel = Channel;
-                                    List<BigQClient> TempSubscribers = Channel.Subscribers;
+                                    List<BigQClient> TempSubscribers = new List<BigQClient>(Channel.Subscribers);
 
                                     Task.Factory.StartNew(() =>
                                         { 
@@ -1596,26 +1599,18 @@ namespace BigQ
 
                 lock (ChannelsLock)
                 {
-                    #region Check-for-Null-or-Empty-Channels
+                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
 
-                    if (Channels == null || Channels.Count < 1)
+                    if (ChannelsCache == null || ChannelsCache.Count < 1)
                     {
                         Log("*** AddChannelSubscriber no channels");
                         return false;
                     }
-
-                    #endregion
-
-                    #region Variables
-
+                    
                     BigQChannel UpdatedChannel = new BigQChannel();
                     List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
-
-                    #endregion
-
-                    #region Iterate
-
-                    foreach (BigQChannel Channel in Channels)
+                    
+                    foreach (BigQChannel Channel in ChannelsCache)
                     {
                         Log("AddChannelSubscriber comparing existing channel GUID " + Channel.Guid + " with match " + CurrentChannel.Guid);
 
@@ -1650,7 +1645,9 @@ namespace BigQ
 
                                 bool found = false;
 
-                                foreach (BigQClient Client in Channel.Subscribers)
+                                List<BigQClient> ClientsCache = new List<BigQClient>(Channel.Subscribers);
+
+                                foreach (BigQClient Client in ClientsCache)
                                 {
                                     Log("AddChannelSubscriber comparing client GUID " + CurrentClient.ClientGuid + " with existing member " + Client.ClientGuid);
 
@@ -1688,9 +1685,7 @@ namespace BigQ
                             #endregion
                         }
                     }
-
-                    #endregion
-
+                    
                     Channels = UpdatedChannelsList;
                 }
 
@@ -1727,16 +1722,18 @@ namespace BigQ
                 lock (ChannelsLock)
                 {
                     List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
+                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
 
-                    foreach (BigQChannel Channel in Channels)
+                    foreach (BigQChannel Channel in ChannelsCache)
                     {
                         BigQChannel UpdatedChannel = new BigQChannel();
 
                         if (String.Compare(Channel.Guid, CurrentChannel.Guid) == 0)
                         {
                             List<BigQClient> UpdatedSubscribersList = new List<BigQClient>();
+                            List<BigQClient> ClientsCache = new List<BigQClient>(Channel.Subscribers);
 
-                            foreach (BigQClient Client in Channel.Subscribers)
+                            foreach (BigQClient Client in ClientsCache)
                             {
                                 if (String.Compare(Client.ClientGuid, CurrentClient.ClientGuid) != 0)
                                 {
@@ -1783,7 +1780,9 @@ namespace BigQ
             {
                 lock (ChannelsLock)
                 {
-                    foreach (BigQClient curr in CurrentChannel.Subscribers)
+                    List<BigQClient> ClientsCache = new List<BigQClient>(CurrentChannel.Subscribers);
+
+                    foreach (BigQClient curr in ClientsCache)
                     {
                         if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
                         {
@@ -1822,7 +1821,9 @@ namespace BigQ
 
                 lock (ClientsLock)
                 {
-                    foreach (BigQClient curr in Clients)
+                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
+
+                    foreach (BigQClient curr in ClientsCache)
                     {
                         if (String.IsNullOrEmpty(curr.ClientGuid)) continue;
 
@@ -1879,7 +1880,7 @@ namespace BigQ
             BigQChannel ret = null;
             try
             {
-                ret = BigQHelper.JObjectToObject<BigQChannel>(CurrentMessage.Data);
+                ret = BigQHelper.DeserializeJson<BigQChannel>(CurrentMessage.Data, false);
             }
             catch (Exception e)
             {
