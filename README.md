@@ -7,10 +7,11 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
 ## description
-bigq is a messaging platform using TCP sockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.
+bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.
 
 Core use cases for bigq:
 - simple sockets wrapper - we make sockets programming easier
+- connecting TCP-based applications with those limited to use of websockets
 - real-time messaging like chat applications
 - message distribution/publisher-subscriber using channels
 - cluster management
@@ -144,6 +145,9 @@ if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
 //
 if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
 ```
+
+## connecting using websockets
+please refer to the sample Javascript chat application on github.
 
 ## bigq framing
 bigq uses a simple framing mechanism that closely follows HTTP.  A set of headers start each message, with each header ending in a carriage return and newline ```\r\n```.  The headers contain a variety of metadata, and most importantly, ContentLength, which indicates how many bytes are to be read after the header delimiter.  The header delimiter is an additional carriage return and newline ```\r\n``` which follows the carriage return and newline of the final header.  The body is internally treated as a byte array so the connected clients will need to manage encoding.
