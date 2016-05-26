@@ -39,9 +39,8 @@ namespace BigQServerTest
 
             //
             // initialize
-            // to enable debug, set the second boolean parameter to true
             //
-            server = new BigQServer(null, 8000, DEBUG, true, true, true, 0);
+            server = new BigQServer(null, 8000, null, 8001, DEBUG, true, true, true, 0);
 
             // callbacks
             server.MessageReceived = MessageReceived;
@@ -49,7 +48,7 @@ namespace BigQServerTest
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
-            // server.LogMessage = LogMessage;
+            server.LogMessage = LogMessage;
 
             bool RunForever = true;
             while (RunForever)
@@ -125,7 +124,8 @@ namespace BigQServerTest
                                 if (String.IsNullOrEmpty(curr.ClientGuid)) Console.Write("[login pending] ");
                                 else Console.Write(curr.Email + " [" + curr.ClientGuid + "] ");
 
-                                if (curr.Client == null) Console.Write("[null TCP!] ");
+                                if (curr.IsTCP) Console.Write("[TCP] ");
+                                if (curr.IsWebsocket) Console.Write("[WS] ");
                                 Console.WriteLine("");
                             }
                         }
@@ -159,13 +159,13 @@ namespace BigQServerTest
             // restart
             Console.WriteLine("*** Server stopped, attempting to restart ***");
             server = null;
-            server = new BigQServer(null, 8000, DEBUG, true, true, true, 0);
+            server = new BigQServer(null, 8000, null, 8001, DEBUG, true, true, true, 0);
             server.MessageReceived = MessageReceived;
             server.ServerStopped = ServerStopped;
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
-            // server.LogMessage = LogMessage;
+            server.LogMessage = LogMessage;
             return true;
         }
 

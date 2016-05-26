@@ -8,9 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using BigQ;
 
-namespace BigQClientTest
+namespace BigQClientTestTCP
 {
-    class ClientTest
+    class ClientTestTCP
     {
         static BigQClient client;
         const bool DEBUG = true;
@@ -37,7 +37,7 @@ namespace BigQClientTest
 
             Console.WriteLine("");
             Console.WriteLine("");
-            Console.WriteLine("BigQ Client");
+            Console.WriteLine("BigQ ClientTCPInterface");
             Console.WriteLine("");
 
             string guid = "";
@@ -114,15 +114,15 @@ namespace BigQClientTest
 
                     case "isclientconnected":
                         if (client == null) break;
-                        Console.Write("Client GUID: ");
+                        Console.Write("ClientTCPInterface GUID: ");
                         guid = Console.ReadLine();
                         if (client.IsClientConnected(guid, out response))
                         {
-                            Console.WriteLine("Client " + guid + " is connected");
+                            Console.WriteLine("ClientTCPInterface " + guid + " is connected");
                         }
                         else
                         {
-                            Console.WriteLine("Client " + guid + " is not connected");
+                            Console.WriteLine("ClientTCPInterface " + guid + " is not connected");
                         }
                         break;
                          

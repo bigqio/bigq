@@ -1,0 +1,10 @@
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\BigQClientTest.exe.config
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\BigQClientTest.exe
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\BigQClientTest.pdb
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\BigQ.dll
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\Newtonsoft.Json.dll
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\BigQ.pdb
+D:\Code\BigQ\BigQwithWS\BigQClientTest\bin\Debug\Newtonsoft.Json.xml
+D:\Code\BigQ\BigQwithWS\BigQClientTest\obj\Debug\BigQClientTestTCP.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQwithWS\BigQClientTest\obj\Debug\BigQClientTest.exe
+D:\Code\BigQ\BigQwithWS\BigQClientTest\obj\Debug\BigQClientTest.pdb

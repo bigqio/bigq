@@ -17,13 +17,23 @@ namespace BigQ
 
         #region Class-Variables
 
+        /// <summary>
+        /// The type of event.
+        /// </summary>
         public string EventType;
+
+        /// <summary>
+        /// Event-related data.
+        /// </summary>
         public object Data;
 
         #endregion
 
         #region Constructor
 
+        /// <summary>
+        /// Do not use.  Used internally by BigQ libraries.
+        /// </summary>
         public BigQEvent()
         {
 
@@ -32,7 +42,11 @@ namespace BigQ
         #endregion
 
         #region Instance-Methods
-        
+
+        /// <summary>
+        /// Returns a string formatted with event details.
+        /// </summary>
+        /// <returns>Returns a string formatted with event details.</returns>
         public override string ToString()
         {
             string ret = "";

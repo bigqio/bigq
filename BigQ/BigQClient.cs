@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,22 +16,92 @@ namespace BigQ
     {
         #region Class-Members
 
-        public int UserId;
+        /// <summary>
+        /// The email address associated with the client.
+        /// </summary>
         public string Email;
-        public string Password;
-        public string ClientGuid;
-        public string SourceIp;
-        public int SourcePort;
-        public string ServerIp;
-        public int ServerPort;
-        public DateTime? CreatedUTC;
-        public DateTime? UpdatedUTC;
-        public TcpClient Client;
-        
-        public bool Connected;
-        public bool LoggedIn;
-        public bool ConsoleDebug;
 
+        /// <summary>
+        /// The password associated with the client.  Reserved for future use.
+        /// </summary>
+        public string Password;
+
+        /// <summary>
+        /// The GUID associated with the client.
+        /// </summary>
+        public string ClientGuid;
+
+        /// <summary>
+        /// The client's source IP address.
+        /// </summary>
+        public string SourceIp;
+
+        /// <summary>
+        /// The source TCP port number used by the client.
+        /// </summary>
+        public int SourcePort;
+
+        /// <summary>
+        /// The server IP address or hostname to which this client connects.
+        /// </summary>
+        public string ServerIp;
+
+        /// <summary>
+        /// The server TCP port to which this client connects.
+        /// </summary>
+        public int ServerPort;
+
+        /// <summary>
+        /// The UTC timestamp of when this client object was created.
+        /// </summary>
+        public DateTime? CreatedUTC;
+
+        /// <summary>
+        /// The UTC timestamp of when this client object was last updated.
+        /// </summary>
+        public DateTime? UpdatedUTC;
+
+        /// <summary>
+        /// Indicates whether or not the client is using raw TCP sockets for messaging.
+        /// </summary>
+        public bool IsTCP;
+
+        /// <summary>
+        /// Indicates whether or not the client is using websockets for messaging.
+        /// </summary>
+        public bool IsWebsocket;
+
+        /// <summary>
+        /// The TcpClient for this client.  Provides direct access to the underlying socket.
+        /// </summary>
+        public TcpClient ClientTCPInterface;
+
+        /// <summary>
+        /// The HttpListenerContext for this client.  Provides direct access to the underlying HTTP listener context object.
+        /// </summary>
+        public HttpListenerContext ClientHTTPContext;
+
+        /// <summary>
+        /// The WebSocketContext for this client.  Provides direct access to the underlying WebSocket context.
+        /// </summary>
+        public WebSocketContext ClientWSContext;
+
+        /// <summary>
+        /// The WebSocket for this client.  Provides direct access to the underlying WebSocket object.
+        /// </summary>
+        public WebSocket ClientWSInterface;
+
+        /// <summary>
+        /// Indicates whether or not the client is connected to the server.
+        /// </summary>
+        public bool Connected;
+
+        /// <summary>
+        /// Indicates whether or not the client is logged in to the server.
+        /// </summary>
+        public bool LoggedIn;
+        
+        private bool ConsoleDebug;
         private int HeartbeatIntervalMsec;
         private int MaxHeartbeatFailures;
         private CancellationTokenSource CdrTokenSource = null;
@@ -45,7 +116,7 @@ namespace BigQ
 
         #endregion
 
-        #region Delegates
+        #region Public-Delegates
 
         public Func<BigQMessage, bool> AsyncMessageReceived;
         public Func<BigQMessage, byte[]> SyncMessageReceived;
@@ -54,14 +125,25 @@ namespace BigQ
 
         #endregion
 
-        #region Constructors
+        #region Public-Constructors
 
-        // used by the server
+        /// <summary>
+        /// This constructor is used by BigQServer.  Do not use it in client applications!
+        /// </summary>
         public BigQClient()
         {
         }
 
-        // used by the client
+        /// <summary>
+        /// Create a BigQ client instance and connect to the server.
+        /// </summary>
+        /// <param name="email">The email address for the client (null is acceptable).</param>
+        /// <param name="guid">The GUID for the client (null is acceptable).</param>
+        /// <param name="ip">The IP address or hostname for the server (must not be null).</param>
+        /// <param name="port">The TCP port number of the server (must be greater than zero).</param>
+        /// <param name="syncTimeoutMsec">The number of milliseconds before timing out a synchronous message request.</param>
+        /// <param name="heartbeatIntervalMsec">The number of milliseconds before timing out a heartbeat message to the server.</param>
+        /// <param name="debug">Indicates whether or not debugging is used.</param>
         public BigQClient(
             string email, 
             string guid, 
@@ -116,22 +198,22 @@ namespace BigQ
             // see https://social.msdn.microsoft.com/Forums/vstudio/en-US/2281199d-cd28-4b5c-95dc-5a888a6da30d/tcpclientconnect-timeout?forum=csharpgeneral
             // removed using statement since resources are managed by the caller
             //
-            Client = new TcpClient();
-            IAsyncResult ar = Client.BeginConnect(ip, port, null, null);
+            ClientTCPInterface = new TcpClient();
+            IAsyncResult ar = ClientTCPInterface.BeginConnect(ip, port, null, null);
             WaitHandle wh = ar.AsyncWaitHandle;
 
             try
             {
                 if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
                 {
-                    Client.Close();
+                    ClientTCPInterface.Close();
                     throw new TimeoutException("Timeout connecting to " + ip + ":" + port);
                 }
 
-                Client.EndConnect(ar);
+                ClientTCPInterface.EndConnect(ar);
 
-                SourceIp = ((IPEndPoint)Client.Client.LocalEndPoint).Address.ToString();
-                SourcePort = ((IPEndPoint)Client.Client.LocalEndPoint).Port;
+                SourceIp = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Address.ToString();
+                SourcePort = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Port;
             }
             catch (Exception e)
             {
@@ -175,9 +257,748 @@ namespace BigQ
             //
             // HbTokenSource = new CancellationTokenSource();
             // HbToken = HbTokenSource.Token;
-            // Task.Factory.StartNew(() => HeartbeatManager());
+            // Task.Factory.StartNew(() => TCPHeartbeatManager());
 
             #endregion
+        }
+
+        #endregion
+
+        #region Public-Methods
+
+        /// <summary>
+        /// Sends a message; makes the assumption that you have populated the object fully and correctly.  In general, this method should not be used.
+        /// </summary>
+        /// <param name="message">The populated message object to send.</param>
+        /// <returns></returns>
+        public bool SendRawMessage(BigQMessage message)
+        {
+            if (message == null) throw new ArgumentNullException("message");
+            return ConnectionDataSender(message);
+        }
+
+        /// <summary>
+        /// Generates an echo request to the server, which should result in an asynchronous echo response.  Typically used to validate connectivity.
+        /// </summary>
+        /// <returns></returns>
+        public bool Echo()
+        {
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "Echo";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = null;
+            return ConnectionDataSender(request);
+        }
+
+        /// <summary>
+        /// Login to the server.
+        /// </summary>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating if the login was successful.</returns>
+        public bool Login(out BigQMessage response)
+        {
+            response = null;
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "Login";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** Login unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** Login null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** Login failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                LoggedIn = true;
+
+                // stop existing heartbeat thread
+                if (HbTokenSource != null) HbTokenSource.Cancel();
+
+                // start new heartbeat thread
+                HbTokenSource = new CancellationTokenSource();
+                HbToken = HbTokenSource.Token;
+                Task.Factory.StartNew(() => HeartbeatManager());
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve a list of all clients on the server.
+        /// </summary>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <param name="clients">The list of clients received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool ListClients(out BigQMessage response, out List<BigQClient> clients)
+        {
+            response = null;
+            clients = null;
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListClients";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** ListClients unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** ListClients null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** ListClients failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
+                }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve a list of all channels on the server.
+        /// </summary>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <param name="channels">The list of channels received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool ListChannels(out BigQMessage response, out List<BigQChannel> channels)
+        {
+            response = null;
+            channels = null;
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListChannels";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** ListChannels unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** ListChannels null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** ListChannels failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    channels = BigQHelper.DeserializeJson<List<BigQChannel>>(response.Data, false);
+                }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve a list of all subscribers in a specific channel.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <param name="clients">The list of clients subscribed to the specified channel on the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool ListChannelSubscribers(string guid, out BigQMessage response, out List<BigQClient> clients)
+        {
+            response = null;
+            clients = null;
+
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListChannelSubscribers";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** ListChannelSubscribers unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** ListChannelSubscribers null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** ListChannelSubscribers failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                Console.WriteLine(response.Data);
+                if (response.Data != null)
+                {
+                    clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
+                }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Join a specified channel on the server.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool JoinChannel(string guid, out BigQMessage response)
+        {
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "JoinChannel";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** JoinChannel unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** JoinChannel null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** JoinChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Leave a channel on the server to which you are joined.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool LeaveChannel(string guid, out BigQMessage response)
+        {
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "LeaveChannel";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** LeaveChannel unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** LeaveChannel null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** LeaveChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Create a channel on the server.
+        /// </summary>
+        /// <param name="name">The name you wish to assign to the new channel.</param>
+        /// <param name="priv">Whether or not the channel is private (1) or public (0).</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool CreateChannel(string name, int priv, out BigQMessage response)
+        {
+            response = null;
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
+            if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
+
+            BigQChannel CurrentChannel = new BigQChannel();
+            CurrentChannel.ChannelName = name;
+            CurrentChannel.OwnerGuid = ClientGuid;
+            CurrentChannel.Guid = Guid.NewGuid().ToString();
+            CurrentChannel.Private = priv;
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "CreateChannel";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = CurrentChannel.Guid;
+            request.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(CurrentChannel));
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** CreateChannel unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** CreateChannel null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** CreateChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Delete a channel you own on the server.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool DeleteChannel(string guid, out BigQMessage response)
+        {
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "DeleteChannel";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** DeleteChannel unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** DeleteChannel null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** DeleteChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Send a private message to another user on this server asynchronously.
+        /// </summary>
+        /// <param name="guid">The GUID of the recipient user.</param>
+        /// <param name="data">The data you wish to send to the user (string or byte array).</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendPrivateMessageAsync(string guid, string data)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+            return SendPrivateMessageAsync(guid, Encoding.UTF8.GetBytes(data));
+        }
+
+        /// <summary>
+        /// Send a private message to another user on this server asynchronously.
+        /// </summary>
+        /// <param name="guid">The GUID of the recipient user.</param>
+        /// <param name="data">The data you wish to send to the user (string or byte array).</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendPrivateMessageAsync(string guid, byte[] data)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (data == null) throw new ArgumentNullException("data");
+
+            BigQMessage CurrentMessage = new BigQMessage();
+            CurrentMessage.Email = Email;
+            CurrentMessage.Password = Password;
+            CurrentMessage.Command = null;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.MessageId = Guid.NewGuid().ToString();
+            CurrentMessage.SenderGuid = ClientGuid;
+            CurrentMessage.RecipientGuid = guid;
+            CurrentMessage.ChannelGuid = null;
+            CurrentMessage.Data = data;
+            return ConnectionDataSender(CurrentMessage);
+        }
+
+        /// <summary>
+        /// Send a private message to another user on this server synchronously.
+        /// </summary>
+        /// <param name="guid">The GUID of the recipient user.</param>
+        /// <param name="data">The data you wish to send to the user (string or byte array).</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendPrivateMessageSync(string guid, string data, out BigQMessage response)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+            return SendPrivateMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
+        }
+
+        /// <summary>
+        /// Send a private message to another user on this server synchronously.
+        /// </summary>
+        /// <param name="guid">The GUID of the recipient user.</param>
+        /// <param name="data">The data you wish to send to the user (string or byte array).</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendPrivateMessageSync(string guid, byte[] data, out BigQMessage response)
+        {
+            response = null;
+
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (data == null) throw new ArgumentNullException("data");
+
+            BigQMessage CurrentMessage = new BigQMessage();
+            CurrentMessage.Email = Email;
+            CurrentMessage.Password = Password;
+            CurrentMessage.Command = null;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.MessageId = Guid.NewGuid().ToString();
+            CurrentMessage.SenderGuid = ClientGuid;
+            CurrentMessage.RecipientGuid = guid;
+            CurrentMessage.ChannelGuid = null;
+            CurrentMessage.SyncRequest = true;
+            CurrentMessage.Data = data;
+
+            if (!AddSyncRequest(CurrentMessage.MessageId))
+            {
+                Log("*** SendPrivateMessageSync unable to register sync request GUID " + CurrentMessage.MessageId);
+                return false;
+            }
+
+            if (!ConnectionDataSender(CurrentMessage))
+            {
+                Log("*** SendPrivateMessage unable to send message GUID " + CurrentMessage.MessageId + " to recipient " + CurrentMessage.RecipientGuid);
+                return false;
+            }
+
+            BigQMessage ResponseMessage = new BigQMessage();
+            if (!GetSyncResponse(CurrentMessage.MessageId, out ResponseMessage))
+            {
+                Log("*** SendPrivateMessage unable to get response for message GUID " + CurrentMessage.MessageId);
+                return false;
+            }
+
+            if (!RemoveSyncRequest(CurrentMessage.MessageId))
+            {
+                Log("*** SendPrivateMessage unable to remove sync request for message GUID " + CurrentMessage.MessageId);
+                return false;
+            }
+
+            if (ResponseMessage != null) response = ResponseMessage;
+            return true;
+        }
+
+        /// <summary>
+        /// Send a private message to the server asynchronously.
+        /// </summary>
+        /// <param name="request">The message object you wish to send to the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendServerMessageAsync(BigQMessage request)
+        {
+            if (request == null) throw new ArgumentNullException("request");
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            return ConnectionDataSender(request);
+        }
+
+        /// <summary>
+        /// Send a private message to the server synchronously.
+        /// </summary>
+        /// <param name="request">The message object you wish to send to the server.</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendServerMessageSync(BigQMessage request, out BigQMessage response)
+        {
+            response = null;
+
+            if (request == null) throw new ArgumentNullException("request");
+            if (String.IsNullOrEmpty(request.MessageId)) request.MessageId = Guid.NewGuid().ToString();
+            request.SyncRequest = true;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+
+            if (!AddSyncRequest(request.MessageId))
+            {
+                Log("*** SendServerMessageSync unable to register sync request GUID " + request.MessageId);
+                return false;
+            }
+
+            if (!ConnectionDataSender(request))
+            {
+                Log("*** SendServerMessageSync unable to send message GUID " + request.MessageId + " to server");
+                return false;
+            }
+
+            BigQMessage ResponseMessage = new BigQMessage();
+            if (!GetSyncResponse(request.MessageId, out ResponseMessage))
+            {
+                Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageId);
+                return false;
+            }
+
+            if (!RemoveSyncRequest(request.MessageId))
+            {
+                Log("*** SendServerMessageSync unable to remove sync request for message GUID " + request.MessageId);
+                return false;
+            }
+
+            if (ResponseMessage != null) response = ResponseMessage;
+            return true;
+        }
+
+        /// <summary>
+        /// Send a message to a channel, which is in turn sent to each subscriber of that channel.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendChannelMessage(string guid, string data)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+            return SendChannelMessage(guid, Encoding.UTF8.GetBytes(data));
+        }
+
+        /// <summary>
+        /// Send a message to a channel, which is in turn sent to each subscriber of that channel.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendChannelMessage(string guid, byte[] data)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (data == null) throw new ArgumentNullException("data");
+
+            BigQMessage CurrentMessage = new BigQMessage();
+            CurrentMessage.Email = Email;
+            CurrentMessage.Password = Password;
+            CurrentMessage.Command = null;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.MessageId = Guid.NewGuid().ToString();
+            CurrentMessage.SenderGuid = ClientGuid;
+            CurrentMessage.RecipientGuid = null;
+            CurrentMessage.ChannelGuid = guid;
+            CurrentMessage.Data = data;
+            return ConnectionDataSender(CurrentMessage);
+        }
+
+        /// <summary>
+        /// Retrieve the list of synchronous requests awaiting responses.
+        /// </summary>
+        /// <param name="response">A dictionary containing the GUID of the synchronous request (key) and the timestamp it was sent (value).</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool PendingSyncRequests(out Dictionary<string, DateTime> response)
+        {
+            response = null;
+            if (SyncRequests == null) return true;
+            if (SyncRequests.Count < 1) return true;
+
+            response = SyncRequests.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            return true;
+        }
+
+        /// <summary>
+        /// Discern whether or not a given client is connected.
+        /// </summary>
+        /// <param name="guid">The GUID of the client.</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool IsClientConnected(string guid, out BigQMessage response)
+        {
+            response = null;
+
+            BigQMessage request = new BigQMessage();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "IsClientConnected";
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.MessageId = Guid.NewGuid().ToString();
+            request.SenderGuid = ClientGuid;
+            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
+            request.SyncRequest = true;
+            request.ChannelGuid = null;
+            request.Data = Encoding.UTF8.GetBytes(guid);
+
+            if (!SendServerMessageSync(request, out response))
+            {
+                Log("*** ListClients unable to retrieve server response");
+                return false;
+            }
+
+            if (response == null)
+            {
+                Log("*** ListClients null response from server");
+                return false;
+            }
+
+            if (!BigQHelper.IsTrue(response.Success))
+            {
+                Log("*** ListClients failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    return BigQHelper.IsTrue(Encoding.UTF8.GetString(response.Data));
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve a structured string containing the IP address and port of the client in the format of 10.1.142.12:31763.
+        /// </summary>
+        /// <returns>Formatted string containing the IP address and port of the client.</returns>
+        public string IpPort()
+        {
+            return SourceIp + ":" + SourcePort;
+        }
+
+        /// <summary>
+        /// Close and dispose of client resources.
+        /// </summary>
+        public void Close()
+        {
+            if (CdrTokenSource != null) CdrTokenSource.Cancel();
+            if (CsrTokenSource != null) CsrTokenSource.Cancel();
+            if (HbTokenSource != null) HbTokenSource.Cancel();
+
+            if (ClientTCPInterface != null)
+            {
+                if (ClientTCPInterface.Connected)
+                {
+                    //
+                    // close the TCP stream
+                    //
+                    if (ClientTCPInterface.GetStream() != null)
+                    {
+                        ClientTCPInterface.GetStream().Close();
+                    }
+                }
+
+                // 
+                // close the client
+                //
+
+                if (ClientTCPInterface != null) ClientTCPInterface.Close();
+            }
+
+            ClientTCPInterface = null;
+            return;
         }
 
         #endregion
@@ -430,7 +1251,7 @@ namespace BigQ
 
             if (Message == null)
             {
-                Log("*** ConnectionDataSender null message supplied");
+                Log("*** TCPDataSender null message supplied");
                 return false;
             }
 
@@ -438,7 +1259,7 @@ namespace BigQ
 
             #region Check-if-Client-Connected
 
-            if (!BigQHelper.IsPeerConnected(Client))
+            if (!BigQHelper.IsTCPPeerConnected(ClientTCPInterface))
             {
                 Log("Server " + ServerIp + ":" + ServerPort + " not connected");
                 Connected = false;
@@ -451,7 +1272,7 @@ namespace BigQ
             
             #region Send-Message
 
-            if (!BigQHelper.MessageWrite(Client, Message))
+            if (!BigQHelper.TCPMessageWrite(ClientTCPInterface, Message))
             {
                 Log("Unable to send data to server " + ServerIp + ":" + ServerPort);
                 return false;
@@ -472,13 +1293,13 @@ namespace BigQ
             {
                 #region Attach-to-Stream
 
-                if (!Client.Connected)
+                if (!ClientTCPInterface.Connected)
                 {
-                    Log("*** ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is no longer connected");
+                    Log("*** TCPDataReceiver server " + ServerIp + ":" + ServerPort + " is no longer connected");
                     return;
                 }
 
-                NetworkStream ClientStream = Client.GetStream();
+                NetworkStream ClientStream = ClientTCPInterface.GetStream();
 
                 #endregion
 
@@ -488,9 +1309,9 @@ namespace BigQ
                 {
                     #region Check-if-Client-Connected-to-Server
 
-                    if (!Client.Connected || !BigQHelper.IsPeerConnected(Client))
+                    if (!ClientTCPInterface.Connected || !BigQHelper.IsTCPPeerConnected(ClientTCPInterface))
                     {
-                        Log("*** ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
+                        Log("*** TCPDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
                         Connected = false;
 
                         if (ServerDisconnected != null) Task.Factory.StartNew(() => ServerDisconnected());
@@ -498,7 +1319,7 @@ namespace BigQ
                     }
                     else
                     {
-                        // Log("ConnectionDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
+                        // Log("TCPDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
                     }
 
                     #endregion
@@ -510,15 +1331,15 @@ namespace BigQ
                         #region Read-Message
 
                         BigQMessage CurrentMessage = null;
-                        if (!BigQHelper.MessageRead(Client, out CurrentMessage))
+                        if (!BigQHelper.TCPMessageRead(ClientTCPInterface, out CurrentMessage))
                         {
-                            Log("ConnectionDataReceiver unable to read message from server " + ServerIp + ":" + ServerPort);
+                            Log("TCPDataReceiver unable to read message from server " + ServerIp + ":" + ServerPort);
                             continue;
                         }
 
                         if (CurrentMessage == null)
                         {
-                            Log("*** ConnectionDataReceiver null message read from server " + ServerIp + ":" + ServerPort);
+                            Log("*** TCPDataReceiver null message read from server " + ServerIp + ":" + ServerPort);
                             continue;
                         }
 
@@ -544,7 +1365,7 @@ namespace BigQ
                         {
                             #region Handle-Incoming-Sync-Request
 
-                            Log("ConnectionDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
+                            Log("TCPDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
 
                             if (SyncMessageReceived != null)
                             {
@@ -559,18 +1380,18 @@ namespace BigQ
                                 CurrentMessage.RecipientGuid = TempGuid;
 
                                 ConnectionDataSender(CurrentMessage);
-                                Log("ConnectionDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
+                                Log("TCPDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
                             }
                             else
                             {
-                                Log("*** ConnectionDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
+                                Log("*** TCPDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
                                 if (AsyncMessageReceived != null)
                                 {
                                     Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
                                 }
                                 else
                                 {
-                                    Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                    Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
                                 }
                             }
 
@@ -580,40 +1401,40 @@ namespace BigQ
                         {
                             #region Handle-Incoming-Sync-Response
 
-                            Log("ConnectionDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
+                            Log("TCPDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
 
                             if (SyncRequestExists(CurrentMessage.MessageId))
                             {
-                                Log("ConnectionDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
+                                Log("TCPDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
 
                                 if (AddSyncResponse(CurrentMessage))
                                 {
-                                    Log("ConnectionDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
+                                    Log("TCPDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
                                 }
                                 else
                                 {
-                                    Log("*** ConnectionDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                    Log("*** TCPDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
                                     if (AsyncMessageReceived != null)
                                     {
                                         Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
                                     }
                                     else
                                     {
-                                        Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                        Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
                                     }
 
                                 }
                             }
                             else
                             {
-                                Log("*** ConnectionDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                Log("*** TCPDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
                                 if (AsyncMessageReceived != null)
                                 {
                                     Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
                                 }
                                 else
                                 {
-                                    Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                    Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
                                 }
                             }
 
@@ -623,7 +1444,7 @@ namespace BigQ
                         {
                             #region Handle-Async
 
-                            Log("ConnectionDataReceiver async message GUID " + CurrentMessage.MessageId);
+                            Log("TCPDataReceiver async message GUID " + CurrentMessage.MessageId);
 
                             if (AsyncMessageReceived != null)
                             {
@@ -631,7 +1452,7 @@ namespace BigQ
                             }
                             else
                             {
-                                Log("*** ConnectionDataReceiver no method defined for AsyncMessageReceived");
+                                Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
                             }
 
                             #endregion
@@ -647,8 +1468,8 @@ namespace BigQ
             }
             catch (Exception EOuter)
             {
-                Log("*** ConnectionDataReceiver outer exception detected");
-                LogException("ConnectionDataReceiver", EOuter);
+                Log("*** TCPDataReceiver outer exception detected");
+                LogException("TCPDataReceiver", EOuter);
                 if (ServerDisconnected != null) ServerDisconnected();
             }
         }
@@ -661,7 +1482,7 @@ namespace BigQ
 
                 if (HeartbeatIntervalMsec == 0)
                 {
-                    Log("*** HeartbeatManager disabled");
+                    Log("*** TCPHeartbeatManager disabled");
                     return;
                 }
 
@@ -669,9 +1490,9 @@ namespace BigQ
 
                 #region Check-for-Null-Values
 
-                if (Client == null)
+                if (ClientTCPInterface == null)
                 {
-                    Log("*** HeartbeatManager null client supplied");
+                    Log("*** TCPHeartbeatManager null client supplied");
                     return;
                 }
                 
@@ -707,9 +1528,9 @@ namespace BigQ
 
                     #region Check-if-Client-Connected
 
-                    if (!BigQHelper.IsPeerConnected(Client))
+                    if (!BigQHelper.IsTCPPeerConnected(ClientTCPInterface))
                     {
-                        Log("HeartbeatManager client disconnected from server " + ServerIp + ":" + ServerPort);
+                        Log("TCPHeartbeatManager client disconnected from server " + ServerIp + ":" + ServerPort);
                         Connected = false;
 
                         if (ServerDisconnected != null) ServerDisconnected();
@@ -728,11 +1549,11 @@ namespace BigQ
                         numConsecutiveFailures++;
                         lastFailure = DateTime.Now;
 
-                        Log("*** HeartbeatManager failed to send heartbeat to server " + ServerIp + ":" + ServerPort + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
+                        Log("*** TCPHeartbeatManager failed to send heartbeat to server " + ServerIp + ":" + ServerPort + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
 
                         if (numConsecutiveFailures >= MaxHeartbeatFailures)
                         {
-                            Log("*** HeartbeatManager maximum number of failed heartbeats reached");
+                            Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached");
                             Connected = false;
 
                             if (ServerDisconnected != null) Task.Factory.StartNew(() => ServerDisconnected());
@@ -752,7 +1573,7 @@ namespace BigQ
             }
             catch (Exception EOuter)
             {
-                LogException("HeartbeatManager", EOuter);
+                LogException("TCPHeartbeatManager", EOuter);
             }
             finally
             {
@@ -770,620 +1591,6 @@ namespace BigQ
             ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             ResponseMessage.Data = null;
             return ResponseMessage;
-        }
-
-        #endregion
-
-        #region Public-Methods
-
-        public bool SendRawMessage(BigQMessage message)
-        {
-            if (message == null) throw new ArgumentNullException("message");
-            return ConnectionDataSender(message);
-        }
-        
-        public bool Echo()
-        {
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "Echo";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = null;
-            request.Data = null;
-            return ConnectionDataSender(request);
-        }
-
-        public bool Login(out BigQMessage response)
-        {
-            response = null;
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "Login";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = null;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** Login unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** Login null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** Login failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                LoggedIn = true;
-
-                // stop existing heartbeat thread
-                if (HbTokenSource != null) HbTokenSource.Cancel();
-                
-                // start new heartbeat thread
-                HbTokenSource = new CancellationTokenSource();
-                HbToken = HbTokenSource.Token;
-                Task.Factory.StartNew(() => HeartbeatManager());
-
-                return true;
-            }
-        }
-
-        public bool ListClients(out BigQMessage response, out List<BigQClient> clients)
-        {
-            response = null;
-            clients = null;
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "ListClients";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = null;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** ListClients unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** ListClients null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** ListClients failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                if (response.Data != null)
-                {
-                    clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
-                }
-                return true;
-            }
-        }
-
-        public bool ListChannels(out BigQMessage response, out List<BigQChannel> channels)
-        {
-            response = null;
-            channels = null;
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "ListChannels";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = null;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** ListChannels unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** ListChannels null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** ListChannels failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                if (response.Data != null)
-                {
-                    channels = BigQHelper.DeserializeJson<List<BigQChannel>>(response.Data, false);
-                }
-                return true;
-            }
-        }
-
-        public bool ListChannelSubscribers(string guid, out BigQMessage response, out List<BigQClient> clients)
-        {
-            response = null;
-            clients = null;
-
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "ListChannelSubscribers";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = guid;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** ListChannelSubscribers unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** ListChannelSubscribers null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** ListChannelSubscribers failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                Console.WriteLine(response.Data);
-                if (response.Data != null)
-                {
-                    clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
-                }
-                return true;
-            }
-        }
-
-        public bool JoinChannel(string guid, out BigQMessage response)
-        {
-            response = null;
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "JoinChannel";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = guid;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** JoinChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** JoinChannel null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** JoinChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-
-        public bool LeaveChannel(string guid, out BigQMessage response)
-        {
-            response = null;
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "LeaveChannel";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = guid;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** LeaveChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** LeaveChannel null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** LeaveChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-
-        public bool CreateChannel(string name, int priv, out BigQMessage response)
-        {
-            response = null;
-            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
-            if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
-
-            BigQChannel CurrentChannel = new BigQChannel();
-            CurrentChannel.ChannelName = name;
-            CurrentChannel.OwnerGuid = ClientGuid;
-            CurrentChannel.Guid = Guid.NewGuid().ToString();
-            CurrentChannel.Private = priv;
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "CreateChannel";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = CurrentChannel.Guid;
-            request.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(CurrentChannel));
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** CreateChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** CreateChannel null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** CreateChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-
-        public bool DeleteChannel(string guid, out BigQMessage response)
-        {
-            response = null;
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "DeleteChannel";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = null;
-            request.Data = null;
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** DeleteChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** DeleteChannel null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** DeleteChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-        
-        public bool SendPrivateMessageAsync(string guid, string data)
-        {
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-            return SendPrivateMessageAsync(guid, Encoding.UTF8.GetBytes(data));
-        }
-
-        public bool SendPrivateMessageAsync(string guid, byte[] data)
-        {
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-            if (data == null) throw new ArgumentNullException("data");
-
-            BigQMessage CurrentMessage = new BigQMessage();
-            CurrentMessage.Email = Email;
-            CurrentMessage.Password = Password;
-            CurrentMessage.Command = null;
-            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            CurrentMessage.MessageId = Guid.NewGuid().ToString();
-            CurrentMessage.SenderGuid = ClientGuid;
-            CurrentMessage.RecipientGuid = guid;
-            CurrentMessage.ChannelGuid = null;
-            CurrentMessage.Data = data;
-            return ConnectionDataSender(CurrentMessage);
-        }
-        
-        public bool SendPrivateMessageSync(string guid, string data, out BigQMessage response)
-        {
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-            return SendPrivateMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
-        }
-
-        public bool SendPrivateMessageSync(string guid, byte[] data, out BigQMessage response)
-        {
-            response = null;
-
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-            if (data == null) throw new ArgumentNullException("data");
-
-            BigQMessage CurrentMessage = new BigQMessage();
-            CurrentMessage.Email = Email;
-            CurrentMessage.Password = Password;
-            CurrentMessage.Command = null;
-            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            CurrentMessage.MessageId = Guid.NewGuid().ToString();
-            CurrentMessage.SenderGuid = ClientGuid;
-            CurrentMessage.RecipientGuid = guid;
-            CurrentMessage.ChannelGuid = null;
-            CurrentMessage.SyncRequest = true;
-            CurrentMessage.Data = data;
-
-            if (!AddSyncRequest(CurrentMessage.MessageId))
-            {
-                Log("*** SendPrivateMessageSync unable to register sync request GUID " + CurrentMessage.MessageId);
-                return false;
-            }
-
-            if (!ConnectionDataSender(CurrentMessage))
-            {
-                Log("*** SendPrivateMessage unable to send message GUID " + CurrentMessage.MessageId + " to recipient " + CurrentMessage.RecipientGuid);
-                return false;
-            }
-
-            BigQMessage ResponseMessage = new BigQMessage();
-            if (!GetSyncResponse(CurrentMessage.MessageId, out ResponseMessage))
-            {
-                Log("*** SendPrivateMessage unable to get response for message GUID " + CurrentMessage.MessageId);
-                return false;
-            }
-
-            if (!RemoveSyncRequest(CurrentMessage.MessageId))
-            {
-                Log("*** SendPrivateMessage unable to remove sync request for message GUID " + CurrentMessage.MessageId);
-                return false;
-            }
-
-            if (ResponseMessage != null) response = ResponseMessage;
-            return true;
-        }
-
-        public bool SendServerMessageAsync(BigQMessage request)
-        {
-            if (request == null) throw new ArgumentNullException("request");
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            return ConnectionDataSender(request);
-        }
-
-        public bool SendServerMessageSync(BigQMessage request, out BigQMessage response)
-        {
-            response = null;
-
-            if (request == null) throw new ArgumentNullException("request");
-            if (String.IsNullOrEmpty(request.MessageId)) request.MessageId = Guid.NewGuid().ToString();
-            request.SyncRequest = true;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-
-            if (!AddSyncRequest(request.MessageId))
-            {
-                Log("*** SendServerMessageSync unable to register sync request GUID " + request.MessageId);
-                return false;
-            }
-
-            if (!ConnectionDataSender(request))
-            {
-                Log("*** SendServerMessageSync unable to send message GUID " + request.MessageId + " to server");
-                return false;
-            }
-
-            BigQMessage ResponseMessage = new BigQMessage();
-            if (!GetSyncResponse(request.MessageId, out ResponseMessage))
-            {
-                Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageId);
-                return false;
-            }
-
-            if (!RemoveSyncRequest(request.MessageId))
-            {
-                Log("*** SendServerMessageSync unable to remove sync request for message GUID " + request.MessageId);
-                return false;
-            }
-
-            if (ResponseMessage != null) response = ResponseMessage;
-            return true;
-        }
-
-        public bool SendChannelMessage(string guid, string data)
-        {
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-            return SendChannelMessage(guid, Encoding.UTF8.GetBytes(data));
-        }
-
-        public bool SendChannelMessage(string guid, byte[] data)
-        {
-            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-            if (data == null) throw new ArgumentNullException("data");
-
-            BigQMessage CurrentMessage = new BigQMessage();
-            CurrentMessage.Email = Email;
-            CurrentMessage.Password = Password;
-            CurrentMessage.Command = null;
-            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            CurrentMessage.MessageId = Guid.NewGuid().ToString();
-            CurrentMessage.SenderGuid = ClientGuid;
-            CurrentMessage.RecipientGuid = null;
-            CurrentMessage.ChannelGuid = guid;
-            CurrentMessage.Data = data;
-            return ConnectionDataSender(CurrentMessage);
-        }
-
-        public bool PendingSyncRequests(out Dictionary<string, DateTime> response)
-        {
-            response = null;
-            if (SyncRequests == null) return true;
-            if (SyncRequests.Count < 1) return true;
-
-            response = SyncRequests.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            return true;
-        }
-
-        public bool IsClientConnected(string guid, out BigQMessage response)
-        {
-            response = null;
-
-            BigQMessage request = new BigQMessage();
-            request.Email = Email;
-            request.Password = Password;
-            request.Command = "IsClientConnected";
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
-            request.MessageId = Guid.NewGuid().ToString();
-            request.SenderGuid = ClientGuid;
-            request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            request.SyncRequest = true;
-            request.ChannelGuid = null;
-            request.Data = Encoding.UTF8.GetBytes(guid);
-
-            if (!SendServerMessageSync(request, out response))
-            {
-                Log("*** ListClients unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                Log("*** ListClients null response from server");
-                return false;
-            }
-
-            if (!BigQHelper.IsTrue(response.Success))
-            {
-                Log("*** ListClients failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                if (response.Data != null)
-                {
-                    return BigQHelper.IsTrue(Encoding.UTF8.GetString(response.Data));
-                }
-                return false;
-            }
-        }
-        
-        public string IpPort()
-        {
-            return SourceIp + ":" + SourcePort;
-        }
-
-        public void Close()
-        {
-            if (CdrTokenSource != null) CdrTokenSource.Cancel();
-            if (CsrTokenSource != null) CsrTokenSource.Cancel();
-            if (HbTokenSource != null) HbTokenSource.Cancel();
-
-            if (Client != null)
-            {
-                if (Client.Connected)
-                {
-                    //
-                    // close the TCP stream
-                    //
-                    if (Client.GetStream() != null)
-                    {
-                        Client.GetStream().Close();
-                    }
-                }
-
-                // 
-                // close the client
-                //
-
-                if (Client != null) Client.Close();
-            }
-
-            Client = null;
-            return;
         }
 
         #endregion

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,49 +14,94 @@ namespace BigQ
 {
     public class BigQServer
     {
-        #region Class-Members
-
-        public volatile List<BigQClient> Clients;
+        #region Private-Class-Members
+        
+        private volatile List<BigQClient> Clients;
         private readonly object ClientsLock;
-        public volatile List<BigQChannel> Channels;
+        private volatile List<BigQChannel> Channels;
         private readonly object ChannelsLock;
-        public DateTime Created;
+        private DateTime Created;
 
-        private string ListenerIp;
-        private IPAddress ListenerIpAddress;
-        private int ListenerPort;
-        private TcpListener Listener;
-        private bool ListenerRunning;
+        private string TCPListenerIP;
+        private IPAddress TCPListenerIPAddress;
+        private int TCPListenerPort;
+        private TcpListener TCPListener;
+        private bool TCPListenerRunning;
+        private int TCPActiveConnectionThreads;
+
+        private string WSListenerIP;
+        private IPAddress WSListenerIPAddress;
+        private int WSListenerPort;
+        private HttpListener WSListener;
+        private bool WSListenerRunning;
+        private int WSActiveConnectionThreads;
+
         private bool SendAcknowledgements;
         private bool SendServerJoinNotifications;
         private bool SendChannelJoinNotifications;
-        public bool ConsoleDebug;
+        private bool ConsoleDebug;
         
         private int HeartbeatIntervalMsec;
         private int MaxHeartbeatFailures;
-        private int ActiveConnectionThreads;
-
+        
         private bool LogLockMethodResponseTime = false;
         private bool LogMessageResponseTime = false;
 
         #endregion
 
-        #region Delegates
+        #region Public-Delegates
 
+        /// <summary>
+        /// This function is called when the server receives a message from a connected client.
+        /// </summary>
         public Func<BigQMessage, bool> MessageReceived;
+
+        /// <summary>
+        /// This function is called when the server stops.
+        /// </summary>
         public Func<bool> ServerStopped;
+
+        /// <summary>
+        /// This function is called when a client connects to the server.
+        /// </summary>
         public Func<BigQClient, bool> ClientConnected;
+
+        /// <summary>
+        /// This function is called when a client issues the login command.
+        /// </summary>
         public Func<BigQClient, bool> ClientLogin;
+
+        /// <summary>
+        /// This function is called when a client disconnects from the server.
+        /// </summary>
         public Func<BigQClient, bool> ClientDisconnected;
+
+        /// <summary>
+        /// This function is called when a log message needs to be sent from the server.
+        /// </summary>
         public Func<string, bool> LogMessage;
 
         #endregion
 
-        #region Constructor
+        #region Public-Constructor
 
+        /// <summary>
+        /// Start an instance of the BigQ server process.
+        /// </summary>
+        /// <param name="ipAddressTcp">IP address used to listen for TCP connections.  Use '+' to represent any interface.</param>
+        /// <param name="portTcp">TCP port used to listen for TCP connections.</param>
+        /// <param name="ipAddressWebsocket">IP address used to listen for websocket connections.  Use '+' to represent any interface.</param>
+        /// <param name="portWebsocket">TCP port used to listen for websocket connections.</param>
+        /// <param name="debug">Specify whether debugging to console is enabled or not.</param>
+        /// <param name="sendAck">Specify whether the server should send acknowledgements to clients that send messages.</param>
+        /// <param name="sendServerJoinNotifications">Specify whether the server should send notifications to existing clients when a new client joins the server.</param>
+        /// <param name="sendChannelJoinNotifications">Specify whether the server should send notifications to existing channel members when a new client joins the channel.</param>
+        /// <param name="heartbeatIntervalMsec">Specifythe interval, in milliseconds, at which the server will send heartbeat messages.</param>
         public BigQServer(
-            string ip, 
-            int port, 
+            string ipAddressTcp, 
+            int portTcp,
+            string ipAddressWebsocket,
+            int portWebsocket, 
             bool debug, 
             bool sendAck, 
             bool sendServerJoinNotifications, 
@@ -64,15 +110,18 @@ namespace BigQ
         {
             #region Check-for-Invalid-Values
 
-            if (port < 1) throw new ArgumentOutOfRangeException("port");
+            if (portTcp < 1) throw new ArgumentOutOfRangeException("portTcp");
+            if (portWebsocket < 1) throw new ArgumentOutOfRangeException("portWebsocket");
             if (heartbeatIntervalMsec < 100 && heartbeatIntervalMsec != 0) throw new ArgumentOutOfRangeException("heartbeatIntervalMsec");
             
             #endregion
 
             #region Set-Class-Variables
 
-            this.ListenerIp = ip;
-            this.ListenerPort = port;
+            TCPListenerIP = ipAddressTcp;
+            TCPListenerPort = portTcp;
+            WSListenerIP = ipAddressWebsocket;
+            WSListenerPort = portWebsocket;
 
             Clients = new List<BigQClient>();
             ClientsLock = new object();
@@ -85,7 +134,8 @@ namespace BigQ
             SendChannelJoinNotifications = sendChannelJoinNotifications;
             ConsoleDebug = debug;
 
-            ActiveConnectionThreads = 0;
+            TCPActiveConnectionThreads = 0;
+            WSActiveConnectionThreads = 0;
             HeartbeatIntervalMsec = heartbeatIntervalMsec;
             MaxHeartbeatFailures = 5;
             
@@ -102,19 +152,39 @@ namespace BigQ
 
             #endregion
             
-            #region Start-Server
+            #region Start-TCP-Server
 
-            if (String.IsNullOrEmpty(this.ListenerIp))
+            if (String.IsNullOrEmpty(TCPListenerIP))
             {
-                Listener = new TcpListener(System.Net.IPAddress.Any, this.ListenerPort);
+                TCPListenerIPAddress = System.Net.IPAddress.Any;
+                TCPListenerIP = TCPListenerIPAddress.ToString();
             }
             else
             {
-                this.ListenerIpAddress = IPAddress.Parse(this.ListenerIp);
-                Listener = new TcpListener(this.ListenerIpAddress, this.ListenerPort);
+                TCPListenerIPAddress = IPAddress.Parse(TCPListenerIP);
             }
 
-            Task.Factory.StartNew(() => AcceptConnections());
+            TCPListener = new TcpListener(TCPListenerIPAddress, TCPListenerPort);
+            Log("Starting TCP server at: tcp://" + TCPListenerIP + ":" + TCPListenerPort);
+
+            Task.Factory.StartNew(() => TCPAcceptConnections());
+
+            #endregion
+
+            #region Start-Websocket-Server
+
+            if (String.IsNullOrEmpty(WSListenerIP))
+            {
+                WSListenerIPAddress = System.Net.IPAddress.Any;
+                WSListenerIP = "+";
+            }
+
+            string prefix = "http://" + WSListenerIP + ":" + WSListenerPort + "/";
+            WSListener = new HttpListener();
+            WSListener.Prefixes.Add(prefix);
+            Log("Starting Websocket server at: " + prefix);
+
+            Task.Factory.StartNew(() => WSAcceptConnections());
 
             #endregion
         }
@@ -123,85 +193,112 @@ namespace BigQ
 
         #region Public-Methods
 
+        /// <summary>
+        /// Enumerate all channels.
+        /// </summary>
+        /// <returns>List of BigQChannel objects.</returns>
         public List<BigQChannel> ListChannels()
         {
             return GetAllChannels();
         }
 
+        /// <summary>
+        /// Enumerate all subscribers in a given channel.
+        /// </summary>
+        /// <returns>List of BigQClient objects.</returns>
         public List<BigQClient> ListChannelSubscribers(string guid)
         {
             return GetChannelSubscribers(guid);
         }
 
+        /// <summary>
+        /// Enumerate all clients.
+        /// </summary>
+        /// <returns>List of BigQClient objects.</returns>
         public List<BigQClient> ListClients()
         {
             return GetAllClients();
         }
-        
+
+        /// <summary>
+        /// Retrieve the connection count.
+        /// </summary>
+        /// <returns>An int containing the number of active connections (sum of websocket and TCP).</returns>
         public int ConnectionCount()
         {
-            return ActiveConnectionThreads;
+            return TCPActiveConnectionThreads + WSActiveConnectionThreads;
         }
         
         #endregion
+        
+        #region Private-Transport-and-Connection-Methods
 
-        #region Private-Connection-Methods
-
-        private void AcceptConnections()
+        private void TCPAcceptConnections()
         {
             try
             { 
                 #region Prepare
 
-                this.Listener.Start();
-                this.ListenerRunning = true;
+                TCPListener.Start();
+                TCPListenerRunning = true;
 
                 #endregion
                 
-                #region Accept-Connections
+                #region Accept-TCP-Connections
 
-                while (this.ListenerRunning)
+                while (TCPListenerRunning)
                 {
                     #region Reset-Variables
 
                     string ClientIp = "";
                     int ClientPort = 0;
+                    TcpClient Client;
 
                     #endregion
 
                     #region Accept-Connection
 
-                    TcpClient Client = Listener.AcceptTcpClient();
+                    Client = TCPListener.AcceptTcpClient();
+                    TCPActiveConnectionThreads++;
 
-                    ActiveConnectionThreads++;
+                    #endregion
+
+                    #region Get-Client-Tuple
+
                     ClientIp = ((IPEndPoint)Client.Client.RemoteEndPoint).Address.ToString();
                     ClientPort = ((IPEndPoint)Client.Client.RemoteEndPoint).Port;
 
                     #endregion
-
+                    
                     #region Add-to-Client-List
 
                     BigQClient CurrentClient = new BigQClient();
                     CurrentClient.SourceIp = ClientIp;
                     CurrentClient.SourcePort = ClientPort;
-                    CurrentClient.Client = Client;
+                    CurrentClient.ClientTCPInterface = Client;
+                    CurrentClient.ClientHTTPContext = null;
+                    CurrentClient.ClientWSContext = null;
+                    CurrentClient.ClientWSInterface = null;
+
+                    CurrentClient.IsTCP = true;
+                    CurrentClient.IsWebsocket = false;
                     CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
                     CurrentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
 
                     if (!AddClient(CurrentClient))
                     {
-                        Log("*** AcceptConnections unable to add client " + CurrentClient.IpPort());
-                        ActiveConnectionThreads--;
+                        Log("*** TCPAcceptConnections unable to add client " + CurrentClient.IpPort());
+                        TCPActiveConnectionThreads--;
                         Client.Close();
                         continue;
                     }
 
                     #endregion
 
-                    #region Start-Connection-Data-Receiver
+                    #region Start-Data-Receiver
 
-                    Log("AcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + ActiveConnectionThreads + " connections active)");
-                    Task.Factory.StartNew(() => ConnectionDataReceiver(CurrentClient));
+                    Log("TCPAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
+                    Task.Factory.StartNew(() => TCPDataReceiver(CurrentClient));
 
                     #endregion
 
@@ -209,8 +306,8 @@ namespace BigQ
 
                     if (HeartbeatIntervalMsec > 0)
                     {
-                        Log("AcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
-                        Task.Factory.StartNew(() => HeartbeatManager(CurrentClient));
+                        Log("TCPAcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
+                        Task.Factory.StartNew(() => TCPHeartbeatManager(CurrentClient));
                     }
 
                     #endregion
@@ -220,13 +317,124 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                this.ListenerRunning = false;
-                LogException("AcceptConnections", e);
+                TCPListenerRunning = false;
+                LogException("TCPAcceptConnections", e);
                 if (ServerStopped != null) ServerStopped();
             }
         }
 
-        private void ConnectionDataReceiver(BigQClient CurrentClient)
+        private async void WSAcceptConnections()
+        {
+            try
+            {
+                #region Prepare
+
+                WSListener.Start();
+                WSListenerRunning = true;
+
+                #endregion
+
+                #region Accept-WS-Connections
+
+                while (WSListenerRunning)
+                {
+                    #region Reset-Variables
+
+                    string ClientIp = "";
+                    int ClientPort = 0;
+                    WebSocket Client;
+
+                    #endregion
+
+                    #region Accept-Connection
+
+                    HttpListenerContext httpContext = await WSListener.GetContextAsync();
+                    WSActiveConnectionThreads++;
+
+                    #endregion
+
+                    #region Get-Client-Tuple
+
+                    ClientIp = httpContext.Request.RemoteEndPoint.Address.ToString();
+                    ClientPort = httpContext.Request.RemoteEndPoint.Port;
+
+                    #endregion
+
+                    #region Get-Websocket-Context
+
+                    WebSocketContext wsContext = null;
+                    try
+                    {
+                        wsContext = await httpContext.AcceptWebSocketAsync(subProtocol: null);
+                    }
+                    catch (Exception e)
+                    {
+                        Log("*** WSAcceptConnections exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
+                        httpContext.Response.StatusCode = 500;
+                        httpContext.Response.Close();
+                        Console.WriteLine("Exception: {0}", e);
+                        return;
+                    }
+
+                    Client = wsContext.WebSocket;
+
+                    #endregion
+
+                    #region Add-to-Client-List
+
+                    BigQClient CurrentClient = new BigQClient();
+                    CurrentClient.SourceIp = ClientIp;
+                    CurrentClient.SourcePort = ClientPort;
+                    CurrentClient.ClientTCPInterface = null;
+                    CurrentClient.ClientHTTPContext = httpContext;
+                    CurrentClient.ClientWSContext = wsContext;
+                    CurrentClient.ClientWSInterface = Client;
+
+                    CurrentClient.IsTCP = false;
+                    CurrentClient.IsWebsocket = true;
+                    CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
+                    CurrentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
+
+                    if (!AddClient(CurrentClient))
+                    {
+                        Log("*** WSAcceptConnections unable to add client " + CurrentClient.IpPort());
+                        WSActiveConnectionThreads--;
+                        httpContext.Response.StatusCode = 500;
+                        httpContext.Response.Close();
+                        continue;
+                    }
+
+                    #endregion
+
+                    #region Start-Data-Receiver
+
+                    Log("WSAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
+                    await Task.Factory.StartNew(() => WSDataReceiver(CurrentClient));
+
+                    #endregion
+
+                    #region Start-Heartbeat-Manager
+
+                    if (HeartbeatIntervalMsec > 0)
+                    {
+                        Log("WSAcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
+                        await Task.Factory.StartNew(() => WSHeartbeatManager(CurrentClient));
+                    }
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (Exception e)
+            {
+                WSListenerRunning = false;
+                LogException("WSAcceptConnections", e);
+                if (ServerStopped != null) ServerStopped();
+            }
+        }
+
+        private void TCPDataReceiver(BigQClient CurrentClient)
         {
             try
             {
@@ -234,13 +442,13 @@ namespace BigQ
 
                 if (CurrentClient == null)
                 {
-                    Log("*** ConnectionDataReceiver null client supplied");
+                    Log("*** TCPDataReceiver null client supplied");
                     return;
                 }
 
-                if (CurrentClient.Client == null)
+                if (CurrentClient.ClientTCPInterface == null)
                 {
-                    Log("*** ConnectionDataReceiver null TcpClient supplied within client");
+                    Log("*** TCPDataReceiver null TcpClient supplied within client");
                     return;
                 }
 
@@ -248,29 +456,29 @@ namespace BigQ
 
                 #region Wait-for-Data
                 
-                if (!CurrentClient.Client.Connected)
+                if (!CurrentClient.ClientTCPInterface.Connected)
                 {
-                    Log("*** ConnectionDataReceiver client " + CurrentClient.IpPort() + " is no longer connected");
+                    Log("*** TCPDataReceiver client " + CurrentClient.IpPort() + " is no longer connected");
                     return;
                 }
 
-                NetworkStream ClientStream = CurrentClient.Client.GetStream();
+                NetworkStream ClientStream = CurrentClient.ClientTCPInterface.GetStream();
 
                 while (true)
                 {
                     #region Check-if-Client-Connected
 
-                    if (!CurrentClient.Client.Connected || !BigQHelper.IsPeerConnected(CurrentClient.Client))
+                    if (!CurrentClient.ClientTCPInterface.Connected || !BigQHelper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
                     {
-                        Log("ConnectionDataReceiver client " + CurrentClient.IpPort() + " disconnected");
+                        Log("TCPDataReceiver client " + CurrentClient.IpPort() + " disconnected");
                         if (!RemoveClient(CurrentClient))
                         {
-                            Log("*** ConnectionDataReceiver unable to remove client " + CurrentClient.IpPort());
+                            Log("*** TCPDataReceiver unable to remove client " + CurrentClient.IpPort());
                         }
 
                         if (!RemoveClientChannels(CurrentClient))
                         {
-                            Log("*** ConnectionDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
+                            Log("*** TCPDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
                         }
 
                         if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
@@ -278,7 +486,7 @@ namespace BigQ
                     }
                     else
                     {
-                        // Log("ConnectionDataReceiver client " + CurrentClient.IpPort() + " is still connected");
+                        // Log("TCPDataReceiver client " + CurrentClient.IpPort() + " is still connected");
                     }
 
                     #endregion
@@ -290,31 +498,31 @@ namespace BigQ
                         #region Retrieve-Message
 
                         BigQMessage CurrentMessage = null;
-                        if (!BigQHelper.MessageRead(CurrentClient.Client, out CurrentMessage))
+                        if (!BigQHelper.TCPMessageRead(CurrentClient.ClientTCPInterface, out CurrentMessage))
                         {
-                            Log("*** ConnectionDataReceiver unable to read from client " + CurrentClient.IpPort());
+                            Log("*** TCPDataReceiver unable to read from client " + CurrentClient.IpPort());
                             continue;
                         }
 
                         if (CurrentMessage == null)
                         {
-                            Log("ConnectionDataReceiver unable to read message from client " + CurrentClient.IpPort());
+                            Log("TCPDataReceiver unable to read message from client " + CurrentClient.IpPort());
                             continue;
                         }
                         else
                         {
-                            Log("ConnectionDataReceiver successfully received message from client " + CurrentClient.IpPort());
+                            Log("TCPDataReceiver successfully received message from client " + CurrentClient.IpPort());
                             Task.Factory.StartNew(() => MessageReceived(CurrentMessage));
                         }
 
                         if (!CurrentMessage.IsValid())
                         {
-                            Log("ConnectionDataReceiver invalid message received from client " + CurrentClient.IpPort());
+                            Log("TCPDataReceiver invalid message received from client " + CurrentClient.IpPort());
                             continue;
                         }
                         else
                         {
-                            Log("ConnectionDataReceiver valid message received from client " + CurrentClient.IpPort());
+                            Log("TCPDataReceiver valid message received from client " + CurrentClient.IpPort());
                         }
 
                         #endregion
@@ -322,7 +530,7 @@ namespace BigQ
                         #region Process-Message
 
                         MessageProcessor(CurrentClient, CurrentMessage);
-                        Log("ConnectionDataReceiver finished processing message from client " + CurrentClient.IpPort());
+                        Log("TCPDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
                         #endregion
                     }
@@ -336,105 +544,287 @@ namespace BigQ
             {
                 if (CurrentClient != null)
                 {
-                    LogException("ConnectionDataReceiver (" + CurrentClient.IpPort() + ")", EOuter);
+                    LogException("TCPDataReceiver (" + CurrentClient.IpPort() + ")", EOuter);
                 }
                 else
                 {
-                    LogException("ConnectionDataReceiver (null)", EOuter);
+                    LogException("TCPDataReceiver (null)", EOuter);
                 }
             }
             finally
             {
-                Log("ConnectionDataReceiver closing data receiver for " + CurrentClient.IpPort() + " (now " + ActiveConnectionThreads + " connections active)"); 
-                ActiveConnectionThreads--;
+                Log("TCPDataReceiver closing data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)"); 
+                TCPActiveConnectionThreads--;
             }
         }
 
-        private bool ConnectionDataSender(BigQClient CurrentClient, BigQMessage Message)
+        private void WSDataReceiver(BigQClient CurrentClient)
         {
-            #region Check-for-Null-Values
-
-            if (CurrentClient == null)
+            try
             {
-                Log("*** ConnectionDataSender null client supplied");
-                return false;
-            }
+                #region Check-for-Null-Values
 
-            if (CurrentClient.Client == null)
-            {
-                Log("*** ConnectionDataSender null TcpClient supplied within client object for client " + CurrentClient.ClientGuid);
-                return false;
-            }
-
-            if (Message == null)
-            {
-                Log("*** ConnectionDataSender null message supplied");
-                return false;
-            }
-
-            #endregion
-
-            #region Check-if-Client-Connected
-
-            if (!BigQHelper.IsPeerConnected(CurrentClient.Client))
-            {
-                Log("ConnectionDataSender client " + CurrentClient.IpPort() + " not connected");
-                return false;
-            }
-
-            #endregion
-            
-            #region Send-Message
-
-            if (!BigQHelper.MessageWrite(CurrentClient.Client, Message))
-            {
-                Log("ConnectionDataSender unable to send data to client " + CurrentClient.IpPort());
-                return false;
-            }
-            else
-            {
-                if (!String.IsNullOrEmpty(Message.Command))
+                if (CurrentClient == null)
                 {
-                    Log("ConnectionDataSender successfully sent data to client " + CurrentClient.IpPort() + " for command " + Message.Command);
+                    Log("*** WSDataReceiver null client supplied");
+                    return;
+                }
+
+                if (CurrentClient.ClientWSInterface == null)
+                {
+                    Log("*** WSDataReceiver null WebSocket supplied within client");
+                    return;
+                }
+
+                #endregion
+
+                #region Wait-for-Data
+
+                while (true)
+                {
+                    #region Check-if-Client-Connected
+
+                    if (!BigQHelper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
+                    {
+                        Log("WSDataReceiver client " + CurrentClient.IpPort() + " disconnected");
+                        if (!RemoveClient(CurrentClient))
+                        {
+                            Log("*** WSDataReceiver unable to remove client " + CurrentClient.IpPort());
+                        }
+
+                        if (!RemoveClientChannels(CurrentClient))
+                        {
+                            Log("*** WSDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
+                        }
+
+                        if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                        break;
+                    }
+                    else
+                    {
+                        // Log("TCPDataReceiver client " + CurrentClient.IpPort() + " is still connected");
+                    }
+
+                    #endregion
+
+                    #region Retrieve-Message
+
+                    Task<BigQMessage> MessageTask = BigQHelper.WSMessageRead(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface);
+                    if (MessageTask == null)
+                    {
+                        Log("*** WSDataReceiver unable to read from client " + CurrentClient.IpPort() + " (message read task failed)");
+                        continue;
+                    }
+
+                    BigQMessage CurrentMessage = MessageTask.Result;
+                    if (CurrentMessage == null)
+                    {
+                        Log("WSDataReceiver unable to read message from client " + CurrentClient.IpPort());
+                        continue;
+                    }
+                    else
+                    {
+                        Log("WSDataReceiver successfully received message from client " + CurrentClient.IpPort());
+                        Task.Factory.StartNew(() => MessageReceived(CurrentMessage));
+                    }
+
+                    if (!CurrentMessage.IsValid())
+                    {
+                        Log("WSDataReceiver invalid message received from client " + CurrentClient.IpPort());
+                        continue;
+                    }
+                    else
+                    {
+                        Log("WSDataReceiver valid message received from client " + CurrentClient.IpPort());
+                    }
+
+                    #endregion
+
+                    #region Process-Message
+
+                    MessageProcessor(CurrentClient, CurrentMessage);
+                    Log("WSDataReceiver finished processing message from client " + CurrentClient.IpPort());
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("WSDataReceiver (" + CurrentClient.IpPort() + ")", EOuter);
                 }
                 else
                 {
-                    Log("ConnectionDataSender successfully sent data to client " + CurrentClient.IpPort() + " for command (null)");
+                    LogException("WSDataReceiver (null)", EOuter);
                 }
             }
-
-            #endregion
-
-            return true;
+            finally
+            {
+                Log("WSDataReceiver closing data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
+                WSActiveConnectionThreads--;
+            }
         }
 
-        private bool ChannelDataSender(BigQClient CurrentClient, BigQChannel CurrentChannel, BigQMessage Message)
+        private bool TCPDataSender(BigQClient CurrentClient, BigQMessage Message)
         {
-            List<BigQClient> CurrentChannelClients = GetChannelSubscribers(CurrentChannel.Guid);
-            if (CurrentChannelClients == null || CurrentChannelClients.Count < 1)
+            try
             {
-                Log("*** ChannelDataSender no clients found in channel " + CurrentChannel.Guid);
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** TCPDataSender null client supplied");
+                    return false;
+                }
+
+                if (CurrentClient.ClientTCPInterface == null)
+                {
+                    Log("*** TCPDataSender null TcpClient supplied within client object for client " + CurrentClient.ClientGuid);
+                    return false;
+                }
+
+                if (Message == null)
+                {
+                    Log("*** TCPDataSender null message supplied");
+                    return false;
+                }
+
+                #endregion
+
+                #region Check-if-Client-Connected
+
+                if (!BigQHelper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
+                {
+                    Log("TCPDataSender client " + CurrentClient.IpPort() + " not connected");
+                    return false;
+                }
+
+                #endregion
+
+                #region Send-Message
+
+                if (!BigQHelper.TCPMessageWrite(CurrentClient.ClientTCPInterface, Message))
+                {
+                    Log("TCPDataSender unable to send data to client " + CurrentClient.IpPort());
+                    return false;
+                }
+                else
+                {
+                    if (!String.IsNullOrEmpty(Message.Command))
+                    {
+                        Log("TCPDataSender successfully sent data to client " + CurrentClient.IpPort() + " for command " + Message.Command);
+                    }
+                    else
+                    {
+                        Log("TCPDataSender successfully sent data to client " + CurrentClient.IpPort() + " for command (null)");
+                    }
+                }
+
+                #endregion
+
                 return true;
             }
-            
-            Message.SenderGuid = CurrentClient.ClientGuid;
-            foreach (BigQClient curr in CurrentChannelClients)
+            catch (Exception EOuter)
             {
-                Task.Factory.StartNew(() =>
+                if (CurrentClient != null)
                 {
-                    Message.RecipientGuid = curr.ClientGuid;
-                    bool ResponseSuccess = ConnectionDataSender(curr, Message);
-                    if (!ResponseSuccess)
-                    {
-                        Log("*** ChannelDataSender error sending channel message from " + Message.SenderGuid + " to " + Message.RecipientGuid + " in channel " + Message.ChannelGuid);
-                    }
-                });
-            }
+                    LogException("TCPDataSender (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("TCPDataSender (null)", EOuter);
+                }
 
-            return true;
+                return false;
+            }
         }
 
-        private void HeartbeatManager(BigQClient CurrentClient)
+        private bool WSDataSender(BigQClient CurrentClient, BigQMessage Message)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** WSDataSender null client supplied");
+                    return false;
+                }
+
+                if (CurrentClient.ClientWSInterface == null)
+                {
+                    Log("*** WSDataSender null websocket supplied within client object for client " + CurrentClient.ClientGuid);
+                    return false;
+                }
+
+                if (Message == null)
+                {
+                    Log("*** WSDataSender null message supplied");
+                    return false;
+                }
+
+                #endregion
+
+                #region Check-if-Client-Connected
+
+                if (!BigQHelper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
+                {
+                    Log("WSDataSender client " + CurrentClient.IpPort() + " not connected");
+                    return false;
+                }
+
+                #endregion
+
+                #region Send-Message
+
+                Task<bool> MessageTask = BigQHelper.WSMessageWrite(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, Message);
+                if (MessageTask == null)
+                {
+                    Log("*** WSDataSender unable to send to client " + CurrentClient.IpPort() + " (message read task failed)");
+                    return false;
+                }
+
+                bool success = MessageTask.Result;
+                if (!success)
+                {
+                    Log("WSDataSender unable to send data to client " + CurrentClient.IpPort());
+                    return false;
+                }
+                else
+                {
+                    if (!String.IsNullOrEmpty(Message.Command))
+                    {
+                        Log("WSDataSender successfully sent data to client " + CurrentClient.IpPort() + " for command " + Message.Command);
+                    }
+                    else
+                    {
+                        Log("WSDataSender successfully sent data to client " + CurrentClient.IpPort() + " for command (null)");
+                    }
+                }
+
+                #endregion
+
+                return true;
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("WSDataSender (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("WSDataSender (null)", EOuter);
+                }
+
+                return false;
+            }
+        }
+
+        private void TCPHeartbeatManager(BigQClient CurrentClient)
         {
             try
             {
@@ -442,7 +832,7 @@ namespace BigQ
 
                 if (HeartbeatIntervalMsec == 0)
                 {
-                    Log("*** HeartbeatManager disabled");
+                    Log("*** TCPHeartbeatManager disabled");
                     return;
                 }
 
@@ -452,13 +842,13 @@ namespace BigQ
 
                 if (CurrentClient == null)
                 {
-                    Log("*** HeartbeatManager null client supplied");
+                    Log("*** TCPHeartbeatManager null client supplied");
                     return;
                 }
 
-                if (CurrentClient.Client == null)
+                if (CurrentClient.ClientTCPInterface == null)
                 {
-                    Log("*** HeartbeatManager null TcpClient supplied within client");
+                    Log("*** TCPHeartbeatManager null TcpClient supplied within client");
                     return;
                 }
 
@@ -494,17 +884,17 @@ namespace BigQ
                     
                     #region Check-if-Client-Connected
                     
-                    if (!BigQHelper.IsPeerConnected(CurrentClient.Client))
+                    if (!BigQHelper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
                     {
-                        Log("HeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
+                        Log("TCPHeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
                         if (!RemoveClient(CurrentClient))
                         {
-                            Log("*** HeartbeatManager unable to remove client " + CurrentClient.IpPort());
+                            Log("*** TCPHeartbeatManager unable to remove client " + CurrentClient.IpPort());
                         }
 
                         if (!RemoveClientChannels(CurrentClient))
                         {
-                            Log("*** HeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
+                            Log("*** TCPHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
                         }
 
                         if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
@@ -518,25 +908,25 @@ namespace BigQ
                     lastHeartbeatAttempt = DateTime.Now;
 
                     BigQMessage HeartbeatMessage = HeartbeatRequestMessage(CurrentClient);
-                    if (!ConnectionDataSender(CurrentClient, HeartbeatMessage))
+                    if (!TCPDataSender(CurrentClient, HeartbeatMessage))
                     {
                         numConsecutiveFailures++;
                         lastFailure = DateTime.Now;
 
-                        Log("*** HeartbeatManager failed to send heartbeat to client " + CurrentClient.IpPort() + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
+                        Log("*** TCPHeartbeatManager failed to send heartbeat to client " + CurrentClient.IpPort() + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
 
                         if (numConsecutiveFailures >= MaxHeartbeatFailures)
                         {
-                            Log("*** HeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
+                            Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
 
                             if (!RemoveClient(CurrentClient))
                             {
-                                Log("*** HeartbeatManager unable to remove client " + CurrentClient.IpPort());
+                                Log("*** TCPHeartbeatManager unable to remove client " + CurrentClient.IpPort());
                             }
 
                             if (!RemoveClientChannels(CurrentClient))
                             {
-                                Log("*** HeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
+                                Log("*** TCPHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
                             }
 
                             if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
@@ -559,20 +949,238 @@ namespace BigQ
             {
                 if (CurrentClient != null)
                 {
-                    LogException("HeartbeatManager (" + CurrentClient.IpPort() + ")", EOuter);
+                    LogException("TCPHeartbeatManager (" + CurrentClient.IpPort() + ")", EOuter);
                 }
                 else
                 {
-                    LogException("HeartbeatManager (null)", EOuter);
+                    LogException("TCPHeartbeatManager (null)", EOuter);
                 }
-            }
-            finally
-            {
-
             }
         }
 
+        private void WSHeartbeatManager(BigQClient CurrentClient)
+        {
+            try
+            {
+                #region Check-for-Disable
+
+                if (HeartbeatIntervalMsec == 0)
+                {
+                    Log("*** WSHeartbeatManager disabled");
+                    return;
+                }
+
+                #endregion
+
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** WSHeartbeatManager null client supplied");
+                    return;
+                }
+
+                if (CurrentClient.ClientWSInterface == null)
+                {
+                    Log("*** WSHeartbeatManager null websocket supplied within client");
+                    return;
+                }
+
+                #endregion
+
+                #region Variables
+
+                DateTime threadStart = DateTime.Now;
+                DateTime lastHeartbeatAttempt = DateTime.Now;
+                DateTime lastSuccess = DateTime.Now;
+                DateTime lastFailure = DateTime.Now;
+                int numConsecutiveFailures = 0;
+                bool firstRun = true;
+
+                #endregion
+
+                #region Process
+
+                while (true)
+                {
+                    #region Sleep
+
+                    if (firstRun)
+                    {
+                        firstRun = false;
+                    }
+                    else
+                    {
+                        Thread.Sleep(HeartbeatIntervalMsec);
+                    }
+
+                    #endregion
+
+                    #region Check-if-Client-Connected
+
+                    if (!BigQHelper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
+                    {
+                        Log("WSHeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
+                        if (!RemoveClient(CurrentClient))
+                        {
+                            Log("*** WSHeartbeatManager unable to remove client " + CurrentClient.IpPort());
+                        }
+
+                        if (!RemoveClientChannels(CurrentClient))
+                        {
+                            Log("*** WSHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
+                        }
+
+                        if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                        return;
+                    }
+
+                    #endregion
+
+                    #region Send-Heartbeat-Message
+
+                    lastHeartbeatAttempt = DateTime.Now;
+
+                    bool success = false;
+                    BigQMessage HeartbeatMessage = HeartbeatRequestMessage(CurrentClient);
+                    Task<bool> MessageTask = BigQHelper.WSMessageWrite(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, HeartbeatMessage);
+                    if (MessageTask != null) success = MessageTask.Result;
+
+                    if (!success)
+                    {
+                        numConsecutiveFailures++;
+                        lastFailure = DateTime.Now;
+
+                        Log("*** WSHeartbeatManager failed to send heartbeat to client " + CurrentClient.IpPort() + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
+
+                        if (numConsecutiveFailures >= MaxHeartbeatFailures)
+                        {
+                            Log("*** WSHeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
+
+                            if (!RemoveClient(CurrentClient))
+                            {
+                                Log("*** WSHeartbeatManager unable to remove client " + CurrentClient.IpPort());
+                            }
+
+                            if (!RemoveClientChannels(CurrentClient))
+                            {
+                                Log("*** WSHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
+                            }
+
+                            if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        numConsecutiveFailures = 0;
+                        lastSuccess = DateTime.Now;
+                    }
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("WSHeartbeatManager (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("WSHeartbeatManager (null)", EOuter);
+                }
+            }
+        }
+
+        private bool DataSender(BigQClient CurrentClient, BigQMessage Message)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** DataSender null client supplied");
+                    return false;
+                }
+
+                if (!CurrentClient.IsTCP && !CurrentClient.IsWebsocket)
+                {
+                    Log("*** DataSender unable to discern transport for client " + CurrentClient.IpPort());
+                    return false;
+                }
+
+                if (Message == null)
+                {
+                    Log("*** DataSender null message supplied");
+                    return false;
+                }
+
+                #endregion
+
+                #region Process
+
+                if (CurrentClient.IsTCP) return TCPDataSender(CurrentClient, Message);
+                else if (CurrentClient.IsWebsocket) return WSDataSender(CurrentClient, Message);
+                else
+                {
+                    Log("*** DataSender unable to discern transport for client " + CurrentClient.IpPort());
+                    return false;
+                }
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("DataSender (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("DataSender (null)", EOuter);
+                }
+
+                return false;
+            }
+        }
+
+        private bool ChannelDataSender(BigQClient CurrentClient, BigQChannel CurrentChannel, BigQMessage Message)
+        {
+            List<BigQClient> CurrentChannelClients = GetChannelSubscribers(CurrentChannel.Guid);
+            if (CurrentChannelClients == null || CurrentChannelClients.Count < 1)
+            {
+                Log("*** ChannelDataSender no clients found in channel " + CurrentChannel.Guid);
+                return true;
+            }
+
+            Message.SenderGuid = CurrentClient.ClientGuid;
+            foreach (BigQClient curr in CurrentChannelClients)
+            {
+                Task.Factory.StartNew(() =>
+                {
+                    Message.RecipientGuid = curr.ClientGuid;
+                    bool ResponseSuccess = false;
+                    ResponseSuccess = DataSender(curr, Message);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** ChannelDataSender error sending channel message from " + Message.SenderGuid + " to client " + Message.RecipientGuid + " in channel " + Message.ChannelGuid);
+                    }
+                });
+            }
+
+            return true;
+        }
+
         #endregion
+
+        //
+        // Methods below are transport agnostic
+        //
 
         #region Private-Event-Methods
 
@@ -608,7 +1216,7 @@ namespace BigQ
                     Task.Factory.StartNew(() =>
                     {
                         Message.RecipientGuid = curr.ClientGuid;
-                        bool ResponseSuccess = ConnectionDataSender(curr, Message);
+                        bool ResponseSuccess = DataSender(curr, Message);
                         if (!ResponseSuccess)
                         {
                             Log("*** ServerJoinEvent error sending server join event to " + Message.RecipientGuid + " (join by " + CurrentClient.ClientGuid + ")");
@@ -655,7 +1263,7 @@ namespace BigQ
                         Task.Factory.StartNew(() =>
                         {
                             Message.RecipientGuid = curr.ClientGuid;
-                            bool ResponseSuccess = ConnectionDataSender(curr, Message);
+                            bool ResponseSuccess = TCPDataSender(curr, Message);
                             if (!ResponseSuccess)
                             {
                                 Log("*** ServerLeaveEvent error sending server leave event to " + Message.RecipientGuid + " (leave by " + CurrentClient.ClientGuid + ")");
@@ -663,7 +1271,7 @@ namespace BigQ
                         });
                         */
                         Message.RecipientGuid = curr.ClientGuid;
-                        bool ResponseSuccess = ConnectionDataSender(curr, Message);
+                        bool ResponseSuccess = DataSender(curr, Message);
                         if (!ResponseSuccess)
                         {
                             Log("*** ServerLeaveEvent error sending server leave event to " + Message.RecipientGuid + " (leave by " + CurrentClient.ClientGuid + ")");
@@ -723,7 +1331,7 @@ namespace BigQ
                     Task.Factory.StartNew(() =>
                     {
                         Message.RecipientGuid = curr.ClientGuid;
-                        bool ResponseSuccess = ConnectionDataSender(curr, Message);
+                        bool ResponseSuccess = DataSender(curr, Message);
                         if (!ResponseSuccess)
                         {
                             Log("*** ChannelJoinEvent error sending channel join event to " + Message.RecipientGuid + " for channel " + Message.ChannelGuid + " (join by " + CurrentClient.ClientGuid + ")");
@@ -779,7 +1387,7 @@ namespace BigQ
                     Task.Factory.StartNew(() =>
                     {
                         Message.RecipientGuid = curr.ClientGuid;
-                        bool ResponseSuccess = ConnectionDataSender(curr, Message);
+                        bool ResponseSuccess = DataSender(curr, Message);
                         if (!ResponseSuccess)
                         {
                             Log("*** ChannelLeaveEvent error sending channel leave event to " + Message.RecipientGuid + " for channel " + Message.ChannelGuid + " (leave by " + CurrentClient.ClientGuid + ")");
@@ -792,7 +1400,7 @@ namespace BigQ
         }
 
         #endregion
-
+        
         #region Private-Locked-Methods
 
         //
@@ -1082,7 +1690,7 @@ namespace BigQ
                             {
                                 #region Overwrite-Existing-Entry
 
-                                curr.Client = CurrentClient.Client;
+                                curr.ClientTCPInterface = CurrentClient.ClientTCPInterface;
                                 curr.UpdatedUTC = DateTime.Now.ToUniversalTime();
                                 matchFound = true;
                                 NewClientsList.Add(curr);
@@ -1345,7 +1953,7 @@ namespace BigQ
                                 curr.Email = CurrentClient.Email;
                                 curr.Password = CurrentClient.Password;
                                 curr.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                                curr.Client = CurrentClient.Client;
+                                curr.ClientTCPInterface = CurrentClient.ClientTCPInterface;
                                 if (!clientFound) UpdatedList.Add(curr);
                                 clientFound = true;
                                 continue;
@@ -1378,7 +1986,7 @@ namespace BigQ
                                     curr.Email = CurrentClient.Email;
                                     curr.Password = CurrentClient.Password;
                                     curr.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                                    curr.Client = CurrentClient.Client;
+                                    curr.ClientTCPInterface = CurrentClient.ClientTCPInterface;
                                     if (!clientFound) UpdatedList.Add(curr);
                                     clientFound = true;
                                     continue;
@@ -1778,20 +2386,21 @@ namespace BigQ
 
             try
             {
+                List<BigQClient> ClientsCache = new List<BigQClient>();
                 lock (ChannelsLock)
                 {
-                    List<BigQClient> ClientsCache = new List<BigQClient>(CurrentChannel.Subscribers);
+                    ClientsCache = new List<BigQClient>(CurrentChannel.Subscribers);
+                }
 
-                    foreach (BigQClient curr in ClientsCache)
+                foreach (BigQClient curr in ClientsCache)
+                {
+                    if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
                     {
-                        if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
+                        if (curr.SourcePort == CurrentClient.SourcePort)
                         {
-                            if (curr.SourcePort == CurrentClient.SourcePort)
+                            if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) == 0)
                             {
-                                if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) == 0)
-                                {
-                                    return true;
-                                }
+                                return true;
                             }
                         }
                     }
@@ -1956,7 +2565,7 @@ namespace BigQ
                             #region Null-GUID-and-Not-Login
 
                             Log("*** MessageProcessor received message from client with no GUID");
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, LoginRequiredMessage());
+                            ResponseSuccess = DataSender(CurrentClient, LoginRequiredMessage());
                             return ResponseSuccess;
 
                             #endregion
@@ -1974,7 +2583,7 @@ namespace BigQ
                         if (VerifyClient == null)
                         {
                             Log("*** MessageProcessor received message from unknown client GUID " + CurrentClient.ClientGuid + " from " + CurrentClient.IpPort());
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, LoginRequiredMessage());
+                            ResponseSuccess = DataSender(CurrentClient, LoginRequiredMessage());
                             return ResponseSuccess;
                         }
                     }
@@ -1984,15 +2593,41 @@ namespace BigQ
 
                 #endregion
 
-                #region Verify-TcpClient-Present
+                #region Verify-Transport-Objects-Present
 
                 if (String.Compare(CurrentClient.ClientGuid, "00000000-0000-0000-0000-000000000000") != 0)
                 {
+                    //
                     // all zeros is the server
-                    if (CurrentClient.Client == null)
+                    //
+                    if (CurrentClient.IsTCP)
                     {
-                        Log("*** MessageProcessor null TcpClient within supplied client");
-                        return false;
+                        if (CurrentClient.ClientTCPInterface == null)
+                        {
+                            Log("*** MessageProcessor null TCP client within supplied TCP client");
+                            return false;
+                        }
+                    }
+
+                    if (CurrentClient.IsWebsocket)
+                    {
+                        if (CurrentClient.ClientHTTPContext == null)
+                        {
+                            Log("*** MessageProcessor null HTTP context within supplied websocket client");
+                            return false;
+                        }
+
+                        if (CurrentClient.ClientWSContext == null)
+                        {
+                            Log("*** MessageProcessor null websocket context witin supplied websocket client");
+                            return false;
+                        }
+
+                        if (CurrentClient.ClientWSInterface == null)
+                        {
+                            Log("*** MessageProcessor null websocket object within supplied websocket client");
+                            return false;
+                        }
                     }
                 }
 
@@ -2008,60 +2643,61 @@ namespace BigQ
                     {
                         case "echo":
                             ResponseMessage = ProcessEchoMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "login":
                             ResponseMessage = ProcessLoginMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "heartbeatrequest":
+                            // no need to send response
                             return true;
 
                         case "joinchannel":
                             ResponseMessage = ProcessJoinChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "leavechannel":
                             ResponseMessage = ProcessLeaveChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "createchannel":
                             ResponseMessage = ProcessCreateChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "deletechannel":
                             ResponseMessage = ProcessDeleteChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listchannels":
                             ResponseMessage = ProcessListChannelsMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listchannelsubscribers":
                             ResponseMessage = ProcessListChannelSubscribersMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listclients":
                             ResponseMessage = ProcessListClientsMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "isclientconnected":
                             ResponseMessage = ProcessIsClientConnectedMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         default:
                             ResponseMessage = UnknownCommandMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
                     }
                 }
@@ -2084,7 +2720,7 @@ namespace BigQ
 
                     Log("MessageProcessor no recipient specified either by RecipientGuid or ChannelGuid");
                     ResponseMessage = RecipientNotFoundMessage(CurrentClient, CurrentMessage);
-                    ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                     return false;
 
                     #endregion
@@ -2128,7 +2764,7 @@ namespace BigQ
 
                     Log("MessageProcessor unable to find either recipient or channel");
                     ResponseMessage = RecipientNotFoundMessage(CurrentClient, CurrentMessage);
-                    ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                     return false;
 
                     #endregion
@@ -2161,10 +2797,33 @@ namespace BigQ
                 if (String.Compare(Sender.ClientGuid, "00000000-0000-0000-0000-000000000000") != 0)
                 {
                     // all zeros is the server
-                    if (Sender.Client == null)
+                    if (Sender.IsTCP)
                     {
-                        Log("*** SendPrivateMessage null TcpClient within supplied Sender");
-                        return false;
+                        if (Sender.ClientTCPInterface == null)
+                        {
+                            Log("*** SendPrivateMessage null TCP client within supplied Sender");
+                            return false;
+                        }
+                    }
+
+                    if (Sender.IsWebsocket)
+                    {
+                        if (Sender.ClientHTTPContext == null)
+                        {
+                            Log("*** SendPrivateMessage null HTTP context within supplied Sender");
+                            return false;
+                        }
+
+                        if (Sender.ClientWSContext == null)
+                        {
+                            Log("*** SendPrivateMessage null websocket context within supplied Sender");
+                            return false;
+                        }
+                        if (Sender.ClientWSInterface == null)
+                        {
+                            Log("*** SendPrivateMessage null websocket object within supplied Sender");
+                            return false;
+                        }
                     }
                 }
 
@@ -2174,10 +2833,34 @@ namespace BigQ
                     return false;
                 }
 
-                if (Recipient.Client == null)
+                if (Recipient.IsTCP)
                 {
-                    Log("*** SendPrivateMessage null TcpClient within supplied Recipient");
-                    return false;
+                    if (Recipient.ClientTCPInterface == null)
+                    {
+                        Log("*** SendPrivateMessage null TCP client within supplied Recipient");
+                        return false;
+                    }
+                }
+
+                if (Recipient.IsWebsocket)
+                {
+                    if (Recipient.ClientHTTPContext == null)
+                    {
+                        Log("*** SendPrivateMessage null HTTP context within supplied Recipient");
+                        return false;
+                    }
+
+                    if (Recipient.ClientWSContext == null)
+                    {
+                        Log("*** SendPrivateMessage null websocket context within supplied Recipient");
+                        return false;
+                    }
+
+                    if (Recipient.ClientWSInterface == null)
+                    {
+                        Log("*** SendPrivateMessage null websocket object within supplied Recipient");
+                        return false;
+                    }
                 }
 
                 if (CurrentMessage == null)
@@ -2197,7 +2880,7 @@ namespace BigQ
 
                 #region Send-to-Recipient
 
-                ResponseSuccess = ConnectionDataSender(Recipient, RedactMessage(CurrentMessage));
+                ResponseSuccess = DataSender(Recipient, RedactMessage(CurrentMessage));
 
                 #endregion
 
@@ -2236,14 +2919,14 @@ namespace BigQ
                         if (SendAcknowledgements)
                         {
                             ResponseMessage = MessageSendSuccess(Sender, CurrentMessage);
-                            ResponseSuccess = ConnectionDataSender(Sender, ResponseMessage);
+                            ResponseSuccess = DataSender(Sender, ResponseMessage);
                         }
                         return true;
                     }
                     else
                     {
                         ResponseMessage = MessageSendFailure(Sender, CurrentMessage);
-                        ResponseSuccess = ConnectionDataSender(Sender, ResponseMessage);
+                        ResponseSuccess = DataSender(Sender, ResponseMessage);
                         return false;
                     }
 
@@ -2276,11 +2959,38 @@ namespace BigQ
 
                 if (String.Compare(Sender.ClientGuid, "00000000-0000-0000-0000-000000000000") != 0)
                 {
+                    //
                     // all zeros is the server
-                    if (Sender.Client == null)
+                    //
+                    if (Sender.IsTCP)
                     {
-                        Log("*** SendChannelMessage null TcpClient within supplied Sender");
-                        return false;
+                        if (Sender.ClientTCPInterface == null)
+                        {
+                            Log("*** SendChannelMessage null TCP client within supplied Sender");
+                            return false;
+                        }
+                    }
+
+                    if (Sender.IsWebsocket)
+                    {
+                        if (Sender.ClientHTTPContext == null)
+                        {
+                            Log("*** SendChannelMessage null HTTP context within supplied Sender");
+                            return false;
+                        }
+
+
+                        if (Sender.ClientWSContext == null)
+                        {
+                            Log("*** SendChannelMessage null websocket context within supplied Sender");
+                            return false;
+                        }
+
+                        if (Sender.ClientWSInterface == null)
+                        {
+                            Log("*** SendChannelMessage null websocket object within supplied Sender");
+                            return false;
+                        }
                     }
                 }
 
@@ -2310,7 +3020,7 @@ namespace BigQ
                 if (!IsChannelSubscriber(Sender, CurrentChannel))
                 {
                     ResponseMessage = NotChannelMemberMessage(Sender, CurrentMessage, CurrentChannel);
-                    ResponseSuccess = ConnectionDataSender(Sender, ResponseMessage);
+                    ResponseSuccess = DataSender(Sender, ResponseMessage);
                     return false;
                 }
 
@@ -2326,7 +3036,7 @@ namespace BigQ
                 if (SendAcknowledgements)
                 {
                     ResponseMessage = MessageSendSuccess(Sender, CurrentMessage);
-                    ResponseSuccess = ConnectionDataSender(Sender, ResponseMessage);
+                    ResponseSuccess = DataSender(Sender, ResponseMessage);
                 }
                 return true;
 
@@ -2363,10 +3073,10 @@ namespace BigQ
                 CurrentClient.Password = null;
                 CurrentClient.ClientGuid = "00000000-0000-0000-0000-000000000000";
 
-                if (!String.IsNullOrEmpty(ListenerIp)) CurrentClient.SourceIp = ListenerIp;
+                if (!String.IsNullOrEmpty(TCPListenerIP)) CurrentClient.SourceIp = TCPListenerIP;
                 else CurrentClient.SourceIp = "127.0.0.1";
 
-                CurrentClient.SourcePort = ListenerPort;
+                CurrentClient.SourcePort = TCPListenerPort;
                 CurrentClient.ServerIp = CurrentClient.SourceIp;
                 CurrentClient.ServerPort = CurrentClient.SourcePort;
                 CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
@@ -2411,7 +3121,7 @@ namespace BigQ
                 {
                     #region Send-to-Recipient
 
-                    ResponseSuccess = ConnectionDataSender(CurrentRecipient, RedactMessage(CurrentMessage));
+                    ResponseSuccess = DataSender(CurrentRecipient, RedactMessage(CurrentMessage));
                     if (ResponseSuccess)
                     {
                         Log("SendSystemMessage successfully sent message to recipient " + CurrentRecipient.ClientGuid);
@@ -2449,7 +3159,7 @@ namespace BigQ
 
                     Log("Unable to find either recipient or channel");
                     ResponseMessage = RecipientNotFoundMessage(CurrentClient, CurrentMessage);
-                    ResponseSuccess = ConnectionDataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
                     return false;
 
                     #endregion
@@ -2479,10 +3189,34 @@ namespace BigQ
                     return false;
                 }
 
-                if (Recipient.Client == null)
+                if (Recipient.IsTCP)
                 {
-                    Log("*** SendSystemPrivateMessage null TcpClient found within supplied recipient");
-                    return false;
+                    if (Recipient.ClientTCPInterface == null)
+                    {
+                        Log("*** SendSystemPrivateMessage null TCP client found within supplied recipient");
+                        return false;
+                    }
+                }
+
+                if (Recipient.IsWebsocket)
+                {
+                    if (Recipient.ClientHTTPContext == null)
+                    {
+                        Log("*** SendSystemPrivateMessage null HTTP context found within supplied recipient");
+                        return false;
+                    }
+
+                    if (Recipient.ClientWSContext == null)
+                    {
+                        Log("*** SendSystemPrivateMessage null websocket context found within supplied recipient");
+                        return false;
+                    }
+
+                    if (Recipient.ClientWSInterface == null)
+                    {
+                        Log("*** SendSystemPrivateMessage null websocket object found within supplied recipient");
+                        return false;
+                    }
                 }
 
                 if (CurrentMessage == null)
@@ -2500,10 +3234,10 @@ namespace BigQ
                 CurrentClient.Password = null;
                 CurrentClient.ClientGuid = "00000000-0000-0000-0000-000000000000";
 
-                if (!String.IsNullOrEmpty(ListenerIp)) CurrentClient.SourceIp = ListenerIp;
+                if (!String.IsNullOrEmpty(TCPListenerIP)) CurrentClient.SourceIp = TCPListenerIP;
                 else CurrentClient.SourceIp = "127.0.0.1";
 
-                CurrentClient.SourcePort = ListenerPort;
+                CurrentClient.SourcePort = TCPListenerPort;
                 CurrentClient.ServerIp = CurrentClient.SourceIp;
                 CurrentClient.ServerPort = CurrentClient.SourcePort;
                 CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
@@ -2520,7 +3254,7 @@ namespace BigQ
 
                 #region Process-Recipient-Messages
 
-                ResponseSuccess = ConnectionDataSender(Recipient, RedactMessage(CurrentMessage));
+                ResponseSuccess = DataSender(Recipient, RedactMessage(CurrentMessage));
                 return ResponseSuccess;
 
                 #endregion
@@ -2568,10 +3302,10 @@ namespace BigQ
                 CurrentClient.Password = null;
                 CurrentClient.ClientGuid = "00000000-0000-0000-0000-000000000000";
 
-                if (!String.IsNullOrEmpty(ListenerIp)) CurrentClient.SourceIp = ListenerIp;
+                if (!String.IsNullOrEmpty(TCPListenerIP)) CurrentClient.SourceIp = TCPListenerIP;
                 else CurrentClient.SourceIp = "127.0.0.1";
 
-                CurrentClient.SourcePort = ListenerPort;
+                CurrentClient.SourcePort = TCPListenerPort;
                 CurrentClient.ServerIp = CurrentClient.SourceIp;
                 CurrentClient.ServerPort = CurrentClient.SourcePort;
                 CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
@@ -3021,7 +3755,11 @@ namespace BigQ
                         temp.Password = null;
                         temp.SourceIp = null;
                         temp.SourcePort = 0;
-                        temp.Client = null;
+
+                        temp.ClientTCPInterface = null;
+                        temp.ClientHTTPContext = null;
+                        temp.ClientWSContext = null;
+                        temp.ClientWSInterface = null;
 
                         temp.Email = curr.Email;
                         temp.ClientGuid = curr.ClientGuid;
@@ -3074,7 +3812,11 @@ namespace BigQ
                         temp.Password = null;
                         temp.SourceIp = null;
                         temp.SourcePort = 0;
-                        temp.Client = null;
+
+                        temp.ClientTCPInterface = null;
+                        temp.ClientHTTPContext = null;
+                        temp.ClientWSContext = null;
+                        temp.ClientWSInterface = null;
 
                         temp.Email = curr.Email;
                         temp.ClientGuid = curr.ClientGuid;
@@ -3159,11 +3901,11 @@ namespace BigQ
 
             if (!String.IsNullOrEmpty(ResponseMessage.RecipientGuid))
             {
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown recipient '" + ResponseMessage.RecipientGuid + "'");
+                ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown recipient '" + CurrentMessage.RecipientGuid + "'");
             }
             else if (!String.IsNullOrEmpty(ResponseMessage.ChannelGuid))
             {
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown channel '" + ResponseMessage.ChannelGuid + "'");
+                ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown channel '" + CurrentMessage.ChannelGuid + "'");
             }
             else
             {
@@ -3503,7 +4245,7 @@ namespace BigQ
 
         #endregion
 
-        #region Private-Utility-Methods
+        #region Private-Logging-Methods
 
         private void Log(string message)
         {

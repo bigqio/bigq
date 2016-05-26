@@ -17,38 +17,113 @@ namespace BigQ
         // Standard Headers
         //
         //
+
+        /// <summary>
+        /// Email address of the client.  Primarily used in authentication (future).
+        /// </summary>
         public string Email;
+
+        /// <summary>
+        /// Password of the client.  Primarily used in authentication (future).
+        /// </summary>
         public string Password;
-        public string Command;                          // used for server messagin
-        public DateTime? CreatedUTC;                     // message timestamp in UTC time
+
+        /// <summary>
+        /// Command issued by the sender.  Primarily used in messages directed toward the server or events.
+        /// </summary>
+        public string Command;                          // used for server messaging
+
+        /// <summary>
+        /// Timestamp indicating when the message was created.
+        /// </summary>
+        public DateTime? CreatedUTC;                    // message timestamp in UTC time
+
+        /// <summary>
+        /// Contained in a response message to indicate if the request message was successful.
+        /// </summary>
         public bool? Success;                           // set by receiver when responding
+
+        /// <summary>
+        /// Set by the sender to indicate if the message should be handled synchronously by the receiver (i.e. the sender is blocking while waiting for a response).
+        /// </summary>
         public bool? SyncRequest;                       // set by receiver when sending
+
+        /// <summary>
+        /// Set by the recipient to indicate that the message is a response to a synchronous request message.
+        /// </summary>
         public bool? SyncResponse;                      // set by receiver when responding
+
+        /// <summary>
+        /// Unique identifier for the message.
+        /// </summary>
         public string MessageId;                        // GUID
+
+        /// <summary>
+        /// Reserved for future use.
+        /// </summary>
         public string ConversationId;                   // can be used for grouping messages into conversation
-        public long? MessageSequenceNumber;              // can be used to indicate message ordering
+
+        /// <summary>
+        /// Reserved for future use.
+        /// </summary>
+        public long? MessageSequenceNumber;             // can be used to indicate message ordering
+
+        /// <summary>
+        /// Unique identifier for the sender.
+        /// </summary>
         public string SenderGuid;                       // sender's GUID
+
+        /// <summary>
+        /// Unique identifier for the recipient.
+        /// </summary>
         public string RecipientGuid;                    // recipient's GUID
+
+        /// <summary>
+        /// Unique identifier for the channel.
+        /// </summary>
         public string ChannelGuid;                      // channel's GUID or null
+
+        /// <summary>
+        /// Dictionary containing key/value pairs for user-supplied headers.
+        /// </summary>
         public Dictionary<string, string> UserHeaders;  // anything starting with x-
+
+        /// <summary>
+        /// Contains the content-type of the message data; specified by the sender.
+        /// </summary>
         public string ContentType;
+
+        /// <summary>
+        /// Contains the number of bytes in the data payload.
+        /// </summary>
         public long? ContentLength;
+
+        /// <summary>
+        /// The data payload.
+        /// </summary>
         public byte[] Data;
 
         #endregion
 
         #region Constructors
 
+        /// <summary>
+        /// Do not use.  This is used internally by BigQ libraries.
+        /// </summary>
         public BigQMessage()
         {
 
         }
 
+        /// <summary>
+        /// Converts a byte array to a populated BigQMessage object.
+        /// </summary>
+        /// <param name="bytes">The byte array containing the message data.</param>
         public BigQMessage(byte[] bytes)
         {
             //
             //
-            // used by MessageRead to populate metadata fields
+            // used by TCPMessageRead to populate metadata fields
             //
             //
 
@@ -258,6 +333,10 @@ namespace BigQ
 
         #region Public-Instance-Methods
 
+        /// <summary>
+        /// Indicates whether or not the message is sufficiently configured to be sent to a recipient.
+        /// </summary>
+        /// <returns>Boolean indicating whether or not the message is sufficiently configured to be sent to a recipient.</returns>
         public bool IsValid()
         {
             List<string> errors = new List<string>();
@@ -289,6 +368,10 @@ namespace BigQ
             }
         }
 
+        /// <summary>
+        /// Creates a formatted string containing information about the message.
+        /// </summary>
+        /// <returns>A formatted string containing information about the message.</returns>
         public override string ToString()
         {
             string ret = "";
@@ -361,6 +444,10 @@ namespace BigQ
             return ret;
         }
 
+        /// <summary>
+        /// Creates a byte array that can be transmitted to a stream (such as a socket) from a populated BigQMessage object.
+        /// </summary>
+        /// <returns>A byte array that can be transmitted to a stream.</returns>
         public byte[] ToBytes()
         {
             #region Variables
@@ -393,17 +480,7 @@ namespace BigQ
                     headerSb.Append("\r\n");
                 }
             }
-
-            if (!String.IsNullOrEmpty(Command))
-            {
-                string sanitizedCommand;
-                if (SanitizeString(Command, out sanitizedCommand))
-                {
-                    headerSb.Append("Command: " + sanitizedCommand);
-                    headerSb.Append("\r\n");
-                }
-            }
-
+            
             if (CreatedUTC != null)
             {
                 string sanitizedCreatedUTC = Convert.ToDateTime(CreatedUTC).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.fffffff");
@@ -438,17 +515,7 @@ namespace BigQ
                     headerSb.Append("\r\n");
                 }
             }
-
-            if (!String.IsNullOrEmpty(Command))
-            {
-                string sanitizedCommand;
-                if (SanitizeString(Command, out sanitizedCommand))
-                {
-                    headerSb.Append("Command: " + sanitizedCommand);
-                    headerSb.Append("\r\n");
-                }
-            }
-
+            
             if (!String.IsNullOrEmpty(MessageId))
             {
                 string sanitizedMessageId;

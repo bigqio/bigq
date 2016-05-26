@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("BigQClientTest")]
+[assembly: AssemblyTitle("BigQClientTestTCP")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Marauder Software Inc")]
-[assembly: AssemblyProduct("BigQClientTest")]
+[assembly: AssemblyProduct("BigQClientTestTCP")]
 [assembly: AssemblyCopyright("Copyright ©  2016 Marauder Software Inc")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
