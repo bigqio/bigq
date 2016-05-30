@@ -96,9 +96,9 @@ namespace BigQ
             }
         }
 
-        public static bool TCPMessageRead(TcpClient Client, out BigQMessage Message)
+        public static BigQMessage TCPMessageRead(TcpClient Client)
         {
-            Message = null;
+            BigQMessage Message = new BigQMessage();
             string SourceIp = "";
             int SourcePort = 0;
 
@@ -109,7 +109,7 @@ namespace BigQ
                 if (Client == null)
                 {
                     Log("*** TCPMessageRead null client supplied");
-                    return false;
+                    return null;
                 }
 
                 #endregion
@@ -136,13 +136,13 @@ namespace BigQ
                 if (!IsTCPPeerConnected(Client))
                 {
                     Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected while attempting to read headers");
-                    return false;
+                    return null;
                 }
                 
                 if (!ClientStream.CanRead)
                 {
                     Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
-                    return false;
+                    return null;
                 }
 
                 using (MemoryStream headerMs = new MemoryStream())
@@ -158,10 +158,10 @@ namespace BigQ
 
                     timeout = false;
                     currentTimeout = 0;
+                    int read = 0;
 
-                    do
+                    while ((read = ClientStream.ReadAsync(headerBuffer, 0, headerBuffer.Length).Result) > 0)
                     {
-                        int read = ClientStream.Read(headerBuffer, 0, headerBuffer.Length);
                         if (read > 0)
                         {
                             headerMs.Write(headerBuffer, 0, read);
@@ -225,15 +225,19 @@ namespace BigQ
                             if (timeout) break;
                         }
                     }
-                    while (ClientStream.DataAvailable);
-
+                    
                     if (timeout)
                     {
                         Log("*** TCPMessageRead timeout " + currentTimeout + "ms/" + maxTimeout + "ms exceeded while reading headers after reading " + BytesRead + " bytes");
-                        return false;
+                        return null;
                     }
 
                     headerBytes = headerMs.ToArray();
+                    if (headerBytes == null || headerBytes.Length < 1)
+                    {
+                        Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
+                        return null;
+                    }
 
                     #endregion
 
@@ -245,28 +249,28 @@ namespace BigQ
                     }
                     catch (Exception e)
                     {
-                        Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " while reading message headers: " + e.Message);
-                        return false;
+                        Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " exception while reading message headers: " + e.Message);
+                        return null;
                     }
 
                     if (Message == null || Message == default(BigQMessage))
                     {
                         Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " null or default message after reading headers");
-                        return false;
+                        return null;
                     }
 
                     #endregion
 
                     #region Check-for-Empty-ContentLength
 
-                    if (Message.ContentLength == null) return true;
-                    if (Message.ContentLength <= 0) return true;
+                    if (Message.ContentLength == null) return Message;
+                    if (Message.ContentLength <= 0) return Message;
 
                     #endregion
                 }
-                
-                #endregion
 
+                #endregion
+                
                 #region Read-Data-from-Stream
 
                 using (MemoryStream dataMs = new MemoryStream())
@@ -275,25 +279,33 @@ namespace BigQ
                     timeout = false;
                     currentTimeout = 0;
 
-                    do
-                    {
-                        byte[] buffer;
-                        long bufferSize = 2048;
-                        
-                        //
-                        // reduce buffer size if number of bytes remaining is
-                        // less than the pre-defined buffer size of 2KB
-                        //
-                        if (bytesRemaining < bufferSize) bufferSize = bytesRemaining;
-                        buffer = new byte[bufferSize];
+                    int read = 0;
+                    byte[] buffer;
+                    long bufferSize = 2048;
+                    if (bufferSize > bytesRemaining) bufferSize = bytesRemaining;
+                    buffer = new byte[bufferSize];
 
-                        int read = ClientStream.Read(buffer, 0, buffer.Length);
+                    while ((read = ClientStream.ReadAsync(buffer, 0, buffer.Length).Result) > 0)
+                    {
                         if (read > 0)
                         {
                             dataMs.Write(buffer, 0, read);
                             BytesRead = BytesRead + read;
                             bytesRemaining = bytesRemaining - read;
                         }
+                        
+                        //
+                        // reduce buffer size if number of bytes remaining is
+                        // less than the pre-defined buffer size of 2KB
+                        //
+                        // Console.WriteLine("Bytes remaining " + bytesRemaining + ", buffer size " + bufferSize);
+                        if (bytesRemaining < bufferSize)
+                        {
+                            bufferSize = bytesRemaining;
+                            // Console.WriteLine("Adjusting buffer size to " + bytesRemaining);
+                        }
+
+                        buffer = new byte[bufferSize];
 
                         //
                         // check if read fully
@@ -320,12 +332,11 @@ namespace BigQ
                             if (timeout) break;
                         }
                     }
-                    while (ClientStream.DataAvailable);
 
                     if (timeout)
                     {
                         Log("*** TCPMessageRead timeout " + currentTimeout + "ms/" + maxTimeout + "ms exceeded while reading content after reading " + BytesRead + " bytes");
-                        return false;
+                        return null;
                     }
 
                     contentBytes = dataMs.ToArray();
@@ -338,53 +349,60 @@ namespace BigQ
                 if (contentBytes == null || contentBytes.Length < 1)
                 {
                     Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " no content read");
-                    return false;
+                    return null;
                 }
 
                 if (contentBytes.Length != Message.ContentLength)
                 {
                     Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " content length " + contentBytes.Length + " bytes does not match header value of " + Message.ContentLength);
-                    return false;
+                    return null;
                 }
 
                 Message.Data = new byte[contentBytes.Length];
                 Buffer.BlockCopy(contentBytes, 0, Message.Data, 0, contentBytes.Length);
 
                 #endregion
-                
+
                 //
                 // enumerate
                 //
                 // if (Message.Data != null) Log("TCPMessageRead " + SourceIp + ":" + SourcePort + " returning " + Message.Data.Length + " content bytes");
                 // else Log("TCPMessageRead " + SourceIp + ":" + SourcePort + " returning (null) content bytes");
                 // Log(Message.ToString());
-                return true;
+                //
+                
+                return Message;
             }
             catch (ObjectDisposedException ObjDispInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (obj disposed exception): " + ObjDispInner.Message);
-                return false;
+                return null;
             }
             catch (SocketException SockInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (socket exception): " + SockInner.Message);
-                return false;
+                return null;
             }
             catch (InvalidOperationException InvOpInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (invalid operation exception): " + InvOpInner.Message);
-                return false;
+                return null;
+            }
+            catch (AggregateException AEInner)
+            {
+                Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (aggregate exception): " + AEInner.Message);
+                return null;
             }
             catch (IOException IOInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (IO exception): " + IOInner.Message);
-                return false;
+                return null;
             }
             catch (Exception EInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
                 LogException("TCPMessageRead " + SourceIp + ":" + SourcePort, EInner);
-                return false;
+                return null;
             }
         }
 
@@ -803,6 +821,11 @@ namespace BigQ
                     }
                     
                     headerBytes = headerMs.ToArray();
+                    if (headerBytes == null || headerBytes.Length < 1)
+                    {
+                        Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
+                        return null;
+                    }
 
                     #endregion
 
@@ -814,7 +837,7 @@ namespace BigQ
                     }
                     catch (Exception e)
                     {
-                        Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " while reading message headers: " + e.Message);
+                        Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " exception while reading message headers: " + e.Message);
                         return null;
                     }
 
@@ -904,6 +927,8 @@ namespace BigQ
                 // if (Message.Data != null) Log("TCPMessageRead " + SourceIp + ":" + SourcePort + " returning " + Message.Data.Length + " content bytes");
                 // else Log("TCPMessageRead " + SourceIp + ":" + SourcePort + " returning (null) content bytes");
                 // Log(Message.ToString());
+                //
+
                 return Message;
             }
             catch (WebSocketException WSEInner)

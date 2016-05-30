@@ -240,11 +240,11 @@ namespace BigQ
 
             CdrTokenSource = new CancellationTokenSource();
             CdrToken = CdrTokenSource.Token;
-            Task.Factory.StartNew(() => ConnectionDataReceiver(), CdrToken);
-
+            Task.Run(() => TCPDataReceiver(), CdrToken);
+            
             CsrTokenSource = new CancellationTokenSource();
             CsrToken = CsrTokenSource.Token;
-            Task.Factory.StartNew(() => CleanupSyncRequests(), CsrToken);
+            Task.Run(() => CleanupSyncRequests(), CsrToken);
 
             //
             //
@@ -257,7 +257,7 @@ namespace BigQ
             //
             // HbTokenSource = new CancellationTokenSource();
             // HbToken = HbTokenSource.Token;
-            // Task.Factory.StartNew(() => TCPHeartbeatManager());
+            // Task.Run(() => TCPHeartbeatManager());
 
             #endregion
         }
@@ -274,7 +274,7 @@ namespace BigQ
         public bool SendRawMessage(BigQMessage message)
         {
             if (message == null) throw new ArgumentNullException("message");
-            return ConnectionDataSender(message);
+            return TCPDataSender(message);
         }
 
         /// <summary>
@@ -294,7 +294,7 @@ namespace BigQ
             request.SyncRequest = true;
             request.ChannelGuid = null;
             request.Data = null;
-            return ConnectionDataSender(request);
+            return TCPDataSender(request);
         }
 
         /// <summary>
@@ -344,7 +344,7 @@ namespace BigQ
                 // start new heartbeat thread
                 HbTokenSource = new CancellationTokenSource();
                 HbToken = HbTokenSource.Token;
-                Task.Factory.StartNew(() => HeartbeatManager());
+                Task.Run(() => HeartbeatManager(), HbToken);
 
                 return true;
             }
@@ -495,7 +495,6 @@ namespace BigQ
             }
             else
             {
-                Console.WriteLine(response.Data);
                 if (response.Data != null)
                 {
                     clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
@@ -730,7 +729,7 @@ namespace BigQ
             CurrentMessage.RecipientGuid = guid;
             CurrentMessage.ChannelGuid = null;
             CurrentMessage.Data = data;
-            return ConnectionDataSender(CurrentMessage);
+            return TCPDataSender(CurrentMessage);
         }
 
         /// <summary>
@@ -779,7 +778,7 @@ namespace BigQ
                 return false;
             }
 
-            if (!ConnectionDataSender(CurrentMessage))
+            if (!TCPDataSender(CurrentMessage))
             {
                 Log("*** SendPrivateMessage unable to send message GUID " + CurrentMessage.MessageId + " to recipient " + CurrentMessage.RecipientGuid);
                 return false;
@@ -811,7 +810,7 @@ namespace BigQ
         {
             if (request == null) throw new ArgumentNullException("request");
             request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-            return ConnectionDataSender(request);
+            return TCPDataSender(request);
         }
 
         /// <summary>
@@ -835,7 +834,7 @@ namespace BigQ
                 return false;
             }
 
-            if (!ConnectionDataSender(request))
+            if (!TCPDataSender(request))
             {
                 Log("*** SendServerMessageSync unable to send message GUID " + request.MessageId + " to server");
                 return false;
@@ -892,7 +891,7 @@ namespace BigQ
             CurrentMessage.RecipientGuid = null;
             CurrentMessage.ChannelGuid = guid;
             CurrentMessage.Data = data;
-            return ConnectionDataSender(CurrentMessage);
+            return TCPDataSender(CurrentMessage);
         }
 
         /// <summary>
@@ -1245,7 +1244,7 @@ namespace BigQ
 
         #region Private-Methods
 
-        private bool ConnectionDataSender(BigQMessage Message)
+        private bool TCPDataSender(BigQMessage Message)
         {
             #region Check-for-Null-Values
 
@@ -1264,7 +1263,12 @@ namespace BigQ
                 Log("Server " + ServerIp + ":" + ServerPort + " not connected");
                 Connected = false;
 
-                if (ServerDisconnected != null) ServerDisconnected();
+                // 
+                //
+                // Do not fire event here; allow TCPDataReceiver to do it
+                //
+                //
+                // if (ServerDisconnected != null) ServerDisconnected();
                 return false;
             }
 
@@ -1274,12 +1278,12 @@ namespace BigQ
 
             if (!BigQHelper.TCPMessageWrite(ClientTCPInterface, Message))
             {
-                Log("Unable to send data to server " + ServerIp + ":" + ServerPort);
+                Log("TCPDataSender unable to send data to server " + ServerIp + ":" + ServerPort);
                 return false;
             }
             else
             {
-                Log("Successfully sent message to server " + ServerIp + ":" + ServerPort);
+                Log("TCPDataSender successfully sent message to server " + ServerIp + ":" + ServerPort);
             }
 
             #endregion
@@ -1287,8 +1291,10 @@ namespace BigQ
             return true;
         }
         
-        private void ConnectionDataReceiver()
+        private void TCPDataReceiver()
         {
+            bool disconnectDetected = false;
+
             try
             {
                 #region Attach-to-Stream
@@ -1314,7 +1320,7 @@ namespace BigQ
                         Log("*** TCPDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
                         Connected = false;
 
-                        if (ServerDisconnected != null) Task.Factory.StartNew(() => ServerDisconnected());
+                        disconnectDetected = true;
                         break;
                     }
                     else
@@ -1330,17 +1336,19 @@ namespace BigQ
                     {
                         #region Read-Message
 
-                        BigQMessage CurrentMessage = null;
-                        if (!BigQHelper.TCPMessageRead(ClientTCPInterface, out CurrentMessage))
+                        BigQMessage CurrentMessage = BigQHelper.TCPMessageRead(ClientTCPInterface);
+                        if (CurrentMessage == null)
                         {
                             Log("TCPDataReceiver unable to read message from server " + ServerIp + ":" + ServerPort);
                             continue;
                         }
-
-                        if (CurrentMessage == null)
+                        else
                         {
-                            Log("*** TCPDataReceiver null message read from server " + ServerIp + ":" + ServerPort);
-                            continue;
+                            /*
+                            Console.WriteLine("");
+                            Console.WriteLine(CurrentMessage.ToString());
+                            Console.WriteLine("");
+                             */
                         }
 
                         #endregion
@@ -1379,7 +1387,7 @@ namespace BigQ
                                 CurrentMessage.SenderGuid = ClientGuid;
                                 CurrentMessage.RecipientGuid = TempGuid;
 
-                                ConnectionDataSender(CurrentMessage);
+                                TCPDataSender(CurrentMessage);
                                 Log("TCPDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
                             }
                             else
@@ -1387,7 +1395,7 @@ namespace BigQ
                                 Log("*** TCPDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
                                 if (AsyncMessageReceived != null)
                                 {
-                                    Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                    Task.Run(() => AsyncMessageReceived(CurrentMessage));
                                 }
                                 else
                                 {
@@ -1416,7 +1424,7 @@ namespace BigQ
                                     Log("*** TCPDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
                                     if (AsyncMessageReceived != null)
                                     {
-                                        Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                        Task.Run(() => AsyncMessageReceived(CurrentMessage));
                                     }
                                     else
                                     {
@@ -1430,7 +1438,7 @@ namespace BigQ
                                 Log("*** TCPDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
                                 if (AsyncMessageReceived != null)
                                 {
-                                    Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                    Task.Run(() => AsyncMessageReceived(CurrentMessage));
                                 }
                                 else
                                 {
@@ -1448,7 +1456,7 @@ namespace BigQ
 
                             if (AsyncMessageReceived != null)
                             {
-                                Task.Factory.StartNew(() => AsyncMessageReceived(CurrentMessage));
+                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
                             }
                             else
                             {
@@ -1466,11 +1474,24 @@ namespace BigQ
 
                 #endregion
             }
+            catch (ObjectDisposedException)
+            {
+                Log("*** TCPDataReceiver no longer connected (object disposed exception)");
+            }
             catch (Exception EOuter)
             {
                 Log("*** TCPDataReceiver outer exception detected");
                 LogException("TCPDataReceiver", EOuter);
-                if (ServerDisconnected != null) ServerDisconnected();
+            }
+            finally
+            {
+                if (disconnectDetected || !Connected)
+                {
+                    if (ServerDisconnected != null)
+                    {
+                        Task.Run(() => ServerDisconnected());
+                    }
+                }
             }
         }
 
@@ -1532,8 +1553,6 @@ namespace BigQ
                     {
                         Log("TCPHeartbeatManager client disconnected from server " + ServerIp + ":" + ServerPort);
                         Connected = false;
-
-                        if (ServerDisconnected != null) ServerDisconnected();
                         return;
                     }
 
@@ -1555,8 +1574,6 @@ namespace BigQ
                         {
                             Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached");
                             Connected = false;
-
-                            if (ServerDisconnected != null) Task.Factory.StartNew(() => ServerDisconnected());
                             return;
                         }
                     }
@@ -1577,7 +1594,6 @@ namespace BigQ
             }
             finally
             {
-
             }
         }
 

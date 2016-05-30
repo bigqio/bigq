@@ -10,7 +10,7 @@ namespace BigQServerTest
     class ServerTest
     {
         static BigQServer server;
-        const bool DEBUG = true;
+        static bool DEBUG = false;
 
         static void Main(string[] args)
         {
@@ -48,7 +48,9 @@ namespace BigQServerTest
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
-            server.LogMessage = LogMessage;
+
+            if (DEBUG) server.LogMessage = LogMessage;
+            else server.LogMessage = null;
 
             bool RunForever = true;
             while (RunForever)
@@ -158,6 +160,7 @@ namespace BigQServerTest
         {
             // restart
             Console.WriteLine("*** Server stopped, attempting to restart ***");
+            if (server != null) server.Close();
             server = null;
             server = new BigQServer(null, 8000, null, 8001, DEBUG, true, true, true, 0);
             server.MessageReceived = MessageReceived;
@@ -165,7 +168,10 @@ namespace BigQServerTest
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
-            server.LogMessage = LogMessage;
+
+            if (DEBUG) server.LogMessage = LogMessage;
+            else server.LogMessage = null;
+
             return true;
         }
 

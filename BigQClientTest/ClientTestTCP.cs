@@ -13,7 +13,7 @@ namespace BigQClientTestTCP
     class ClientTestTCP
     {
         static BigQClient client;
-        const bool DEBUG = true;
+        static bool DEBUG = false;
 
         static void Main(string[] args)
         {
@@ -318,7 +318,9 @@ namespace BigQClientTestTCP
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;
                 client.ServerDisconnected = ConnectToServer;
-                // client.LogMessage = LogMessage;
+
+                if (DEBUG) client.LogMessage = LogMessage;
+                else client.LogMessage = null;
 
                 BigQMessage response;
                 if (!client.Login(out response))

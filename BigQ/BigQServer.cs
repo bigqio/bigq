@@ -26,15 +26,17 @@ namespace BigQ
         private IPAddress TCPListenerIPAddress;
         private int TCPListenerPort;
         private TcpListener TCPListener;
-        private bool TCPListenerRunning;
         private int TCPActiveConnectionThreads;
+        private CancellationTokenSource TCPCancellationTokenSource;
+        private CancellationToken TCPCancellationToken;
 
         private string WSListenerIP;
         private IPAddress WSListenerIPAddress;
         private int WSListenerPort;
         private HttpListener WSListener;
-        private bool WSListenerRunning;
         private int WSActiveConnectionThreads;
+        private CancellationTokenSource WSCancellationTokenSource;
+        private CancellationToken WSCancellationToken;
 
         private bool SendAcknowledgements;
         private bool SendServerJoinNotifications;
@@ -151,7 +153,14 @@ namespace BigQ
             LogMessage = null;
 
             #endregion
+
+            #region Stop-Existing-Tasks
+
+            if (TCPCancellationTokenSource != null) TCPCancellationTokenSource.Cancel();
+            if (WSCancellationTokenSource != null) WSCancellationTokenSource.Cancel();
             
+            #endregion
+
             #region Start-TCP-Server
 
             if (String.IsNullOrEmpty(TCPListenerIP))
@@ -167,7 +176,9 @@ namespace BigQ
             TCPListener = new TcpListener(TCPListenerIPAddress, TCPListenerPort);
             Log("Starting TCP server at: tcp://" + TCPListenerIP + ":" + TCPListenerPort);
 
-            Task.Factory.StartNew(() => TCPAcceptConnections());
+            TCPCancellationTokenSource = new CancellationTokenSource();
+            TCPCancellationToken = TCPCancellationTokenSource.Token;
+            Task.Run(() => TCPAcceptConnections(), TCPCancellationToken);
 
             #endregion
 
@@ -184,7 +195,9 @@ namespace BigQ
             WSListener.Prefixes.Add(prefix);
             Log("Starting Websocket server at: " + prefix);
 
-            Task.Factory.StartNew(() => WSAcceptConnections());
+            WSCancellationTokenSource = new CancellationTokenSource();
+            WSCancellationToken = WSCancellationTokenSource.Token;
+            Task.Run(() => WSAcceptConnections(), WSCancellationToken);
 
             #endregion
         }
@@ -193,6 +206,16 @@ namespace BigQ
 
         #region Public-Methods
 
+        /// <summary>
+        /// Close and dispose of server resources.
+        /// </summary>
+        public void Close()
+        {
+            if (TCPCancellationTokenSource != null) TCPCancellationTokenSource.Cancel();
+            if (WSCancellationTokenSource != null) WSCancellationTokenSource.Cancel();
+            return;
+        }
+        
         /// <summary>
         /// Enumerate all channels.
         /// </summary>
@@ -237,203 +260,197 @@ namespace BigQ
         {
             try
             { 
-                #region Prepare
-
-                TCPListener.Start();
-                TCPListenerRunning = true;
-
-                #endregion
-                
                 #region Accept-TCP-Connections
 
-                while (TCPListenerRunning)
+                TCPListener.Start();
+                while (!TCPCancellationToken.IsCancellationRequested)
                 {
-                    #region Reset-Variables
+                    // Log("TCPAcceptConnections waiting for next connection");
 
-                    string ClientIp = "";
-                    int ClientPort = 0;
-                    TcpClient Client;
+                    TcpClient Client = TCPListener.AcceptTcpClientAsync().Result;
+                    Client.LingerState.Enabled = false;
 
-                    #endregion
-
-                    #region Accept-Connection
-
-                    Client = TCPListener.AcceptTcpClient();
-                    TCPActiveConnectionThreads++;
-
-                    #endregion
-
-                    #region Get-Client-Tuple
-
-                    ClientIp = ((IPEndPoint)Client.Client.RemoteEndPoint).Address.ToString();
-                    ClientPort = ((IPEndPoint)Client.Client.RemoteEndPoint).Port;
-
-                    #endregion
-                    
-                    #region Add-to-Client-List
-
-                    BigQClient CurrentClient = new BigQClient();
-                    CurrentClient.SourceIp = ClientIp;
-                    CurrentClient.SourcePort = ClientPort;
-                    CurrentClient.ClientTCPInterface = Client;
-                    CurrentClient.ClientHTTPContext = null;
-                    CurrentClient.ClientWSContext = null;
-                    CurrentClient.ClientWSInterface = null;
-
-                    CurrentClient.IsTCP = true;
-                    CurrentClient.IsWebsocket = false;
-                    CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    CurrentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
-
-                    if (!AddClient(CurrentClient))
+                    Task.Run(() =>
                     {
-                        Log("*** TCPAcceptConnections unable to add client " + CurrentClient.IpPort());
-                        TCPActiveConnectionThreads--;
-                        Client.Close();
-                        continue;
-                    }
+                        #region Increment-Counters
 
-                    #endregion
+                        TCPActiveConnectionThreads++;
 
-                    #region Start-Data-Receiver
+                        //
+                        //
+                        // Do not decrement in this block, decrement is done by the connection reader
+                        //
+                        //
 
-                    Log("TCPAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                    Task.Factory.StartNew(() => TCPDataReceiver(CurrentClient));
+                        #endregion
 
-                    #endregion
+                        #region Get-Tuple
 
-                    #region Start-Heartbeat-Manager
+                        string ClientIp = ((IPEndPoint)Client.Client.RemoteEndPoint).Address.ToString();
+                        int ClientPort = ((IPEndPoint)Client.Client.RemoteEndPoint).Port;
+                        Log("TCPAcceptConnections accepted connection from " + ClientIp + ":" + ClientPort);
 
-                    if (HeartbeatIntervalMsec > 0)
-                    {
-                        Log("TCPAcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
-                        Task.Factory.StartNew(() => TCPHeartbeatManager(CurrentClient));
-                    }
+                        #endregion
 
-                    #endregion
+                        #region Add-to-Client-List
+
+                        BigQClient CurrentClient = new BigQClient();
+                        CurrentClient.SourceIp = ClientIp;
+                        CurrentClient.SourcePort = ClientPort;
+                        CurrentClient.ClientTCPInterface = Client;
+                        CurrentClient.ClientHTTPContext = null;
+                        CurrentClient.ClientWSContext = null;
+                        CurrentClient.ClientWSInterface = null;
+
+                        CurrentClient.IsTCP = true;
+                        CurrentClient.IsWebsocket = false;
+                        CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
+                        CurrentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
+
+                        if (!AddClient(CurrentClient))
+                        {
+                            Log("*** TCPAcceptConnections unable to add client " + CurrentClient.IpPort());
+                            Client.Close();
+                            return;
+                        }
+
+                        #endregion
+
+                        #region Start-Data-Receiver
+
+                        Log("TCPAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
+                        Task.Run(() => TCPDataReceiver(CurrentClient), TCPCancellationToken);
+
+                        #endregion
+
+                        #region Start-Heartbeat-Manager
+
+                        if (HeartbeatIntervalMsec > 0)
+                        {
+                            Log("TCPAcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
+                            Task.Run(() => TCPHeartbeatManager(CurrentClient), TCPCancellationToken);
+                        }
+
+                        #endregion
+
+                    }, TCPCancellationToken);
                 }
-
+                
                 #endregion
             }
             catch (Exception e)
             {
-                TCPListenerRunning = false;
                 LogException("TCPAcceptConnections", e);
                 if (ServerStopped != null) ServerStopped();
             }
         }
 
-        private async void WSAcceptConnections()
+        private void WSAcceptConnections()
         {
             try
             {
-                #region Prepare
-
-                WSListener.Start();
-                WSListenerRunning = true;
-
-                #endregion
-
                 #region Accept-WS-Connections
 
-                while (WSListenerRunning)
+                WSListener.Start();
+                while (!WSCancellationToken.IsCancellationRequested)
                 {
-                    #region Reset-Variables
+                    HttpListenerContext Context = WSListener.GetContextAsync().Result;
 
-                    string ClientIp = "";
-                    int ClientPort = 0;
-                    WebSocket Client;
-
-                    #endregion
-
-                    #region Accept-Connection
-
-                    HttpListenerContext httpContext = await WSListener.GetContextAsync();
-                    WSActiveConnectionThreads++;
-
-                    #endregion
-
-                    #region Get-Client-Tuple
-
-                    ClientIp = httpContext.Request.RemoteEndPoint.Address.ToString();
-                    ClientPort = httpContext.Request.RemoteEndPoint.Port;
-
-                    #endregion
-
-                    #region Get-Websocket-Context
-
-                    WebSocketContext wsContext = null;
-                    try
+                    Task.Run(() =>
                     {
-                        wsContext = await httpContext.AcceptWebSocketAsync(subProtocol: null);
-                    }
-                    catch (Exception e)
-                    {
-                        Log("*** WSAcceptConnections exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
-                        httpContext.Response.StatusCode = 500;
-                        httpContext.Response.Close();
-                        Console.WriteLine("Exception: {0}", e);
-                        return;
-                    }
+                        #region Increment-Counters
 
-                    Client = wsContext.WebSocket;
+                        WSActiveConnectionThreads++;
 
-                    #endregion
+                        //
+                        //
+                        // Do not decrement in this block, decrement is done by the connection reader
+                        //
+                        //
 
-                    #region Add-to-Client-List
+                        #endregion
 
-                    BigQClient CurrentClient = new BigQClient();
-                    CurrentClient.SourceIp = ClientIp;
-                    CurrentClient.SourcePort = ClientPort;
-                    CurrentClient.ClientTCPInterface = null;
-                    CurrentClient.ClientHTTPContext = httpContext;
-                    CurrentClient.ClientWSContext = wsContext;
-                    CurrentClient.ClientWSInterface = Client;
+                        #region Get-Tuple
 
-                    CurrentClient.IsTCP = false;
-                    CurrentClient.IsWebsocket = true;
-                    CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    CurrentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
+                        string ClientIp = Context.Request.RemoteEndPoint.Address.ToString();
+                        int ClientPort = Context.Request.RemoteEndPoint.Port;
+                        Log("WSAcceptConnections accepted connection from " + ClientIp + ":" + ClientPort);
 
-                    if (!AddClient(CurrentClient))
-                    {
-                        Log("*** WSAcceptConnections unable to add client " + CurrentClient.IpPort());
-                        WSActiveConnectionThreads--;
-                        httpContext.Response.StatusCode = 500;
-                        httpContext.Response.Close();
-                        continue;
-                    }
+                        #endregion
 
-                    #endregion
+                        #region Get-Websocket-Context
 
-                    #region Start-Data-Receiver
+                        WebSocketContext wsContext = null;
+                        try
+                        {
+                            wsContext = Context.AcceptWebSocketAsync(subProtocol: null).Result;
+                        }
+                        catch (Exception)
+                        {
+                            Log("*** WSSetupConnection exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
+                            Context.Response.StatusCode = 500;
+                            Context.Response.Close();
+                            return;
+                        }
 
-                    Log("WSAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
-                    await Task.Factory.StartNew(() => WSDataReceiver(CurrentClient));
+                        WebSocket Client = wsContext.WebSocket;
 
-                    #endregion
+                        #endregion
 
-                    #region Start-Heartbeat-Manager
+                        #region Add-to-Client-List
 
-                    if (HeartbeatIntervalMsec > 0)
-                    {
-                        Log("WSAcceptConnections starting heartbeat manager for " + CurrentClient.IpPort());
-                        await Task.Factory.StartNew(() => WSHeartbeatManager(CurrentClient));
-                    }
+                        BigQClient CurrentClient = new BigQClient();
+                        CurrentClient.SourceIp = ClientIp;
+                        CurrentClient.SourcePort = ClientPort;
+                        CurrentClient.ClientTCPInterface = null;
+                        CurrentClient.ClientHTTPContext = Context;
+                        CurrentClient.ClientWSContext = wsContext;
+                        CurrentClient.ClientWSInterface = Client;
 
-                    #endregion
+                        CurrentClient.IsTCP = false;
+                        CurrentClient.IsWebsocket = true;
+                        CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
+                        CurrentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
+
+                        if (!AddClient(CurrentClient))
+                        {
+                            Log("*** WSSetupConnection unable to add client " + CurrentClient.IpPort());
+                            Context.Response.StatusCode = 500;
+                            Context.Response.Close();
+                            return;
+                        }
+
+                        #endregion
+
+                        #region Start-Data-Receiver
+
+                        Log("WSSetupConnection starting data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
+                        Task.Run(() => WSDataReceiver(CurrentClient), WSCancellationToken);
+
+                        #endregion
+
+                        #region Start-Heartbeat-Manager
+
+                        if (HeartbeatIntervalMsec > 0)
+                        {
+                            Log("WSSetupConnection starting heartbeat manager for " + CurrentClient.IpPort());
+                            Task.Run(() => WSHeartbeatManager(CurrentClient), WSCancellationToken);
+                        }
+
+                        #endregion
+
+                    }, WSCancellationToken);
                 }
 
                 #endregion
             }
             catch (Exception e)
             {
-                WSListenerRunning = false;
                 LogException("WSAcceptConnections", e);
                 if (ServerStopped != null) ServerStopped();
             }
         }
-
+        
         private void TCPDataReceiver(BigQClient CurrentClient)
         {
             try
@@ -481,7 +498,7 @@ namespace BigQ
                             Log("*** TCPDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
                         }
 
-                        if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                        if (SendServerJoinNotifications) Task.Run(() => ServerLeaveEvent(CurrentClient));
                         break;
                     }
                     else
@@ -490,50 +507,37 @@ namespace BigQ
                     }
 
                     #endregion
+                    
+                    #region Retrieve-Message
 
-                    #region Read-Data-from-Client
-
-                    if (ClientStream.DataAvailable)
+                    BigQMessage CurrentMessage = BigQHelper.TCPMessageRead(CurrentClient.ClientTCPInterface);
+                    if (CurrentMessage == null)
                     {
-                        #region Retrieve-Message
-
-                        BigQMessage CurrentMessage = null;
-                        if (!BigQHelper.TCPMessageRead(CurrentClient.ClientTCPInterface, out CurrentMessage))
-                        {
-                            Log("*** TCPDataReceiver unable to read from client " + CurrentClient.IpPort());
-                            continue;
-                        }
-
-                        if (CurrentMessage == null)
-                        {
-                            Log("TCPDataReceiver unable to read message from client " + CurrentClient.IpPort());
-                            continue;
-                        }
-                        else
-                        {
-                            Log("TCPDataReceiver successfully received message from client " + CurrentClient.IpPort());
-                            Task.Factory.StartNew(() => MessageReceived(CurrentMessage));
-                        }
-
-                        if (!CurrentMessage.IsValid())
-                        {
-                            Log("TCPDataReceiver invalid message received from client " + CurrentClient.IpPort());
-                            continue;
-                        }
-                        else
-                        {
-                            Log("TCPDataReceiver valid message received from client " + CurrentClient.IpPort());
-                        }
-
-                        #endregion
-
-                        #region Process-Message
-
-                        MessageProcessor(CurrentClient, CurrentMessage);
-                        Log("TCPDataReceiver finished processing message from client " + CurrentClient.IpPort());
-
-                        #endregion
+                        Log("*** TCPDataReceiver unable to read from client " + CurrentClient.IpPort());
+                        continue;
                     }
+                    else
+                    {
+                        Log("TCPDataReceiver successfully received message from client " + CurrentClient.IpPort());   
+                    }
+
+                    if (!CurrentMessage.IsValid())
+                    {
+                        Log("TCPDataReceiver invalid message received from client " + CurrentClient.IpPort());
+                        continue;
+                    }
+                    else
+                    {
+                        Log("TCPDataReceiver valid message received from client " + CurrentClient.IpPort());
+                    }
+
+                    #endregion
+
+                    #region Process-Message
+
+                    MessageProcessor(CurrentClient, CurrentMessage);
+                    Task.Run(() => MessageReceived(CurrentMessage));
+                    // Log("TCPDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
                     #endregion
                 }
@@ -597,7 +601,7 @@ namespace BigQ
                             Log("*** WSDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
                         }
 
-                        if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                        if (SendServerJoinNotifications) Task.Run(() => ServerLeaveEvent(CurrentClient));
                         break;
                     }
                     else
@@ -625,7 +629,7 @@ namespace BigQ
                     else
                     {
                         Log("WSDataReceiver successfully received message from client " + CurrentClient.IpPort());
-                        Task.Factory.StartNew(() => MessageReceived(CurrentMessage));
+                        Task.Run(() => MessageReceived(CurrentMessage));
                     }
 
                     if (!CurrentMessage.IsValid())
@@ -897,7 +901,7 @@ namespace BigQ
                             Log("*** TCPHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
                         }
 
-                        if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                        if (SendServerJoinNotifications) Task.Run(() => ServerLeaveEvent(CurrentClient));
                         return;
                     }
 
@@ -929,7 +933,7 @@ namespace BigQ
                                 Log("*** TCPHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
                             }
 
-                            if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                            if (SendServerJoinNotifications) Task.Run(() => ServerLeaveEvent(CurrentClient));
 
                             return;
                         }
@@ -1031,7 +1035,7 @@ namespace BigQ
                             Log("*** WSHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
                         }
 
-                        if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                        if (SendServerJoinNotifications) Task.Run(() => ServerLeaveEvent(CurrentClient));
                         return;
                     }
 
@@ -1067,7 +1071,7 @@ namespace BigQ
                                 Log("*** WSHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
                             }
 
-                            if (SendServerJoinNotifications) Task.Factory.StartNew(() => ServerLeaveEvent(CurrentClient));
+                            if (SendServerJoinNotifications) Task.Run(() => ServerLeaveEvent(CurrentClient));
 
                             return;
                         }
@@ -1161,7 +1165,7 @@ namespace BigQ
             Message.SenderGuid = CurrentClient.ClientGuid;
             foreach (BigQClient curr in CurrentChannelClients)
             {
-                Task.Factory.StartNew(() =>
+                Task.Run(() =>
                 {
                     Message.RecipientGuid = curr.ClientGuid;
                     bool ResponseSuccess = false;
@@ -1213,7 +1217,7 @@ namespace BigQ
             {
                 if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) != 0)
                 {
-                    Task.Factory.StartNew(() =>
+                    Task.Run(() =>
                     {
                         Message.RecipientGuid = curr.ClientGuid;
                         bool ResponseSuccess = DataSender(curr, Message);
@@ -1260,7 +1264,7 @@ namespace BigQ
                     if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) != 0)
                     {
                         /*
-                        Task.Factory.StartNew(() =>
+                        Task.Run(() =>
                         {
                             Message.RecipientGuid = curr.ClientGuid;
                             bool ResponseSuccess = TCPDataSender(curr, Message);
@@ -1328,7 +1332,7 @@ namespace BigQ
             {
                 if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) != 0)
                 {
-                    Task.Factory.StartNew(() =>
+                    Task.Run(() =>
                     {
                         Message.RecipientGuid = curr.ClientGuid;
                         bool ResponseSuccess = DataSender(curr, Message);
@@ -1384,7 +1388,7 @@ namespace BigQ
             {
                 if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) != 0)
                 {
-                    Task.Factory.StartNew(() =>
+                    Task.Run(() =>
                     {
                         Message.RecipientGuid = curr.ClientGuid;
                         bool ResponseSuccess = DataSender(curr, Message);
@@ -1453,7 +1457,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("GetClientByGuid " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("GetClientByGuid " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1486,7 +1490,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("GetAllClients " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("GetAllClients " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
         
@@ -1542,7 +1546,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("GetChannelByGuid " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("GetChannelByGuid " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1566,7 +1570,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("GetAllChannels " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("GetAllChannels " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1609,7 +1613,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("GetChannelSubscribers " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("GetChannelSubscribers " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1645,7 +1649,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("GetChannelByName " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("GetChannelByName " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1725,13 +1729,13 @@ namespace BigQ
                 }
 
                 Log("AddClient " + CurrentClient.IpPort() + " exiting with " + NewClientsList.Count + " entries in client list");
-                if (ClientConnected != null) Task.Factory.StartNew(() => ClientConnected(CurrentClient));
+                if (ClientConnected != null) Task.Run(() => ClientConnected(CurrentClient));
                 return true;
             }
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("AddClient " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("AddClient " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1811,13 +1815,13 @@ namespace BigQ
                 }
 
                 Log("RemoveClient exiting with " + Clients.Count + " entries in client list");
-                if (ClientDisconnected != null) Task.Factory.StartNew(() => ClientDisconnected(CurrentClient));
+                if (ClientDisconnected != null) Task.Run(() => ClientDisconnected(CurrentClient));
                 return true;
             }
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("RemoveClient " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("RemoveClient " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1866,14 +1870,14 @@ namespace BigQ
                                     BigQChannel TempChannel = curr;
                                     List<BigQClient> TempSubscribers = new List<BigQClient>(curr.Subscribers);
 
-                                    Task.Factory.StartNew(() =>
+                                    Task.Run(() =>
                                         {
                                             foreach (BigQClient Client in TempSubscribers)
                                             {
                                                 if (String.Compare(Client.ClientGuid, TempChannel.OwnerGuid) != 0)
                                                 {
                                                     Log("RemoveClientChannels notifying channel " + TempChannel.Guid + " subscriber " + Client.ClientGuid + " of channel deletion");
-                                                    Task.Factory.StartNew(() =>
+                                                    Task.Run(() =>
                                                     {
                                                         SendSystemMessage(ChannelDeletedByOwnerMessage(Client, TempChannel));
                                                     });
@@ -1897,7 +1901,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("RemoveClientChannels " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("RemoveClientChannels " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2029,7 +2033,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("UpdateClient " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("UpdateClient " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2099,7 +2103,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("AddChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("AddChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2149,7 +2153,7 @@ namespace BigQ
                                     BigQChannel TempChannel = Channel;
                                     List<BigQClient> TempSubscribers = new List<BigQClient>(Channel.Subscribers);
 
-                                    Task.Factory.StartNew(() =>
+                                    Task.Run(() =>
                                         { 
                                             foreach (BigQClient Client in TempSubscribers)
                                             {
@@ -2176,7 +2180,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("RemoveChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("RemoveChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2304,7 +2308,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("AddChannelSubscriber " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("AddChannelSubscriber " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2375,7 +2379,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("RemoveChannelSubscriber " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("RemoveChannelSubscriber " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2411,7 +2415,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("IsChannelSubscriber " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("IsChannelSubscriber " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2450,7 +2454,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogLockMethodResponseTime) Console.WriteLine("IsClientConnected " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogLockMethodResponseTime) Log("IsClientConnected " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2775,7 +2779,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("MessageProcessor " + CurrentMessage.Command + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("MessageProcessor " + CurrentMessage.Command + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -2938,7 +2942,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("SendPrivateMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.RecipientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("SendPrivateMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.RecipientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3028,7 +3032,7 @@ namespace BigQ
 
                 #region Send-to-Channel-and-Return-Success
 
-                Task.Factory.StartNew(() =>
+                Task.Run(() =>
                 {
                     ResponseSuccess = ChannelDataSender(Sender, CurrentChannel, RedactMessage(CurrentMessage));
                 });
@@ -3045,7 +3049,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("SendChannelMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.ChannelGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("SendChannelMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.ChannelGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3170,7 +3174,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("SendSystemMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.RecipientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("SendSystemMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.RecipientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3262,7 +3266,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("SendSystemPrivateMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.RecipientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("SendSystemPrivateMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.RecipientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3329,7 +3333,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("SendSystemChannelMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.ChannelGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("SendSystemChannelMessage " + CurrentMessage.SenderGuid + " -> " + CurrentMessage.ChannelGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3357,7 +3361,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessEchoMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessEchoMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3390,7 +3394,7 @@ namespace BigQ
                     ResponseMessage.Success = true;
                     ResponseMessage.Data = Encoding.UTF8.GetBytes("Login successful");
 
-                    if (ClientLogin != null) Task.Factory.StartNew(() => ClientLogin(CurrentClient));
+                    if (ClientLogin != null) Task.Run(() => ClientLogin(CurrentClient));
                     if (SendServerJoinNotifications) ServerJoinEvent(CurrentClient);
                 }
 
@@ -3399,7 +3403,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessLoginMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessLoginMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3434,7 +3438,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessIsClientConnectedMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessIsClientConnectedMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3474,7 +3478,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessJoinChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessJoinChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3533,7 +3537,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessLeaveChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessLeaveChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3602,7 +3606,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessCreateChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessCreateChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3643,7 +3647,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessDeleteChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessDeleteChannelMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3717,7 +3721,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessListChannelsMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessListChannelsMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3784,7 +3788,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessListChannelSubscribersMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessListChannelSubscribersMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -3841,7 +3845,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Console.WriteLine("ProcessListClientsMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessListClientsMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
