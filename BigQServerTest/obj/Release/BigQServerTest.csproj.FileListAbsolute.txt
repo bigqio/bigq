@@ -18,3 +18,13 @@ D:\code\bigq\BigQ\BigQServerTest\bin\Release\Newtonsoft.Json.dll
 D:\code\bigq\BigQ\BigQServerTest\bin\Release\BigQ.pdb
 D:\code\bigq\BigQ\BigQServerTest\bin\Release\Newtonsoft.Json.xml
 D:\code\bigq\BigQ\BigQServerTest\obj\Release\BigQServerTest.csprojResolveAssemblyReference.cache
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\BigQServerTest.exe.config
+D:\code\bigq\BigQperf\BigQServerTest\obj\Release\BigQServerTest.exe
+D:\code\bigq\BigQperf\BigQServerTest\obj\Release\BigQServerTest.pdb
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\BigQServerTest.exe
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\BigQServerTest.pdb
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\BigQ.dll
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\Newtonsoft.Json.dll
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\BigQ.pdb
+D:\code\bigq\BigQperf\BigQServerTest\bin\Release\Newtonsoft.Json.xml
+D:\code\bigq\BigQperf\BigQServerTest\obj\Release\BigQServerTest.csprojResolveAssemblyReference.cache

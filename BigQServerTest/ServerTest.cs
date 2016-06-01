@@ -57,7 +57,8 @@ namespace BigQServerTest
             {
                 // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
                 Console.WriteLine("---");
-                Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers listclients count");
+                Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers count");
+                Console.WriteLine("          listclients listclientguidmaps");
                 Console.Write("Command: ");
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
@@ -129,6 +130,21 @@ namespace BigQServerTest
                                 if (curr.IsTCP) Console.Write("[TCP] ");
                                 if (curr.IsWebsocket) Console.Write("[WS] ");
                                 Console.WriteLine("");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "listclientguidmaps":
+                        Dictionary<string, string> maps = server.ListClientGuidMaps();
+                        if (maps != null)
+                        {
+                            foreach (KeyValuePair<string, string> curr in maps)
+                            {
+                                Console.WriteLine("  GUID " + curr.Key + "  IP:port " + curr.Value);
                             }
                         }
                         else

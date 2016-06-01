@@ -54,3 +54,9 @@ D:\Code\BigQ\BigQwithAsync\BigQ\bin\Debug\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQwithAsync\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQwithAsync\BigQ\obj\Debug\BigQ.dll
 D:\Code\BigQ\BigQwithAsync\BigQ\obj\Debug\BigQ.pdb
+D:\code\bigq\BigQperf\BigQ\bin\Debug\BigQ.dll
+D:\code\bigq\BigQperf\BigQ\bin\Debug\BigQ.pdb
+D:\code\bigq\BigQperf\BigQ\bin\Debug\Newtonsoft.Json.dll
+D:\code\bigq\BigQperf\BigQ\bin\Debug\Newtonsoft.Json.xml
+D:\code\bigq\BigQperf\BigQ\obj\Debug\BigQ.dll
+D:\code\bigq\BigQperf\BigQ\obj\Debug\BigQ.pdb

@@ -104,7 +104,15 @@ namespace BigQClientTestTCP
                         {
                             Console.WriteLine("ListClients success");
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
-                            else foreach (BigQClient curr in clients) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email);
+                            else
+                            {
+                                foreach (BigQClient curr in clients)
+                                {
+                                    if (curr.IsTCP) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email + " [TCP]");
+                                    else if (curr.IsWebsocket) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email + " [WS]");
+                                    else Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email + " [unknown]");
+                                }
+                            }
                         }
                         else
                         {

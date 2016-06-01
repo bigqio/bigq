@@ -28,3 +28,13 @@ D:\Code\BigQ\BigQwithAsync\BigQClientTest\bin\Debug\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQwithAsync\BigQClientTest\obj\Debug\BigQClientTestTCP.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQwithAsync\BigQClientTest\obj\Debug\BigQClientTest.exe
 D:\Code\BigQ\BigQwithAsync\BigQClientTest\obj\Debug\BigQClientTest.pdb
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\BigQClientTest.exe.config
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\BigQClientTest.exe
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\BigQClientTest.pdb
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\BigQ.dll
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\Newtonsoft.Json.dll
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\BigQ.pdb
+D:\code\bigq\BigQperf\BigQClientTest\bin\Debug\Newtonsoft.Json.xml
+D:\code\bigq\BigQperf\BigQClientTest\obj\Debug\BigQClientTestTCP.csprojResolveAssemblyReference.cache
+D:\code\bigq\BigQperf\BigQClientTest\obj\Debug\BigQClientTest.exe
+D:\code\bigq\BigQperf\BigQClientTest\obj\Debug\BigQClientTest.pdb

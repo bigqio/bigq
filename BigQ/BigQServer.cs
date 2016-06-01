@@ -15,13 +15,30 @@ namespace BigQ
     public class BigQServer
     {
         #region Private-Class-Members
-        
-        private volatile List<BigQClient> Clients;
-        private readonly object ClientsLock;
-        private volatile List<BigQChannel> Channels;
-        private readonly object ChannelsLock;
-        private DateTime Created;
 
+        //
+        // configuration
+        //
+        private DateTime Created;
+        private bool SendAcknowledgements;
+        private bool SendServerJoinNotifications;
+        private bool SendChannelJoinNotifications;
+        private bool ConsoleDebug;
+        private int HeartbeatIntervalMsec;
+        private int MaxHeartbeatFailures;
+        private bool LogLockMethodResponseTime = false;
+        private bool LogMessageResponseTime = false;
+
+        //
+        // resources
+        //
+        private ConcurrentDictionary<string, BigQClient> Clients;       // IpPort(), Client
+        private ConcurrentDictionary<string, string> ClientGuidMap;     // Guid, IpPort()
+        private ConcurrentDictionary<string, BigQChannel> Channels;     // Guid, Channel
+        
+        //
+        // TCP networking
+        //
         private string TCPListenerIP;
         private IPAddress TCPListenerIPAddress;
         private int TCPListenerPort;
@@ -30,6 +47,9 @@ namespace BigQ
         private CancellationTokenSource TCPCancellationTokenSource;
         private CancellationToken TCPCancellationToken;
 
+        //
+        // websocket networking
+        //
         private string WSListenerIP;
         private IPAddress WSListenerIPAddress;
         private int WSListenerPort;
@@ -37,17 +57,6 @@ namespace BigQ
         private int WSActiveConnectionThreads;
         private CancellationTokenSource WSCancellationTokenSource;
         private CancellationToken WSCancellationToken;
-
-        private bool SendAcknowledgements;
-        private bool SendServerJoinNotifications;
-        private bool SendChannelJoinNotifications;
-        private bool ConsoleDebug;
-        
-        private int HeartbeatIntervalMsec;
-        private int MaxHeartbeatFailures;
-        
-        private bool LogLockMethodResponseTime = false;
-        private bool LogMessageResponseTime = false;
 
         #endregion
 
@@ -120,21 +129,20 @@ namespace BigQ
 
             #region Set-Class-Variables
 
-            TCPListenerIP = ipAddressTcp;
-            TCPListenerPort = portTcp;
-            WSListenerIP = ipAddressWebsocket;
-            WSListenerPort = portWebsocket;
-
-            Clients = new List<BigQClient>();
-            ClientsLock = new object();
-            Channels = new List<BigQChannel>();
-            ChannelsLock = new object();
             Created = DateTime.Now.ToUniversalTime();
-
             SendAcknowledgements = sendAck;
             SendServerJoinNotifications = sendServerJoinNotifications;
             SendChannelJoinNotifications = sendChannelJoinNotifications;
             ConsoleDebug = debug;
+
+            Clients = new ConcurrentDictionary<string, BigQClient>();
+            Channels = new ConcurrentDictionary<string, BigQChannel>();
+            ClientGuidMap = new ConcurrentDictionary<string, string>();
+
+            TCPListenerIP = ipAddressTcp;
+            TCPListenerPort = portTcp;
+            WSListenerIP = ipAddressWebsocket;
+            WSListenerPort = portWebsocket;
 
             TCPActiveConnectionThreads = 0;
             WSActiveConnectionThreads = 0;
@@ -241,6 +249,15 @@ namespace BigQ
         public List<BigQClient> ListClients()
         {
             return GetAllClients();
+        }
+
+        /// <summary>
+        /// Enumerate all client GUID to IP:port maps.
+        /// </summary>
+        /// <returns>A dictionary containing client GUIDs (keys) and IP:port strings (values).</returns>
+        public Dictionary<string, string> ListClientGuidMaps()
+        {
+            return GetAllClientGuidMaps();
         }
 
         /// <summary>
@@ -536,7 +553,7 @@ namespace BigQ
                     #region Process-Message
 
                     MessageProcessor(CurrentClient, CurrentMessage);
-                    Task.Run(() => MessageReceived(CurrentMessage));
+                    if (MessageReceived != null) Task.Run(() => MessageReceived(CurrentMessage));
                     // Log("TCPDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
                     #endregion
@@ -647,7 +664,8 @@ namespace BigQ
                     #region Process-Message
 
                     MessageProcessor(CurrentClient, CurrentMessage);
-                    Log("WSDataReceiver finished processing message from client " + CurrentClient.IpPort());
+                    if (MessageReceived != null) Task.Run(() => MessageReceived(CurrentMessage));
+                    // Log("WSDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
                     #endregion
                 }
@@ -1432,27 +1450,31 @@ namespace BigQ
                     return null;
                 }
 
-                BigQClient ret = null;
-                List<BigQClient> ClientsCache = Clients;
-                foreach (BigQClient curr in ClientsCache)
+                if (ClientGuidMap == null || ClientGuidMap.Count < 1)
                 {
-                    if (String.Compare(curr.ClientGuid, guid) == 0)
-                    {
-                        ret = curr;
-                        break;
-                    }
-                }
-            
-                if (ret == null)
-                {
-                    Log("*** GetClientByGuid unable to find client by GUID " + guid);
+                    Log("*** GetClientByGuid no GUID map entries");
                     return null;
                 }
-                else
+
+                string ipPort = null;
+                if (ClientGuidMap.TryGetValue(guid, out ipPort))
                 {
-                    Log("GetClientByGuid returning client with GUID " + guid);
-                    return ret;
+                    if (!String.IsNullOrEmpty(ipPort))
+                    {
+                        BigQClient existingClient = null;
+                        if (Clients.TryGetValue(ipPort, out existingClient))
+                        {
+                            if (existingClient != null)
+                            {
+                                Log("GetClientByGuid returning client with GUID " + guid);
+                                return existingClient;
+                            }
+                        }
+                    }
                 }
+
+                Log("*** GetClientByGuid unable to find client by GUID " + guid);
+                return null;
             }
             finally
             {
@@ -1475,12 +1497,17 @@ namespace BigQ
                 }
 
                 List<BigQClient> ret = new List<BigQClient>();
-                List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
-                foreach (BigQClient curr in ClientsCache)
+                foreach (KeyValuePair<string, BigQClient> curr in Clients)
                 {
-                    if (!String.IsNullOrEmpty(curr.ClientGuid))
+                    if (!String.IsNullOrEmpty(curr.Value.ClientGuid))
                     {
-                        ret.Add(curr);
+                        /*
+                        if (curr.Value.IsTCP) Console.WriteLine("GetAllClients adding TCP client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGuid + " to list");
+                        else if (curr.Value.IsWebsocket) Console.WriteLine("GetAllClients adding websocket client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGuid + " to list");
+                        else Console.WriteLine("GetAllClients adding unknown client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGuid + " to list");
+                         */
+
+                        ret.Add(curr.Value);
                     }
                 }
 
@@ -1494,6 +1521,13 @@ namespace BigQ
             }
         }
         
+        private Dictionary<string, string> GetAllClientGuidMaps()
+        {
+            if (ClientGuidMap == null || ClientGuidMap.Count < 1) return new Dictionary<string, string>();
+            Dictionary<string, string> ret = ClientGuidMap.ToDictionary(entry => entry.Key, entry => entry.Value);
+            return ret;
+        }
+
         private BigQChannel GetChannelByGuid(string guid)
         {
             Stopwatch sw = new Stopwatch();
@@ -1514,34 +1548,22 @@ namespace BigQ
                 }
 
                 BigQChannel ret = null;
-                List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
-
-                foreach (BigQChannel curr in ChannelsCache)
+                if (Channels.TryGetValue(guid, out ret))
                 {
-                    if (String.Compare(curr.Guid, guid) == 0)
+                    if (ret != null)
                     {
-                        ret = new BigQChannel();
-                        ret.Guid = curr.Guid;
-                        ret.ChannelName = curr.ChannelName;
-                        ret.OwnerGuid = curr.OwnerGuid;
-                        ret.CreatedUTC = curr.CreatedUTC;
-                        ret.UpdatedUTC = curr.UpdatedUTC;
-                        ret.Private = curr.Private;
-                        ret.Subscribers = curr.Subscribers;
-                        break;
+                        Log("GetChannelByGuid returning channel " + guid);
+                        return ret;
+                    }
+                    else
+                    {
+                        Log("*** GetChannelByGuid unable to find channel with GUID " + guid);
+                        return null;
                     }
                 }
 
-                if (ret == null)
-                {
-                    Log("*** GetChannelByGuid unable to find channel with GUID " + guid);
-                    return null;
-                }
-                else
-                {
-                    Log("GetChannelByGuid returning channel " + guid);
-                    return ret;
-                }
+                Log("*** GetChannelByGuid unable to find channel with GUID " + guid);
+                return null;
             }
             finally
             {
@@ -1563,7 +1585,12 @@ namespace BigQ
                     return null;
                 }
 
-                List<BigQChannel> ret = new List<BigQChannel>(Channels);
+                List<BigQChannel> ret = new List<BigQChannel>();
+                foreach (KeyValuePair<string, BigQChannel> curr in Channels)
+                {
+                    ret.Add(curr.Value);
+                }
+
                 Log("GetAllChannels returning " + ret.Count + " channels");
                 return ret;
             }
@@ -1594,13 +1621,12 @@ namespace BigQ
                 }
 
                 List<BigQClient> ret = new List<BigQClient>();
-                List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
                 
-                foreach (BigQChannel curr in ChannelsCache)
+                foreach (KeyValuePair<string, BigQChannel> curr in Channels)
                 {
-                    if (String.Compare(curr.Guid, guid) == 0)
+                    if (String.Compare(curr.Value.Guid, guid) == 0)
                     {
-                        foreach (BigQClient CurrentClient in curr.Subscribers)
+                        foreach (BigQClient CurrentClient in curr.Value.Subscribers)
                         {
                             ret.Add(CurrentClient);
                         }
@@ -1631,15 +1657,14 @@ namespace BigQ
                 }
 
                 BigQChannel ret = null;
-                List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
                 
-                foreach (BigQChannel curr in ChannelsCache)
+                foreach (KeyValuePair<string, BigQChannel> curr in Channels)
                 {
-                    if (String.IsNullOrEmpty(curr.ChannelName)) continue;
+                    if (String.IsNullOrEmpty(curr.Value.ChannelName)) continue;
 
-                    if (String.Compare(curr.ChannelName.ToLower(), name.ToLower()) == 0)
+                    if (String.Compare(curr.Value.ChannelName.ToLower(), name.ToLower()) == 0)
                     {
-                        ret = curr;
+                        ret = curr.Value;
                         break;
                     }
                 }
@@ -1666,69 +1691,23 @@ namespace BigQ
                     return false;
                 }
 
-                List<BigQClient> NewClientsList = new List<BigQClient>();
+                if (CurrentClient.IsTCP) Log("AddClient adding TCP client " + CurrentClient.IpPort() + " with " + Clients.Count + " entries in client list");
+                else if (CurrentClient.IsWebsocket) Log("AddClient adding websocket client " + CurrentClient.IpPort() + " with " + Clients.Count + " entries in client list");
+                else Log("AddClient adding UNKNOWN client " + CurrentClient.IpPort() + " with " + Clients.Count + " entries in client list");
 
-                lock (ClientsLock)
+                BigQClient removedClient = null;
+                if (Clients.TryRemove(CurrentClient.IpPort(), out removedClient))
                 {
-                    Log("AddClient " + CurrentClient.IpPort() + " entering with " + Clients.Count + " entries in client list");
-                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
-
-                    if (Clients.Count < 1)
-                    {
-                        #region First-Client
-
-                        NewClientsList.Add(CurrentClient);
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Subsequent-Client
-
-                        bool matchFound = false;
-
-                        foreach (BigQClient curr in ClientsCache)
-                        {
-                            if (curr.SourceIp == CurrentClient.SourceIp
-                                && curr.SourcePort == CurrentClient.SourcePort)
-                            {
-                                #region Overwrite-Existing-Entry
-
-                                curr.ClientTCPInterface = CurrentClient.ClientTCPInterface;
-                                curr.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                                matchFound = true;
-                                NewClientsList.Add(curr);
-                                continue;
-
-                                #endregion
-                            }
-                            else
-                            {
-                                #region Add-Entry
-
-                                NewClientsList.Add(curr);
-                                continue;
-
-                                #endregion
-                            }
-                        }
-
-                        if (!matchFound)
-                        {
-                            #region New-Entry
-
-                            NewClientsList.Add(CurrentClient);
-
-                            #endregion
-                        }
-
-                        #endregion
-                    }
-
-                    Clients = NewClientsList;
+                    Log("AddClient removed previous existing client entry for " + CurrentClient.IpPort());
+                }
+                
+                if (!Clients.TryAdd(CurrentClient.IpPort(), CurrentClient))
+                {
+                    Log("*** AddClient unable to add replacement client entry for " + CurrentClient.IpPort());
+                    return false;
                 }
 
-                Log("AddClient " + CurrentClient.IpPort() + " exiting with " + NewClientsList.Count + " entries in client list");
+                Log("AddClient " + CurrentClient.IpPort() + " exiting with " + Clients.Count + " entries in client list");
                 if (ClientConnected != null) Task.Run(() => ClientConnected(CurrentClient));
                 return true;
             }
@@ -1754,67 +1733,32 @@ namespace BigQ
 
                 Log("RemoveClient removing client " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid);
 
-                List<BigQClient> UpdatedList = new List<BigQClient>();
-
-                lock (ClientsLock)
+                //
+                // remove client entry
+                //
+                if (Clients.ContainsKey(CurrentClient.IpPort()))
                 {
-                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
-
-                    if (ClientsCache == null || ClientsCache.Count < 1)
+                    BigQClient removedClient = null;
+                    if (!Clients.TryRemove(CurrentClient.IpPort(), out removedClient))
                     {
-                        Log("RemoveClient no clients");
-                        return true;
+                        Log("*** Unable to remove client " + CurrentClient.IpPort());
+                        return false;
                     }
-
-                    Log("RemoveClient entering with " + ClientsCache.Count + " entries in client list");
-                    UpdatedList = new List<BigQClient>();
-
-                    if (String.IsNullOrEmpty(CurrentClient.ClientGuid))
-                    {
-                        #region Remove-Using-IP-Port
-
-                        foreach (BigQClient curr in ClientsCache)
-                        {
-                            if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0
-                                && curr.SourcePort == CurrentClient.SourcePort)
-                            {
-                                continue;
-                            }
-
-                            UpdatedList.Add(curr);
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Remove-Using-GUID
-
-                        foreach (BigQClient curr in ClientsCache)
-                        {
-                            if (!String.IsNullOrEmpty(curr.ClientGuid))
-                            {
-                                // 
-                                // only concerned with client entries that have a GUID
-                                // in fact, if they have no GUID, the .ToLower().Trim() used
-                                // for comparison will throw an exception
-                                //
-                                if (String.Compare(curr.ClientGuid.ToLower().Trim(), CurrentClient.ClientGuid.ToLower().Trim()) == 0)
-                                {
-                                    continue;
-                                }
-                            }
-
-                            UpdatedList.Add(curr);
-                        }
-
-                        #endregion
-                    }
-
-                    Clients = UpdatedList;
                 }
 
-                Log("RemoveClient exiting with " + Clients.Count + " entries in client list");
+                //
+                // remove client GUID map entry
+                //
+                if (!String.IsNullOrEmpty(CurrentClient.ClientGuid))
+                {
+                    string removedMap = null;
+                    if (ClientGuidMap.TryRemove(CurrentClient.ClientGuid, out removedMap))
+                    {
+                        Log("RemoveClient removed client GUID map for GUID " + CurrentClient.ClientGuid + " and tuple " + CurrentClient.IpPort());
+                    }
+                }
+                
+                Log("RemoveClient exiting with " + Clients.Count + " client entries and " + ClientGuidMap.Count + " GUID map entries");
                 if (ClientDisconnected != null) Task.Run(() => ClientDisconnected(CurrentClient));
                 return true;
             }
@@ -1837,63 +1781,64 @@ namespace BigQ
                     Log("*** RemoveClientChannels null client supplied");
                     return false;
                 }
-
-                lock (ChannelsLock)
+                
+                if (Channels == null || Channels.Count < 1)
                 {
-                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
+                    Log("RemoveClientChannels no channels");
+                    return true;
+                }
 
-                    if (ChannelsCache == null || ChannelsCache.Count < 1)
+                List<string> removeKeys = new List<string>();
+
+                foreach (KeyValuePair<string, BigQChannel> curr in Channels)
+                {
+                    if (String.Compare(curr.Value.OwnerGuid, CurrentClient.ClientGuid) != 0)
                     {
-                        Log("RemoveClientChannels no channels");
-                        return true;
-                    }
+                        #region Match
 
-                    List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
-
-                    foreach (BigQChannel curr in ChannelsCache)
-                    {
-                        if (String.Compare(curr.OwnerGuid, CurrentClient.ClientGuid) != 0)
+                        if (curr.Value.Subscribers != null)
                         {
-                            UpdatedChannelsList.Add(curr);
-                        }
-                        else
-                        {
-                            Log("RemoveClientChannels removing channel " + curr.Guid + " (owned by client " + curr.OwnerGuid + ")");
-
-                            if (curr.Subscribers != null)
+                            if (curr.Value.Subscribers.Count > 0)
                             {
-                                if (curr.Subscribers.Count > 0)
+                                //
+                                // create another reference in case list is modified
+                                //
+                                BigQChannel TempChannel = curr.Value;
+                                List<BigQClient> TempSubscribers = new List<BigQClient>(curr.Value.Subscribers);
+
+                                Task.Run(() =>
                                 {
-                                    //
-                                    // create another reference in case list is modified
-                                    //
-                                    BigQChannel TempChannel = curr;
-                                    List<BigQClient> TempSubscribers = new List<BigQClient>(curr.Subscribers);
-
-                                    Task.Run(() =>
+                                    foreach (BigQClient Client in TempSubscribers)
+                                    {
+                                        if (String.Compare(Client.ClientGuid, TempChannel.OwnerGuid) != 0)
                                         {
-                                            foreach (BigQClient Client in TempSubscribers)
+                                            Log("RemoveClientChannels notifying channel " + TempChannel.Guid + " subscriber " + Client.ClientGuid + " of channel deletion");
+                                            Task.Run(() =>
                                             {
-                                                if (String.Compare(Client.ClientGuid, TempChannel.OwnerGuid) != 0)
-                                                {
-                                                    Log("RemoveClientChannels notifying channel " + TempChannel.Guid + " subscriber " + Client.ClientGuid + " of channel deletion");
-                                                    Task.Run(() =>
-                                                    {
-                                                        SendSystemMessage(ChannelDeletedByOwnerMessage(Client, TempChannel));
-                                                    });
-                                                }
-                                            }
+                                                SendSystemMessage(ChannelDeletedByOwnerMessage(Client, TempChannel));
+                                            });
                                         }
-                                    );
-
-                                }
+                                    }
+                                });
                             }
+                        }
 
-                            Log("RemoveClientChannels removing channel " + curr.Guid);
+                        removeKeys.Add(curr.Key);
+
+                        #endregion
+                    }
+                }
+
+                if (removeKeys.Count > 0)
+                {
+                    foreach (string curr in removeKeys)
+                    {
+                        BigQChannel removeChannel = null;
+                        if (!Channels.TryRemove(curr, out removeChannel))
+                        {
+                            Log("*** RemoveClientChannels unable to remove client channel " + curr + " for client " + CurrentClient.ClientGuid);
                         }
                     }
-
-                    Channels = UpdatedChannelsList;
                 }
 
                 return true;
@@ -1924,107 +1869,123 @@ namespace BigQ
                     return false;
                 }
 
-                List<BigQClient> UpdatedList = new List<BigQClient>();
-                bool clientFound = false;
+                Log("UpdateClient " + CurrentClient.IpPort() + " entering with " + Clients.Count + " entries in client list");
 
-                lock (ClientsLock)
+                //
+                // update Clients dictionary
+                //
+                BigQClient existingClient = null;
+                BigQClient removedClient = null;
+
+                if (Clients.TryGetValue(CurrentClient.IpPort(), out existingClient))
                 {
-                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
-
-                    if (ClientsCache == null || ClientsCache.Count < 1)
+                    if (existingClient == null)
                     {
-                        Log("*** UpdateClient " + CurrentClient.IpPort() + " no entries, nothing to update");
+                        #region New-Entry
+
+                        Log("*** UpdateClient " + CurrentClient.IpPort() + " unable to retieve existing entry, adding new");
+                        
+                        if (!Clients.TryAdd(CurrentClient.IpPort(), CurrentClient))
+                        {
+                            Log("*** UpdateClient " + CurrentClient.IpPort() + " unable to add new entry");
+                            return false;
+                        }
+                        
+                        #endregion
+                    }
+                    else
+                    {
+                        #region Existing-Entry
+
+                        existingClient.Email = CurrentClient.Email;
+                        existingClient.Password = CurrentClient.Password;
+                        existingClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
+
+                        //
+                        // preserve TCP and websocket context/interface
+                        //
+                        existingClient.ClientHTTPContext = CurrentClient.ClientHTTPContext;
+                        existingClient.ClientWSContext = CurrentClient.ClientWSContext;
+                        existingClient.ClientWSInterface = CurrentClient.ClientWSInterface;
+                        existingClient.ClientTCPInterface = CurrentClient.ClientTCPInterface;
+                        
+                        if (!Clients.TryRemove(CurrentClient.IpPort(), out removedClient))
+                        {
+                            Log("*** UpdateClient " + CurrentClient.IpPort() + " unable to remove existing entry");
+                            return false;
+                        }
+                        
+                        if (!Clients.TryAdd(CurrentClient.IpPort(), existingClient))
+                        {
+                            Log("*** UpdateClient " + CurrentClient.IpPort() + " unable to add replacement entry");
+                            return false;
+                        }
+                        
+                        #endregion
+                    }
+                }
+                else
+                {
+                    #region New-Entry
+
+                    if (!Clients.TryAdd(CurrentClient.IpPort(), CurrentClient))
+                    {
+                        Log("*** UpdateClient " + CurrentClient.IpPort() + " unable to add new entry");
                         return false;
                     }
-
-                    Log("UpdateClient " + CurrentClient.IpPort() + " entering with " + ClientsCache.Count + " entries in client list");
                     
-                    foreach (BigQClient curr in ClientsCache)
+                    #endregion
+                }
+
+                //
+                // update ClientGuidMap dictionary
+                //
+                string existingMap = null;
+                if (ClientGuidMap.TryGetValue(CurrentClient.ClientGuid, out existingMap))
+                {
+                    if (String.IsNullOrEmpty(existingMap))
                     {
-                        if (String.IsNullOrEmpty(curr.ClientGuid))
+                        #region New-Entry
+
+                        if (!ClientGuidMap.TryAdd(CurrentClient.ClientGuid, CurrentClient.IpPort()))
                         {
-                            #region Client-That-Hasnt-Yet-Logged-In
-
-                            if ((String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
-                                && curr.SourcePort == CurrentClient.SourcePort)
-                            {
-                                #region Match
-
-                                //
-                                // Original unauthenticated entry
-                                // Update
-                                //
-                                curr.Email = CurrentClient.Email;
-                                curr.Password = CurrentClient.Password;
-                                curr.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                                curr.ClientTCPInterface = CurrentClient.ClientTCPInterface;
-                                if (!clientFound) UpdatedList.Add(curr);
-                                clientFound = true;
-                                continue;
-
-                                #endregion
-                            }
-                            else
-                            {
-                                #region Not-Match
-
-                                UpdatedList.Add(curr);
-                                continue;
-
-                                #endregion
-                            }
-
-                            #endregion
+                            Log("*** UpdateClient unable to add GUID map for client GUID " + CurrentClient.ClientGuid + " for tuple " + CurrentClient.IpPort());
+                            return false;
                         }
-                        else
-                        {
-                            #region Existing-Client-Update
-
-                            if (String.Compare(curr.ClientGuid.ToLower().Trim(), CurrentClient.ClientGuid.ToLower().Trim()) == 0)
-                            {
-                                if ((String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
-                                    && curr.SourcePort == CurrentClient.SourcePort)
-                                {
-                                    #region Match
-
-                                    curr.Email = CurrentClient.Email;
-                                    curr.Password = CurrentClient.Password;
-                                    curr.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                                    curr.ClientTCPInterface = CurrentClient.ClientTCPInterface;
-                                    if (!clientFound) UpdatedList.Add(curr);
-                                    clientFound = true;
-                                    continue;
-
-                                    #endregion
-                                }
-                                else
-                                {
-                                    #region Stale
-
-                                    //
-                                    // do not add
-                                    // source IP and/or source port do not match
-                                    //
-                                    continue;
-
-                                    #endregion
-                                }
-                            }
-                            else
-                            {
-                                #region Not-Match
-
-                                UpdatedList.Add(curr);
-                                continue;
-
-                                #endregion
-                            }
-
-                            #endregion
-                        }
+                        
+                        #endregion
                     }
+                    else
+                    {
+                        #region Existing-Entry
 
-                    Clients = UpdatedList;
+                        string deletedMap = null;
+                        if (!ClientGuidMap.TryRemove(CurrentClient.ClientGuid, out deletedMap))
+                        {
+                            Log("*** UpdateClient unable to remove client GUID map for GUID " + CurrentClient.ClientGuid + " for replacement");
+                            return false;
+                        }
+                        
+                        if (!ClientGuidMap.TryAdd(CurrentClient.ClientGuid, CurrentClient.IpPort()))
+                        {
+                            Log("*** UpdateClient unable to add GUID map for client GUID " + CurrentClient.ClientGuid + " for tuple " + CurrentClient.IpPort());
+                            return false;
+                        }
+                        
+                        #endregion
+                    }
+                }
+                else
+                {
+                    #region New-Entry
+
+                    if (!ClientGuidMap.TryAdd(CurrentClient.ClientGuid, CurrentClient.IpPort()))
+                    {
+                        Log("*** UpdateClient unable to add GUID map for client GUID " + CurrentClient.ClientGuid + " for tuple " + CurrentClient.IpPort());
+                        return false;
+                    }
+                    
+                    #endregion
                 }
 
                 Log("UpdateClient " + CurrentClient.IpPort() + " exiting with " + Clients.Count + " entries in client list");
@@ -2062,42 +2023,31 @@ namespace BigQ
                     return false;
                 }
 
-                List<BigQChannel> UpdatedList = new List<BigQChannel>();
-
-                lock (ChannelsLock)
+                BigQChannel existingChannel = null;
+                if (Channels.TryGetValue(CurrentChannel.Guid, out existingChannel))
                 {
-                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
-                    bool found = false;
-
-                    foreach (BigQChannel curr in ChannelsCache)
+                    if (existingChannel != null)
                     {
-                        if (String.Compare(curr.Guid, CurrentChannel.Guid) == 0)
-                        {
-                            Log("Channel with GUID " + CurrentChannel.Guid + " already exists");
-                            found = true;
-                            UpdatedList.Add(curr);
-                        }
-                        else
-                        {
-                            UpdatedList.Add(curr);
-                        }
+                        Log("AddChannel channel with GUID " + CurrentChannel.Guid + " already exists");
+                        return true;
                     }
-
-                    if (!found)
-                    {
-                        Log("AddChannel adding channel " + CurrentChannel.ChannelName + " GUID " + CurrentChannel.Guid);
-                        if (String.IsNullOrEmpty(CurrentChannel.ChannelName)) CurrentChannel.ChannelName = CurrentChannel.Guid;
-                        CurrentChannel.CreatedUTC = DateTime.Now.ToUniversalTime();
-                        CurrentChannel.UpdatedUTC = CurrentClient.CreatedUTC;
-                        CurrentChannel.Subscribers = new List<BigQClient>();
-                        CurrentChannel.Subscribers.Add(CurrentClient);
-                        CurrentChannel.OwnerGuid = CurrentClient.ClientGuid;
-                        UpdatedList.Add(CurrentChannel);
-                    }
-
-                    Channels = UpdatedList;
                 }
 
+                Log("AddChannel adding channel " + CurrentChannel.ChannelName + " GUID " + CurrentChannel.Guid);
+                if (String.IsNullOrEmpty(CurrentChannel.ChannelName)) CurrentChannel.ChannelName = CurrentChannel.Guid;
+                CurrentChannel.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentChannel.UpdatedUTC = CurrentClient.CreatedUTC;
+                CurrentChannel.Subscribers = new List<BigQClient>();
+                CurrentChannel.Subscribers.Add(CurrentClient);
+                CurrentChannel.OwnerGuid = CurrentClient.ClientGuid;
+
+                if (!Channels.TryAdd(CurrentChannel.Guid, CurrentChannel))
+                {
+                    Log("*** AddChannel unable to add channel with GUID " + CurrentChannel.Guid + " for client " + CurrentChannel.OwnerGuid);
+                    return false;
+                }
+
+                Log("AddChannel successfully added channel with GUID " + CurrentChannel.Guid + " for client " + CurrentChannel.OwnerGuid);
                 return true;
             }
             finally
@@ -2120,62 +2070,62 @@ namespace BigQ
                     return false;
                 }
 
-                lock (ChannelsLock)
+                if (Channels == null || Channels.Count < 1)
                 {
-                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
-
-                    if (ChannelsCache == null || ChannelsCache.Count < 1)
-                    {
-                        Log("RemoveChannel no channels");
-                        return true;
-                    }
-
-                    List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
-
-                    foreach (BigQChannel Channel in ChannelsCache)
-                    {
-                        if (String.Compare(Channel.Guid, CurrentChannel.Guid) != 0)
-                        {
-                            UpdatedChannelsList.Add(Channel);
-                        }
-                        else
-                        {
-                            // do not add, we want to remove this element
-                            Log("RemoveChannel notifying channel members of channel removal");
-
-                            if (Channel.Subscribers != null)
-                            {
-                                if (Channel.Subscribers.Count > 0)
-                                {
-                                    //
-                                    // create another reference in case list is modified
-                                    //
-                                    BigQChannel TempChannel = Channel;
-                                    List<BigQClient> TempSubscribers = new List<BigQClient>(Channel.Subscribers);
-
-                                    Task.Run(() =>
-                                        { 
-                                            foreach (BigQClient Client in TempSubscribers)
-                                            {
-                                                if (String.Compare(Client.ClientGuid, CurrentChannel.OwnerGuid) != 0)
-                                                {
-                                                    Log("RemoveChannel notifying channel " + TempChannel.Guid + " subscriber " + Client.ClientGuid + " of channel deletion by owner");
-                                                    SendSystemMessage(ChannelDeletedByOwnerMessage(Client, TempChannel));
-                                                }
-                                            }
-                                        }
-                                    );
-                                }
-                            }
-
-                            Log("RemoveChannel removing channel " + Channel.Guid);
-                        }
-                    }
-
-                    Channels = UpdatedChannelsList;
+                    Log("RemoveChannel no channels");
+                    return true;
                 }
 
-                return true;
+                BigQChannel removeChannel = null;
+                if (Channels.TryRemove(CurrentChannel.Guid, out removeChannel))
+                {
+                    if (removeChannel != null)
+                    {
+                        #region Match
+
+                        Log("RemoveChannel notifying channel members of channel removal");
+
+                        if (removeChannel.Subscribers != null)
+                        {
+                            if (removeChannel.Subscribers.Count > 0)
+                            {
+                                //
+                                // create another reference in case list is modified
+                                //
+                                BigQChannel TempChannel = removeChannel;
+                                List<BigQClient> TempSubscribers = new List<BigQClient>(removeChannel.Subscribers);
+
+                                Task.Run(() =>
+                                {
+                                    foreach (BigQClient Client in TempSubscribers)
+                                    {
+                                        if (String.Compare(Client.ClientGuid, CurrentChannel.OwnerGuid) != 0)
+                                        {
+                                            Log("RemoveChannel notifying channel " + TempChannel.Guid + " subscriber " + Client.ClientGuid + " of channel deletion by owner");
+                                            SendSystemMessage(ChannelDeletedByOwnerMessage(Client, TempChannel));
+                                        }
+                                    }
+                                }
+                                );
+                            }
+                        }
+
+                        Log("RemoveChannel removed channel " + removeChannel.Guid + " successfully");
+                        return true;
+
+                        #endregion
+                    }
+                    else
+                    {
+                        Log("*** RemoveChannel channel " + CurrentChannel.Guid + " not found");
+                        return false;
+                    }
+                }
+                else
+                {
+                    Log("*** RemoveChannel channel " + CurrentChannel.Guid + " not found");
+                    return false;
+                }
             }
             finally
             {
@@ -2209,98 +2159,80 @@ namespace BigQ
 
                 #region Process
 
-                lock (ChannelsLock)
+                if (Channels == null || Channels.Count < 1)
                 {
-                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
-
-                    if (ChannelsCache == null || ChannelsCache.Count < 1)
-                    {
-                        Log("*** AddChannelSubscriber no channels");
-                        return false;
-                    }
-                    
-                    BigQChannel UpdatedChannel = new BigQChannel();
-                    List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
-                    
-                    foreach (BigQChannel Channel in ChannelsCache)
-                    {
-                        Log("AddChannelSubscriber comparing existing channel GUID " + Channel.Guid + " with match " + CurrentChannel.Guid);
-
-                        if (String.Compare(Channel.Guid, CurrentChannel.Guid) == 0)
-                        {
-                            #region Rebuild-Matched-Channel
-
-                            Log("AddChannelSubscriber found channel " + CurrentChannel.Guid);
-
-                            // cannot use CopyObject, the object is locked
-                            UpdatedChannel = new BigQChannel();
-                            UpdatedChannel.Guid = Channel.Guid;
-                            UpdatedChannel.ChannelName = Channel.ChannelName;
-                            UpdatedChannel.OwnerGuid = Channel.OwnerGuid;
-                            UpdatedChannel.CreatedUTC = Channel.CreatedUTC;
-                            UpdatedChannel.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                            UpdatedChannel.Private = Channel.Private;
-                            UpdatedChannel.Subscribers = new List<BigQClient>();
-
-                            if (Channel.Subscribers == null || Channel.Subscribers.Count < 1)
-                            {
-                                #region First-Subscriber
-
-                                Log("AddChannelSubscriber first member " + CurrentClient.ClientGuid + " in channel " + CurrentChannel.Guid);
-                                UpdatedChannel.Subscribers.Add(CurrentClient);
-
-                                #endregion
-                            }
-                            else
-                            {
-                                #region Subsequent-Subscriber
-
-                                bool found = false;
-
-                                List<BigQClient> ClientsCache = new List<BigQClient>(Channel.Subscribers);
-
-                                foreach (BigQClient Client in ClientsCache)
-                                {
-                                    Log("AddChannelSubscriber comparing client GUID " + CurrentClient.ClientGuid + " with existing member " + Client.ClientGuid);
-
-                                    if (String.Compare(Client.ClientGuid, CurrentClient.ClientGuid) == 0)
-                                    {
-                                        Log("AddChannelSubscriber client " + CurrentClient.IpPort() + " already a member in channel " + CurrentChannel.Guid);
-                                        found = true;
-                                    }
-
-                                    UpdatedChannel.Subscribers.Add(Client);
-                                }
-
-                                if (!found)
-                                {
-                                    // in case the client wasn't already a member
-                                    Log("AddChannelSubscriber adding member " + CurrentClient.ClientGuid + " in channel " + CurrentChannel.Guid);
-                                    UpdatedChannel.Subscribers.Add(CurrentClient);
-                                }
-
-                                #endregion
-                            }
-
-                            Log("AddChannelSubscriber updated channel " + Channel.Guid + " to " + UpdatedChannel.Subscribers.Count + " subscribers");
-                            UpdatedChannelsList.Add(UpdatedChannel);
-
-                            #endregion
-                        }
-                        else
-                        {
-                            #region Add-Nonmatching-Channel
-
-                            Log("AddChannelSubscriber adding channel " + Channel.Guid + " (no change)");
-                            UpdatedChannelsList.Add(Channel);
-
-                            #endregion
-                        }
-                    }
-                    
-                    Channels = UpdatedChannelsList;
+                    Log("*** AddChannelSubscriber no channels");
+                    return false;
                 }
 
+                BigQChannel existingChannel = null;
+
+                if (Channels.TryGetValue(CurrentChannel.Guid, out existingChannel))
+                {
+                    if (existingChannel != null)
+                    {
+                        #region Match
+
+                        bool clientExists = false;
+                        if (existingChannel.Subscribers != null && existingChannel.Subscribers.Count > 0)
+                        {
+                            foreach (BigQClient curr in existingChannel.Subscribers)
+                            {
+                                if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) == 0)
+                                {
+                                    clientExists = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!clientExists)
+                        {
+                            existingChannel.Subscribers.Add(CurrentClient);
+                            if (!Channels.TryUpdate(existingChannel.Guid, existingChannel, CurrentChannel))
+                            {
+                                Log("** AddChannelSubscriber unable to replace channel entry for GUID " + existingChannel.Guid);
+                                return false;
+                            }
+
+                            //
+                            // notify existing clients
+                            //
+                            if (SendChannelJoinNotifications)
+                            {
+                                foreach (BigQClient curr in existingChannel.Subscribers)
+                                {
+                                    if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) != 0)
+                                    {
+                                        //
+                                        // create another reference in case list is modified
+                                        //
+                                        BigQChannel TempChannel = existingChannel;
+                                        Task.Run(() =>
+                                        {
+                                            Log("AddChannelSubscriber notifying channel " + TempChannel.Guid + " subscriber " + curr.ClientGuid + " of channel join by client " + CurrentClient.ClientGuid);
+                                            SendSystemMessage(ChannelJoinEventMessage(TempChannel, CurrentClient));
+                                        }
+                                        );
+                                    }
+                                }
+                            }
+                        }
+
+                        #endregion
+                    }
+                    else
+                    {
+                        Log("*** AddChannelSubscriber channel with GUID " + CurrentChannel.Guid + " not found");
+                        return false;
+                    }
+                }
+                else
+                {
+                    Log("*** AddChannelSubscriber channel with GUID " + CurrentChannel.Guid + " not found");
+                    return false;
+                }
+                
                 #endregion
 
                 return true;
@@ -2331,50 +2263,85 @@ namespace BigQ
                     return false;
                 }
 
-                lock (ChannelsLock)
+                if (Channels == null || Channels.Count < 1)
                 {
-                    List<BigQChannel> UpdatedChannelsList = new List<BigQChannel>();
-                    List<BigQChannel> ChannelsCache = new List<BigQChannel>(Channels);
-
-                    foreach (BigQChannel Channel in ChannelsCache)
-                    {
-                        BigQChannel UpdatedChannel = new BigQChannel();
-
-                        if (String.Compare(Channel.Guid, CurrentChannel.Guid) == 0)
-                        {
-                            List<BigQClient> UpdatedSubscribersList = new List<BigQClient>();
-                            List<BigQClient> ClientsCache = new List<BigQClient>(Channel.Subscribers);
-
-                            foreach (BigQClient Client in ClientsCache)
-                            {
-                                if (String.Compare(Client.ClientGuid, CurrentClient.ClientGuid) != 0)
-                                {
-                                    UpdatedSubscribersList.Add(Client);
-                                }
-                            }
-
-                            // cannot use CopyObject, the object is locked
-                            UpdatedChannel = new BigQChannel();
-                            UpdatedChannel.Guid = Channel.Guid;
-                            UpdatedChannel.ChannelName = Channel.ChannelName;
-                            UpdatedChannel.OwnerGuid = Channel.OwnerGuid;
-                            UpdatedChannel.CreatedUTC = Channel.CreatedUTC;
-                            UpdatedChannel.UpdatedUTC = DateTime.Now.ToUniversalTime();
-                            UpdatedChannel.Private = Channel.Private;
-                            UpdatedChannel.Subscribers = UpdatedSubscribersList;
-
-                            UpdatedChannelsList.Add(UpdatedChannel);
-                        }
-                        else
-                        {
-                            UpdatedChannelsList.Add(Channel);
-                        }
-                    }
-
-                    Channels = UpdatedChannelsList;
+                    Log("*** RemoveChannelSubscriber no channels");
+                    return false;
                 }
 
-                return true;
+                BigQChannel existingChannel = null;
+                if (!Channels.TryGetValue(CurrentChannel.Guid, out existingChannel))
+                {
+                    Log("*** RemoveChannelSubscriber channel with GUID " + CurrentChannel.Guid + " not found");
+                    return false;
+                }
+                else
+                {
+                    if (existingChannel != null)
+                    {
+                        #region Match
+
+                        if (existingChannel.Subscribers == null || existingChannel.Subscribers.Count < 1)
+                        {
+                            Log("RemoveChannelSubscriber channel " + CurrentChannel.Guid + " has no subscribers, removing channel");
+                            return RemoveChannel(CurrentChannel);
+                        }
+
+                        List<BigQClient> updatedSubscribers = new List<BigQClient>();
+                        foreach (BigQClient curr in existingChannel.Subscribers)
+                        {
+                            if (String.Compare(CurrentClient.ClientGuid, curr.ClientGuid) != 0)
+                            {
+                                updatedSubscribers.Add(curr);
+                            }
+                        }
+
+                        existingChannel.Subscribers = updatedSubscribers;
+
+                        BigQChannel removedChannel = null;
+                        if (!Channels.TryRemove(CurrentChannel.Guid, out removedChannel))
+                        {
+                            Log("*** RemoveChannelSubscriber unable to remove channel with GUID " + CurrentChannel.Guid + " for replacement");
+                            return false;
+                        }
+
+                        if (!Channels.TryAdd(CurrentChannel.Guid, existingChannel))
+                        {
+                            Log("*** RemoveChannelSubscriber unable to re-add channel with GUID " + CurrentChannel.Guid);
+                            return false;
+                        }
+
+                        if (SendChannelJoinNotifications)
+                        {
+                            foreach (BigQClient curr in existingChannel.Subscribers)
+                            {
+                                if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) != 0)
+                                {
+                                    //
+                                    // create another reference in case list is modified
+                                    //
+                                    BigQChannel TempChannel = existingChannel;
+                                    Task.Run(() =>
+                                    {
+                                        Log("RemoveChannelSubscriber notifying channel " + TempChannel.Guid + " subscriber " + curr.ClientGuid + " of channel leave by client " + CurrentClient.ClientGuid);
+                                        SendSystemMessage(ChannelLeaveEventMessage(TempChannel, CurrentClient));
+                                    }
+                                    );
+                                }
+                            }
+                        }
+
+                        Log("RemoveChannelSubscriber successfully replaced channel subscriber list for channel GUID " + CurrentChannel.Guid);
+                        return true;
+
+                        #endregion
+                    }
+                    else
+                    {
+                        Log("*** RemoveChannelSubscriber channel with GUID " + CurrentChannel.Guid + " not found");
+                        return false;
+                    }
+                }
             }
             finally
             {
@@ -2390,27 +2357,44 @@ namespace BigQ
 
             try
             {
-                List<BigQClient> ClientsCache = new List<BigQClient>();
-                lock (ChannelsLock)
+                if (Channels == null || Channels.Count < 1)
                 {
-                    ClientsCache = new List<BigQClient>(CurrentChannel.Subscribers);
+                    Log("*** IsChannelSubscriber no channels found");
+                    return false;
                 }
 
-                foreach (BigQClient curr in ClientsCache)
+                BigQChannel existingChannel = null;
+                if (!Channels.TryGetValue(CurrentChannel.Guid, out existingChannel))
                 {
-                    if (String.Compare(curr.SourceIp, CurrentClient.SourceIp) == 0)
+                    Log("*** IsChannelSubscriber channel with GUID " + CurrentChannel.Guid + " not found");
+                    return false;
+                }
+                else
+                {
+                    if (existingChannel != null)
                     {
-                        if (curr.SourcePort == CurrentClient.SourcePort)
+                        #region Match
+
+                        foreach (BigQClient curr in existingChannel.Subscribers)
                         {
                             if (String.Compare(curr.ClientGuid, CurrentClient.ClientGuid) == 0)
                             {
+                                Log("IsChannelSubscriber client GUID " + CurrentClient.ClientGuid + " is a member of channel GUID " + CurrentChannel.Guid);
                                 return true;
                             }
                         }
+
+                        Log("*** IsChannelSubscriber client GUID " + CurrentClient.ClientGuid + " is not a member of channel GUID " + CurrentChannel.Guid);
+                        return false;
+
+                        #endregion
+                    }
+                    else
+                    {
+                        Log("*** IsChannelSubscriber channel with GUID " + CurrentChannel.Guid + " not found");
+                        return false;
                     }
                 }
-
-                return false;
             }
             finally
             {
@@ -2432,24 +2416,22 @@ namespace BigQ
                     return false;
                 }
 
-                lock (ClientsLock)
+                string ipPort = null;
+                if (ClientGuidMap.TryGetValue(guid, out ipPort))
                 {
-                    List<BigQClient> ClientsCache = new List<BigQClient>(Clients);
-
-                    foreach (BigQClient curr in ClientsCache)
+                    BigQClient existingClient = null;
+                    if (Clients.TryGetValue(ipPort, out existingClient))
                     {
-                        if (String.IsNullOrEmpty(curr.ClientGuid)) continue;
-
-                        if (String.Compare(curr.ClientGuid.ToLower().Trim(), guid.ToLower().Trim()) == 0)
+                        if (existingClient != null)
                         {
-                            Log("IsClientConnected client " + guid + " is connected");
+                            Log("IsClientConnected client " + guid + " exists");
                             return true;
                         }
                     }
-
-                    Log("IsClientConnected client " + guid + " is not connected");
-                    return false;
                 }
+                
+                Log("IsClientConnected client " + guid + " is not connected");
+                return false;
             }
             finally
             {
@@ -3348,15 +3330,14 @@ namespace BigQ
 
             try
             {
-                BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                ResponseMessage = RedactMessage(ResponseMessage);
-                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                ResponseMessage.SyncRequest = null;
-                ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                ResponseMessage.Success = true;
-                return ResponseMessage;
+                CurrentMessage = RedactMessage(CurrentMessage);
+                CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                CurrentMessage.SyncRequest = null;
+                CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentMessage.Success = true;
+                return CurrentMessage;
             }
             finally
             {
@@ -3369,41 +3350,57 @@ namespace BigQ
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
+            bool runClientLoginTask = false;
+            bool runSendServerJoinNotifications = false;
 
             try
             {
-                BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                ResponseMessage = RedactMessage(ResponseMessage);
-                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                ResponseMessage.SyncRequest = null;
-                ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-
-                CurrentClient.ClientGuid = ResponseMessage.RecipientGuid;
+                CurrentMessage = RedactMessage(CurrentMessage);
+                CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                CurrentMessage.SyncRequest = null;
+                CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentClient.ClientGuid = CurrentMessage.RecipientGuid;
                 CurrentClient.Email = CurrentMessage.Email;
                 if (String.IsNullOrEmpty(CurrentClient.Email)) CurrentClient.Email = CurrentClient.ClientGuid;
 
                 if (!UpdateClient(CurrentClient))
                 {
-                    ResponseMessage.Success = false;
-                    ResponseMessage.Data = Encoding.UTF8.GetBytes("Unable to update client details");
+                    CurrentMessage.Success = false;
+                    CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to update client details");
                 }
                 else
                 {
-                    ResponseMessage.Success = true;
-                    ResponseMessage.Data = Encoding.UTF8.GetBytes("Login successful");
-
-                    if (ClientLogin != null) Task.Run(() => ClientLogin(CurrentClient));
-                    if (SendServerJoinNotifications) ServerJoinEvent(CurrentClient);
+                    CurrentMessage.Success = true;
+                    CurrentMessage.Data = Encoding.UTF8.GetBytes("Login successful");
+                    runClientLoginTask = true;
+                    runSendServerJoinNotifications = true;
                 }
 
-                return ResponseMessage;
+                return CurrentMessage;
             }
             finally
             {
-                sw.Stop();
-                if (LogMessageResponseTime) Log("ProcessLoginMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (LogMessageResponseTime) Log("ProcessLoginMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.ElapsedMilliseconds + "ms (before tasks)");
+
+                if (runClientLoginTask)
+                {
+                    if (ClientLogin != null)
+                    {
+                        Task.Run(() => ClientLogin(CurrentClient));
+                    }
+                }
+
+                if (runSendServerJoinNotifications)
+                {
+                    if (SendServerJoinNotifications)
+                    {
+                        Task.Run(() => ServerJoinEvent(CurrentClient));
+                    }
+                }
+
+                if (LogMessageResponseTime) Log("ProcessLoginMessage " + CurrentClient.IpPort() + " " + CurrentClient.ClientGuid + " " + sw.ElapsedMilliseconds + "ms (after tasks)");
             }
         }
 
@@ -3414,26 +3411,25 @@ namespace BigQ
 
             try
             {
-                BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                ResponseMessage = RedactMessage(ResponseMessage);
-                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                ResponseMessage.SyncRequest = null;
-                ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentMessage = RedactMessage(CurrentMessage);
+                CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                CurrentMessage.SyncRequest = null;
+                CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
 
                 if (CurrentMessage.Data == null)
                 {
-                    ResponseMessage.Success = false;
-                    ResponseMessage.Data = null;
+                    CurrentMessage.Success = false;
+                    CurrentMessage.Data = null;
                 }
                 else
                 {
-                    ResponseMessage.Success = true;
-                    ResponseMessage.Data = Encoding.UTF8.GetBytes(IsClientConnected(CurrentMessage.Data.ToString()).ToString());
+                    CurrentMessage.Success = true;
+                    CurrentMessage.Data = Encoding.UTF8.GetBytes(IsClientConnected(CurrentMessage.Data.ToString()).ToString());
                 }
 
-                return ResponseMessage;
+                return CurrentMessage;
             }
             finally
             {
@@ -3660,7 +3656,6 @@ namespace BigQ
             {
                 List<BigQChannel> ret = new List<BigQChannel>();
                 List<BigQChannel> filtered = new List<BigQChannel>();
-                BigQMessage ResponseMessage = new BigQMessage();
                 BigQChannel CurrentChannel = new BigQChannel();
 
                 ret = GetAllChannels();
@@ -3668,17 +3663,16 @@ namespace BigQ
                 {
                     Log("*** ProcessListChannelsMessage no channels retrieved");
 
-                    ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                    ResponseMessage = RedactMessage(ResponseMessage);
-                    ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                    ResponseMessage.SyncRequest = null;
-                    ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                    ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                    ResponseMessage.ChannelGuid = null;
-                    ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    ResponseMessage.Success = true;
-                    ResponseMessage.Data = null;
-                    return ResponseMessage;
+                    CurrentMessage = RedactMessage(CurrentMessage);
+                    CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                    CurrentMessage.SyncRequest = null;
+                    CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                    CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                    CurrentMessage.ChannelGuid = null;
+                    CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                    CurrentMessage.Success = true;
+                    CurrentMessage.Data = null;
+                    return CurrentMessage;
                 }
                 else
                 {
@@ -3706,17 +3700,16 @@ namespace BigQ
                     }
                 }
 
-                ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                ResponseMessage = RedactMessage(ResponseMessage);
-                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                ResponseMessage.SyncRequest = null;
-                ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                ResponseMessage.ChannelGuid = null;
-                ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                ResponseMessage.Success = true;
-                ResponseMessage.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(filtered));
-                return ResponseMessage;
+                CurrentMessage = RedactMessage(CurrentMessage);
+                CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                CurrentMessage.SyncRequest = null;
+                CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                CurrentMessage.ChannelGuid = null;
+                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentMessage.Success = true;
+                CurrentMessage.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(filtered));
+                return CurrentMessage;
             }
             finally
             {
@@ -3772,17 +3765,16 @@ namespace BigQ
                         ret.Add(temp);
                     }
 
-                    ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                    ResponseMessage = RedactMessage(ResponseMessage);
-                    ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                    ResponseMessage.SyncRequest = null;
-                    ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                    ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                    ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-                    ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    ResponseMessage.Success = true;
-                    ResponseMessage.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(ret));
-                    return ResponseMessage;
+                    CurrentMessage = RedactMessage(CurrentMessage);
+                    CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                    CurrentMessage.SyncRequest = null;
+                    CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                    CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                    CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+                    CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                    CurrentMessage.Success = true;
+                    CurrentMessage.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(ret));
+                    return CurrentMessage;
                 }
             }
             finally
@@ -3816,6 +3808,8 @@ namespace BigQ
                         temp.Password = null;
                         temp.SourceIp = null;
                         temp.SourcePort = 0;
+                        temp.IsWebsocket = curr.IsWebsocket;
+                        temp.IsTCP = curr.IsTCP;
 
                         temp.ClientTCPInterface = null;
                         temp.ClientHTTPContext = null;
@@ -3830,17 +3824,16 @@ namespace BigQ
                     }
                 }
 
-                BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-                ResponseMessage = RedactMessage(ResponseMessage);
-                ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-                ResponseMessage.SyncRequest = null;
-                ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-                ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-                ResponseMessage.ChannelGuid = null;
-                ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                ResponseMessage.Success = true;
-                ResponseMessage.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(ret));
-                return ResponseMessage;
+                CurrentMessage = RedactMessage(CurrentMessage);
+                CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+                CurrentMessage.SyncRequest = null;
+                CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+                CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+                CurrentMessage.ChannelGuid = null;
+                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentMessage.Success = true;
+                CurrentMessage.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(ret));
+                return CurrentMessage;
             }
             finally
             {
@@ -3880,75 +3873,71 @@ namespace BigQ
 
         private BigQMessage UnknownCommandMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown command '" + ResponseMessage.Command + "'");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unknown command '" + CurrentMessage.Command + "'");
+            return CurrentMessage;
         }
 
         private BigQMessage RecipientNotFoundMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
 
-            if (!String.IsNullOrEmpty(ResponseMessage.RecipientGuid))
+            if (!String.IsNullOrEmpty(CurrentMessage.RecipientGuid))
             {
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown recipient '" + CurrentMessage.RecipientGuid + "'");
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Unknown recipient '" + CurrentMessage.RecipientGuid + "'");
             }
-            else if (!String.IsNullOrEmpty(ResponseMessage.ChannelGuid))
+            else if (!String.IsNullOrEmpty(CurrentMessage.ChannelGuid))
             {
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("Unknown channel '" + CurrentMessage.ChannelGuid + "'");
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Unknown channel '" + CurrentMessage.ChannelGuid + "'");
             }
             else
             {
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("No recipient or channel GUID supplied");
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("No recipient or channel GUID supplied");
             }
-            return ResponseMessage;
+            return CurrentMessage;
         }
 
         private BigQMessage NotChannelMemberMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("You are not a member of this channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("You are not a member of this channel");
+            return CurrentMessage;
         }
         
         private BigQMessage MessageSendSuccess(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = true;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = true;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
 
             if (!String.IsNullOrEmpty(CurrentMessage.RecipientGuid))
             {
                 #region Individual-Recipient
 
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("Message delivered to recipient");
-                return ResponseMessage;
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Message delivered to recipient");
+                return CurrentMessage;
 
                 #endregion
             }
@@ -3956,8 +3945,8 @@ namespace BigQ
             {
                 #region Channel-Recipient
 
-                ResponseMessage.Data = Encoding.UTF8.GetBytes("Message queued for delivery to channel members");
-                return ResponseMessage;
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Message queued for delivery to channel members");
+                return CurrentMessage;
 
                 #endregion
             }
@@ -3973,148 +3962,138 @@ namespace BigQ
 
         private BigQMessage MessageSendFailure(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Unable to send message");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to send message");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelNotFoundMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Channel not found");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Channel not found");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelEmptyMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = true;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Channel is empty");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = true;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Channel is empty");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelAlreadyExistsMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Channel already exists");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Channel already exists");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelCreateSuccessMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = true;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Channel created successfully");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = true;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Channel created successfully");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelCreateFailureMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Unable to create channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to create channel");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelJoinSuccessMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = true;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Successfully joined channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = true;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Successfully joined channel");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelLeaveSuccessMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = true;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Successfully left channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = true;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Successfully left channel");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelLeaveFailureMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Unable to leave channel due to error");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to leave channel due to error");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelJoinFailureMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Failed to join channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Failed to join channel");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelDeletedByOwnerMessage(BigQClient CurrentClient, BigQChannel CurrentChannel)
@@ -4133,46 +4112,43 @@ namespace BigQ
 
         private BigQMessage ChannelDeleteSuccessMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = true;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Successfully deleted channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = true;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Successfully deleted channel");
+            return CurrentMessage;
         }
 
         private BigQMessage ChannelDeleteFailureMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, BigQChannel CurrentChannel)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.ChannelGuid = CurrentChannel.Guid;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Unable to delete channel");
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.ChannelGuid = CurrentChannel.Guid;
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to delete channel");
+            return CurrentMessage;
         }
 
         private BigQMessage DataErrorMessage(BigQClient CurrentClient, BigQMessage CurrentMessage, string message)
         {
-            BigQMessage ResponseMessage = BigQHelper.CopyObject<BigQMessage>(CurrentMessage);
-            ResponseMessage = RedactMessage(ResponseMessage);
-            ResponseMessage.RecipientGuid = ResponseMessage.SenderGuid;
-            ResponseMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Success = false;
-            ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.Data = Encoding.UTF8.GetBytes("Data error encountered in your message: " + message);
-            return ResponseMessage;
+            CurrentMessage = RedactMessage(CurrentMessage);
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Data error encountered in your message: " + message);
+            return CurrentMessage;
         }
 
         private BigQMessage ServerJoinEventMessage(BigQClient NewClient)

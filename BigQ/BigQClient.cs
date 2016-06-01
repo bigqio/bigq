@@ -822,7 +822,7 @@ namespace BigQ
         public bool SendServerMessageSync(BigQMessage request, out BigQMessage response)
         {
             response = null;
-
+            
             if (request == null) throw new ArgumentNullException("request");
             if (String.IsNullOrEmpty(request.MessageId)) request.MessageId = Guid.NewGuid().ToString();
             request.SyncRequest = true;
@@ -833,11 +833,19 @@ namespace BigQ
                 Log("*** SendServerMessageSync unable to register sync request GUID " + request.MessageId);
                 return false;
             }
+            else
+            {
+                // Log("SendServerMessageSync registered sync request GUID " + request.MessageId);
+            }
 
             if (!TCPDataSender(request))
             {
                 Log("*** SendServerMessageSync unable to send message GUID " + request.MessageId + " to server");
                 return false;
+            }
+            else
+            {
+                // Log("SendServerMessageSync sent message GUID " + request.MessageId + " to server");
             }
 
             BigQMessage ResponseMessage = new BigQMessage();
@@ -846,11 +854,19 @@ namespace BigQ
                 Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageId);
                 return false;
             }
+            else
+            {
+                // Log("SendServerMessageSync received response for message GUID " + request.MessageId);
+            }
 
             if (!RemoveSyncRequest(request.MessageId))
             {
                 Log("*** SendServerMessageSync unable to remove sync request for message GUID " + request.MessageId);
                 return false;
+            }
+            else
+            {
+                // Log("SendServerMessageSync removed sync request for message GUID " + request.MessageId);
             }
 
             if (ResponseMessage != null) response = ResponseMessage;
@@ -1167,24 +1183,24 @@ namespace BigQ
                 SyncResponses = new ConcurrentDictionary<string, BigQMessage>();
                 return false;
             }
-
-            BigQMessage TempMessage;
-
+            
             while (true)
             {
                 if (SyncResponses.ContainsKey(guid))
                 {
-                    response = SyncResponses[guid];
-                    SyncResponses.TryRemove(guid, out TempMessage);
+                    if (!SyncResponses.TryGetValue(guid, out response))
+                    {
+                        Log("*** GetSyncResponse unable to retrieve sync response for GUID " + guid);
+                        return false;
+                    }
 
-                    if (response.Data != null)
+                    BigQMessage removedMessage = null;
+                    if (!SyncResponses.TryRemove(guid, out removedMessage))
                     {
-                        Log("GetSyncResponse returning response for message GUID " + guid + ": " + response.Data.ToString());
+                        Log("*** GetSyncResponse unable to remove sync response for GUID " + guid + " after retrieval");
                     }
-                    else
-                    {
-                        Log("GetSyncResponse returning response for message GUID " + guid + ": (nul)");
-                    }
+
+                    Log("GetSyncResponse returning response for message GUID " + guid + ": (nul)");
                     return true;
                 }
 
