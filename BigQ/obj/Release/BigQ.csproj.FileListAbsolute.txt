@@ -18,3 +18,4 @@ D:\code\bigq\BigQperf\BigQ\bin\Release\Newtonsoft.Json.dll
 D:\code\bigq\BigQperf\BigQ\bin\Release\Newtonsoft.Json.xml
 D:\code\bigq\BigQperf\BigQ\obj\Release\BigQ.dll
 D:\code\bigq\BigQperf\BigQ\obj\Release\BigQ.pdb
+D:\code\bigq\BigQ\BigQ\obj\Release\BigQ.csprojResolveAssemblyReference.cache

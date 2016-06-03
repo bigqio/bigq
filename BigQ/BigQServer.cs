@@ -32,9 +32,10 @@ namespace BigQ
         //
         // resources
         //
-        private ConcurrentDictionary<string, BigQClient> Clients;       // IpPort(), Client
-        private ConcurrentDictionary<string, string> ClientGuidMap;     // Guid, IpPort()
-        private ConcurrentDictionary<string, BigQChannel> Channels;     // Guid, Channel
+        private ConcurrentDictionary<string, BigQClient> Clients;           // IpPort(), Client
+        private ConcurrentDictionary<string, string> ClientGuidMap;         // Guid, IpPort()
+        private ConcurrentDictionary<string, string> ClientActiveSendMap;   // Receiver GUID, Sender GUID
+        private ConcurrentDictionary<string, BigQChannel> Channels;         // Guid, Channel
         
         //
         // TCP networking
@@ -136,9 +137,10 @@ namespace BigQ
             ConsoleDebug = debug;
 
             Clients = new ConcurrentDictionary<string, BigQClient>();
-            Channels = new ConcurrentDictionary<string, BigQChannel>();
             ClientGuidMap = new ConcurrentDictionary<string, string>();
-
+            ClientActiveSendMap = new ConcurrentDictionary<string, string>();
+            Channels = new ConcurrentDictionary<string, BigQChannel>();
+            
             TCPListenerIP = ipAddressTcp;
             TCPListenerPort = portTcp;
             WSListenerIP = ipAddressWebsocket;
@@ -258,6 +260,11 @@ namespace BigQ
         public Dictionary<string, string> ListClientGuidMaps()
         {
             return GetAllClientGuidMaps();
+        }
+
+        public Dictionary<string, string> ListClientActiveSendMap()
+        {
+            return GetAllClientActiveSendMap();
         }
 
         /// <summary>
@@ -692,6 +699,8 @@ namespace BigQ
 
         private bool TCPDataSender(BigQClient CurrentClient, BigQMessage Message)
         {
+            bool locked = false;
+
             try
             {
                 #region Check-for-Null-Values
@@ -723,6 +732,21 @@ namespace BigQ
                     Log("TCPDataSender client " + CurrentClient.IpPort() + " not connected");
                     return false;
                 }
+
+                #endregion
+
+                #region Wait-for-Client-Active-Send-Lock
+
+                while (!ClientActiveSendMap.TryAdd(Message.RecipientGuid, Message.SenderGuid))
+                {
+                    //
+                    // wait
+                    //
+
+                    Thread.Sleep(25);
+                }
+
+                locked = true;
 
                 #endregion
 
@@ -762,10 +786,32 @@ namespace BigQ
 
                 return false;
             }
+            finally
+            {
+                //
+                // remove active client send lock
+                //
+                if (locked)
+                {
+                    string removedVal = "";
+                    while (!ClientActiveSendMap.TryRemove(Message.RecipientGuid, out removedVal))
+                    {
+                        //
+                        // wait
+                        //
+
+                        Thread.Sleep(25);
+                    }
+
+                    locked = false;
+                }
+            }
         }
 
         private bool WSDataSender(BigQClient CurrentClient, BigQMessage Message)
         {
+            bool locked = false;
+
             try
             {
                 #region Check-for-Null-Values
@@ -797,6 +843,21 @@ namespace BigQ
                     Log("WSDataSender client " + CurrentClient.IpPort() + " not connected");
                     return false;
                 }
+
+                #endregion
+
+                #region Wait-for-Client-Active-Send-Lock
+
+                while (!ClientActiveSendMap.TryAdd(Message.RecipientGuid, Message.SenderGuid))
+                {
+                    //
+                    // wait
+                    //
+
+                    Thread.Sleep(25);
+                }
+
+                locked = true;
 
                 #endregion
 
@@ -843,6 +904,26 @@ namespace BigQ
                 }
 
                 return false;
+            }
+            finally
+            {
+                //
+                // remove active client send lock
+                //
+                if (locked)
+                {
+                    string removedVal = "";
+                    while (!ClientActiveSendMap.TryRemove(Message.RecipientGuid, out removedVal))
+                    {
+                        //
+                        // wait
+                        //
+
+                        Thread.Sleep(25);
+                    }
+
+                    locked = false;
+                }
             }
         }
 
@@ -1525,6 +1606,13 @@ namespace BigQ
         {
             if (ClientGuidMap == null || ClientGuidMap.Count < 1) return new Dictionary<string, string>();
             Dictionary<string, string> ret = ClientGuidMap.ToDictionary(entry => entry.Key, entry => entry.Value);
+            return ret;
+        }
+
+        private Dictionary<string, string> GetAllClientActiveSendMap()
+        {
+            if (ClientActiveSendMap == null || ClientActiveSendMap.Count < 1) return new Dictionary<string, string>();
+            Dictionary<string, string> ret = ClientActiveSendMap.ToDictionary(entry => entry.Key, entry => entry.Value);
             return ret;
         }
 

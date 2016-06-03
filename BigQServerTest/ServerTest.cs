@@ -58,7 +58,7 @@ namespace BigQServerTest
                 // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
                 Console.WriteLine("---");
                 Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers count");
-                Console.WriteLine("          listclients listclientguidmaps");
+                Console.WriteLine("          listclients listclientguidmaps listclientactivesendmaps");
                 Console.Write("Command: ");
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
@@ -139,12 +139,27 @@ namespace BigQServerTest
                         break;
 
                     case "listclientguidmaps":
-                        Dictionary<string, string> maps = server.ListClientGuidMaps();
-                        if (maps != null)
+                        Dictionary<string, string> guidMaps = server.ListClientGuidMaps();
+                        if (guidMaps != null && guidMaps.Count > 0)
                         {
-                            foreach (KeyValuePair<string, string> curr in maps)
+                            foreach (KeyValuePair<string, string> curr in guidMaps)
                             {
                                 Console.WriteLine("  GUID " + curr.Key + "  IP:port " + curr.Value);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "listclientactivesendmaps":
+                        Dictionary<string, string> sendMaps = server.ListClientActiveSendMap();
+                        if (sendMaps != null && sendMaps.Count > 0)
+                        {
+                            foreach (KeyValuePair<string, string> curr in sendMaps)
+                            {
+                                Console.WriteLine("  Recipient " + curr.Key + "  Sender " + curr.Value);
                             }
                         }
                         else

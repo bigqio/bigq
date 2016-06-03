@@ -235,7 +235,7 @@ namespace BigQ
                     headerBytes = headerMs.ToArray();
                     if (headerBytes == null || headerBytes.Length < 1)
                     {
-                        Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
+                        // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
                         return null;
                     }
 
@@ -823,7 +823,7 @@ namespace BigQ
                     headerBytes = headerMs.ToArray();
                     if (headerBytes == null || headerBytes.Length < 1)
                     {
-                        Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
+                        // Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
                         return null;
                     }
 
