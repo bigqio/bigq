@@ -149,6 +149,9 @@ if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle
 ## connecting using websockets
 please refer to the sample Javascript chat application on github.
 
+## authorization
+bigq uses two filesystem files (users.json and permissions.json) to determine if messages should be authorized.  Please refer to the sample files in the project for their structure.  It is important to note that using this feature can affect performance.
+
 ## bigq framing
 bigq uses a simple framing mechanism that closely follows HTTP.  A set of headers start each message, with each header ending in a carriage return and newline ```\r\n```.  The headers contain a variety of metadata, and most importantly, ContentLength, which indicates how many bytes are to be read after the header delimiter.  The header delimiter is an additional carriage return and newline ```\r\n``` which follows the carriage return and newline of the final header.  The body is internally treated as a byte array so the connected clients will need to manage encoding.
 ```
