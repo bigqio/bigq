@@ -1,0 +1,5 @@
+[
+  { "Name": "StandardUser", "Login": "true", "Permissions": [ "Login", "ListChannels", "ListClients", "ListChannelSubscribers", ... ] },
+  { "Name": "Limited", "Login": "true", "Permissions": [ "Login" ] },
+  { "Name": "Blocked", "Login": "false" }
+]

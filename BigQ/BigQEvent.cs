@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace BigQ
 {
+    /// <summary>
+    /// Object containing metadata about an event that occurred on BigQ.
+    /// </summary>
     [Serializable]
     public class BigQEvent
     {

@@ -287,7 +287,7 @@ namespace BigQClientTestTCP
                             Console.WriteLine("PendingSyncRequests failed");
                         }
                         break;
-
+                        
                     default:
                         Console.WriteLine("Unknown command");
                         break;

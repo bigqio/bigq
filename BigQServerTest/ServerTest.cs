@@ -59,6 +59,7 @@ namespace BigQServerTest
                 Console.WriteLine("---");
                 Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers count");
                 Console.WriteLine("          listclients listclientguidmaps listclientactivesendmaps");
+                Console.WriteLine("          listusersfile  listpermissionsfile");
                 Console.Write("Command: ");
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
@@ -171,7 +172,58 @@ namespace BigQServerTest
                     case "count":
                         Console.WriteLine("Active connection count: " + server.ConnectionCount());
                         break;
-                        
+
+                    case "listusersfile":
+                        List<BigQUser> users = server.ListCurrentUsersFile();
+                        if (users != null && users.Count > 0)
+                        {
+                            foreach (BigQUser curr in users)
+                            {
+                                Console.WriteLine("  Email " + curr.Email + " Password " + curr.Password + " Notes " + curr.Notes + " Permission " + curr.Permission);
+                                if (curr.IPWhiteList != null && curr.IPWhiteList.Count > 0)
+                                {
+                                    string whitelist = "  Accepted IP: ";
+                                    foreach (string currIP in curr.IPWhiteList)
+                                    {
+                                        whitelist += currIP + " ";
+                                    }
+                                    Console.WriteLine(whitelist);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "listpermissionsfile":
+                        List<BigQPermission> perms = server.ListCurrentPermissionsFile();
+                        if (perms != null && perms.Count > 0)
+                        {
+                            foreach (BigQPermission curr in perms)
+                            {
+                                string permstr = "  Name " + curr.Name + " Login " + curr.Login + " Permissions ";
+                                if (curr.Permissions != null && curr.Permissions.Count > 0)
+                                {
+                                    foreach (string currstr in curr.Permissions)
+                                    {
+                                        permstr += currstr + " ";
+                                    }
+                                }
+                                else
+                                {
+                                    permstr += "all";
+                                }
+                                Console.WriteLine(permstr);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
                     default:
                         Console.WriteLine("Unknown command");
                         break;

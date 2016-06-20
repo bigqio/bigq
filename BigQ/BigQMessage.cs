@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace BigQ
 {
+    /// <summary>
+    /// Object containing metadata and data from a message sent from one client to another on BigQ.
+    /// </summary>
     [Serializable]
     public class BigQMessage
     {
@@ -27,7 +30,7 @@ namespace BigQ
         /// Password of the client.  Primarily used in authentication (future).
         /// </summary>
         public string Password;
-
+        
         /// <summary>
         /// Command issued by the sender.  Primarily used in messages directed toward the server or events.
         /// </summary>
@@ -221,7 +224,7 @@ namespace BigQ
                     case "password":
                         Password = val;
                         break;
-
+                        
                     case "command":
                         Command = val;
                         break;

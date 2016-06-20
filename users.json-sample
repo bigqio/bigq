@@ -1,0 +1,4 @@
+[
+  { "Email": "joel", "Password": "", "Notes": "", "Permission": "StandardUser", "IPWhiteList": [] },
+  { "Email": "kevin", "Password": "", "Notes": "", "Permission": "StandardUser", "IPWhiteList": [] }
+]

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.IO;
 using System.Net;
@@ -14,10 +15,16 @@ using Newtonsoft.Json;
 
 namespace BigQ
 {
+    /// <summary>
+    /// A series of helpful methods for BigQ including messaging, framing, sockets and websockets, sanitization, serialization, and more.
+    /// </summary>
     public class BigQHelper
     {
-        public static bool TCPMessageWrite(TcpClient Client, BigQMessage Message)
+        public static bool TCPMessageWrite(TcpClient Client, BigQMessage Message, bool ConsoleLogResponseTime)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             string SourceIp = "";
             int SourcePort = 0;
 
@@ -94,11 +101,20 @@ namespace BigQ
                 LogException("TCPMessageWrite " + SourceIp + ":" + SourcePort, EInner);
                 return false;
             }
+            finally
+            {
+                sw.Stop();
+                if (ConsoleLogResponseTime) Log("TCPMessageWrite " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
         }
 
-        public static BigQMessage TCPMessageRead(TcpClient Client)
+        public static BigQMessage TCPMessageRead(TcpClient Client, bool ConsoleLogResponseTime)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             BigQMessage Message = new BigQMessage();
+            bool DataAvailable = false;
             string SourceIp = "";
             int SourcePort = 0;
 
@@ -124,7 +140,17 @@ namespace BigQ
 
                 SourceIp = ((IPEndPoint)Client.Client.RemoteEndPoint).Address.ToString();
                 SourcePort = ((IPEndPoint)Client.Client.RemoteEndPoint).Port;
-                NetworkStream ClientStream = Client.GetStream();
+                NetworkStream ClientStream = null;
+
+                try
+                {
+                    ClientStream = Client.GetStream();
+                }
+                catch (Exception e)
+                {
+                    Log("*** TCPMessageRead disconnected while attaching to stream for " + SourceIp + ":" + SourcePort + ": " + e.Message);
+                    return null;
+                }
 
                 byte[] headerBytes;
                 byte[] contentBytes;
@@ -141,9 +167,19 @@ namespace BigQ
                 
                 if (!ClientStream.CanRead)
                 {
-                    Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
+                    // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
+                    // Thread.Sleep(25);
                     return null;
                 }
+
+                if (!ClientStream.DataAvailable)
+                {
+                    // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream has no data available");
+                    // Thread.Sleep(25);
+                    return null;
+                }
+
+                DataAvailable = true;
 
                 using (MemoryStream headerMs = new MemoryStream())
                 {
@@ -269,8 +305,10 @@ namespace BigQ
                     #endregion
                 }
 
+                if (ConsoleLogResponseTime) Log("TCPMessageRead read headers " + sw.Elapsed.TotalMilliseconds + "ms");
+
                 #endregion
-                
+
                 #region Read-Data-from-Stream
 
                 using (MemoryStream dataMs = new MemoryStream())
@@ -339,7 +377,11 @@ namespace BigQ
                         return null;
                     }
 
+                    if (ConsoleLogResponseTime) Log("TCPMessageRead read data " + sw.Elapsed.TotalMilliseconds + "ms");
+
                     contentBytes = dataMs.ToArray();
+                    
+                    if (ConsoleLogResponseTime) Log("TCPMessageRead data to array " + sw.Elapsed.TotalMilliseconds + "ms");
                 }
 
                 #endregion
@@ -403,6 +445,17 @@ namespace BigQ
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
                 LogException("TCPMessageRead " + SourceIp + ":" + SourcePort, EInner);
                 return null;
+            }
+            finally
+            {
+                sw.Stop();
+                if (ConsoleLogResponseTime)
+                {
+                    if (DataAvailable)
+                    {
+                        Log("TCPMessageRead " + sw.Elapsed.TotalMilliseconds + "ms");
+                    }
+                }
             }
         }
 
@@ -639,8 +692,11 @@ namespace BigQ
             }
         }
 
-        public static async Task<bool> WSMessageWrite(HttpListenerContext Context, WebSocket Client, BigQMessage Message)
+        public static async Task<bool> WSMessageWrite(HttpListenerContext Context, WebSocket Client, BigQMessage Message, bool ConsoleLogResponseTime)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             string SourceIp = "";
             int SourcePort = 0;
 
@@ -722,11 +778,23 @@ namespace BigQ
                 LogException("WSMessageWrite " + SourceIp + ":" + SourcePort, EInner);
                 return false;
             }
+            finally
+            {
+                sw.Stop();
+                if (ConsoleLogResponseTime)
+                {
+                    Log("WSMessageWrite " + sw.Elapsed.TotalMilliseconds + "ms");
+                }
+            }
         }
 
-        public static async Task<BigQMessage> WSMessageRead(HttpListenerContext Context, WebSocket Client)
+        public static async Task<BigQMessage> WSMessageRead(HttpListenerContext Context, WebSocket Client, bool ConsoleLogResponseTime)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             BigQMessage Message = null;
+            bool DataAvailable = false;
             string SourceIp = "";
             int SourcePort = 0;
 
@@ -786,6 +854,8 @@ namespace BigQ
                             await Client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
                         }
 
+                        DataAvailable = true;
+
                         headerMs.Write(headerBuffer, 0, 1);
                         BytesRead++;
                         
@@ -827,6 +897,8 @@ namespace BigQ
                         return null;
                     }
 
+                    if (ConsoleLogResponseTime) Log("WSMessageRead read headers " + sw.Elapsed.TotalMilliseconds + "ms");
+
                     #endregion
 
                     #region Process-Headers-into-Message
@@ -856,6 +928,8 @@ namespace BigQ
 
                     #endregion
                 }
+
+                if (ConsoleLogResponseTime) Log("WSMessageRead read headers " + sw.Elapsed.TotalMilliseconds + "ms");
 
                 #endregion
 
@@ -897,7 +971,11 @@ namespace BigQ
                         }
                     }
 
+                    if (ConsoleLogResponseTime) Log("WSMessageRead read data " + sw.Elapsed.TotalMilliseconds + "ms");
+
                     contentBytes = dataMs.ToArray();
+
+                    if (ConsoleLogResponseTime) Log("WSMessageRead data to array " + sw.Elapsed.TotalMilliseconds + "ms");
                 }
 
                 #endregion
@@ -961,6 +1039,17 @@ namespace BigQ
                 Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
                 LogException("WSMessageRead " + SourceIp + ":" + SourcePort, EInner);
                 return null;
+            }
+            finally
+            {
+                sw.Stop();
+                if (ConsoleLogResponseTime)
+                {
+                    if (DataAvailable)
+                    {
+                        Log("WSMessageRead " + sw.Elapsed.TotalMilliseconds + "ms");
+                    }
+                }
             }
         }
 

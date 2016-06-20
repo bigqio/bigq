@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace BigQ
 {
+    /// <summary>
+    /// Object containing metadata about a channel on BigQ.
+    /// </summary>
     [Serializable]
     public class BigQChannel
     {

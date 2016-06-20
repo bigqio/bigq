@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -12,8 +13,30 @@ using System.Threading.Tasks;
 
 namespace BigQ
 {
+    /// <summary>
+    /// The BigQ server listens on TCP and Websockets and acts as a message queue and distribution network for connected clients.
+    /// </summary>
     public class BigQServer
     {
+        #region Public-Class-Members
+
+        /// <summary>
+        /// Set this value to true to include processing time in critical locked object methods (requires that you enable console debugging or message logging).
+        /// </summary>
+        public bool LogLockMethodResponseTime = false;
+
+        /// <summary>
+        /// Set this value to true to send log messages containing response time for processed messages (requires that ou enable console debugging or message logging).
+        /// </summary>
+        public bool LogMessageResponseTime = false;
+
+        /// <summary>
+        /// Set this value to true to allow BigQ to send messages to the console for logging purposes.
+        /// </summary>
+        public bool ConsoleDebug = false;
+
+        #endregion
+
         #region Private-Class-Members
 
         //
@@ -23,11 +46,8 @@ namespace BigQ
         private bool SendAcknowledgements;
         private bool SendServerJoinNotifications;
         private bool SendChannelJoinNotifications;
-        private bool ConsoleDebug;
         private int HeartbeatIntervalMsec;
         private int MaxHeartbeatFailures;
-        private bool LogLockMethodResponseTime = false;
-        private bool LogMessageResponseTime = false;
 
         //
         // resources
@@ -58,6 +78,19 @@ namespace BigQ
         private int WSActiveConnectionThreads;
         private CancellationTokenSource WSCancellationTokenSource;
         private CancellationToken WSCancellationToken;
+
+        //
+        // authentication and authorization
+        //
+        private string UsersLastModified;
+        private ConcurrentList<BigQUser> UsersList;
+        private CancellationTokenSource UsersCancellationTokenSource;
+        private CancellationToken UsersCancellationToken;
+
+        private string PermissionsLastModified;
+        private ConcurrentList<BigQPermission> PermissionsList;
+        private CancellationTokenSource PermissionsCancellationTokenSource;
+        private CancellationToken PermissionsCancellationToken;
 
         #endregion
 
@@ -104,7 +137,7 @@ namespace BigQ
         /// <param name="portTcp">TCP port used to listen for TCP connections.</param>
         /// <param name="ipAddressWebsocket">IP address used to listen for websocket connections.  Use '+' to represent any interface.</param>
         /// <param name="portWebsocket">TCP port used to listen for websocket connections.</param>
-        /// <param name="debug">Specify whether debugging to console is enabled or not.</param>
+        /// <param name="debug">Specify whether debug logging to console is enabled or not.  This is the same as the ConsoleDebug parameter.</param>
         /// <param name="sendAck">Specify whether the server should send acknowledgements to clients that send messages.</param>
         /// <param name="sendServerJoinNotifications">Specify whether the server should send notifications to existing clients when a new client joins the server.</param>
         /// <param name="sendChannelJoinNotifications">Specify whether the server should send notifications to existing channel members when a new client joins the channel.</param>
@@ -150,7 +183,12 @@ namespace BigQ
             WSActiveConnectionThreads = 0;
             HeartbeatIntervalMsec = heartbeatIntervalMsec;
             MaxHeartbeatFailures = 5;
-            
+
+            UsersLastModified = "";
+            UsersList = new ConcurrentList<BigQUser>();
+            PermissionsLastModified = "";
+            PermissionsList = new ConcurrentList<BigQPermission>();
+
             #endregion
 
             #region Set-Delegates-to-Null
@@ -168,7 +206,21 @@ namespace BigQ
 
             if (TCPCancellationTokenSource != null) TCPCancellationTokenSource.Cancel();
             if (WSCancellationTokenSource != null) WSCancellationTokenSource.Cancel();
-            
+            if (UsersCancellationTokenSource != null) UsersCancellationTokenSource.Cancel();
+            if (PermissionsCancellationTokenSource != null) PermissionsCancellationTokenSource.Cancel();
+
+            #endregion
+
+            #region Start-Users-and-Permissions-File-Monitor
+
+            UsersCancellationTokenSource = new CancellationTokenSource();
+            UsersCancellationToken = UsersCancellationTokenSource.Token;
+            Task.Run(() => MonitorUsersFile());
+
+            PermissionsCancellationTokenSource = new CancellationTokenSource();
+            PermissionsCancellationToken = PermissionsCancellationTokenSource.Token;
+            Task.Run(() => MonitorPermissionsFile());
+
             #endregion
 
             #region Start-TCP-Server
@@ -223,11 +275,13 @@ namespace BigQ
         {
             if (TCPCancellationTokenSource != null) TCPCancellationTokenSource.Cancel();
             if (WSCancellationTokenSource != null) WSCancellationTokenSource.Cancel();
+            if (UsersCancellationTokenSource != null) UsersCancellationTokenSource.Cancel();
+            if (PermissionsCancellationTokenSource != null) PermissionsCancellationTokenSource.Cancel();
             return;
         }
         
         /// <summary>
-        /// Enumerate all channels.
+        /// Retrieve list of all channels.
         /// </summary>
         /// <returns>List of BigQChannel objects.</returns>
         public List<BigQChannel> ListChannels()
@@ -236,7 +290,7 @@ namespace BigQ
         }
 
         /// <summary>
-        /// Enumerate all subscribers in a given channel.
+        /// Retrieve list of subscribers in a given channel.
         /// </summary>
         /// <returns>List of BigQClient objects.</returns>
         public List<BigQClient> ListChannelSubscribers(string guid)
@@ -245,7 +299,7 @@ namespace BigQ
         }
 
         /// <summary>
-        /// Enumerate all clients.
+        /// Retrieve list of all clients.
         /// </summary>
         /// <returns>List of BigQClient objects.</returns>
         public List<BigQClient> ListClients()
@@ -254,7 +308,7 @@ namespace BigQ
         }
 
         /// <summary>
-        /// Enumerate all client GUID to IP:port maps.
+        /// Retrieve list of all client GUID to IP:port maps.
         /// </summary>
         /// <returns>A dictionary containing client GUIDs (keys) and IP:port strings (values).</returns>
         public Dictionary<string, string> ListClientGuidMaps()
@@ -262,6 +316,10 @@ namespace BigQ
             return GetAllClientGuidMaps();
         }
 
+        /// <summary>
+        /// Retrieve list of client GUIDs to which the server is currently transmitting messages and on behalf of which sender.
+        /// </summary>
+        /// <returns>A dictionary containing recipient GUID (key) and sender GUID (value).</returns>
         public Dictionary<string, string> ListClientActiveSendMap()
         {
             return GetAllClientActiveSendMap();
@@ -275,9 +333,607 @@ namespace BigQ
         {
             return TCPActiveConnectionThreads + WSActiveConnectionThreads;
         }
+
+        /// <summary>
+        /// Retrieve all objects in the users.json file.
+        /// </summary>
+        /// <returns></returns>
+        public List<BigQUser> ListCurrentUsersFile()
+        {
+            return GetCurrentUsersFile();
+        }
+
+        /// <summary>
+        /// Retrieve all objects in the permissions.json file.
+        /// </summary>
+        /// <returns></returns>
+        public List<BigQPermission> ListCurrentPermissionsFile()
+        {
+            return GetCurrentPermissionsFile();
+        }
+
+        #endregion
+
+        #region Private-Authorization-Methods
+
+        private void MonitorUsersFile()
+        {
+            try
+            {
+                bool firstRun = true;
+
+                while (true)
+                {
+                    #region Wait
+
+                    if (!firstRun)
+                    {
+                        Thread.Sleep(5000);
+                    }
+                    else
+                    {
+                        firstRun = false;
+                    }
+
+                    #endregion
+
+                    #region Check-if-Exists
+
+                    if (!File.Exists("users.json"))
+                    {
+                        UsersList = new ConcurrentList<BigQUser>();
+                        continue;
+                    }
+
+                    #endregion
+
+                    #region Process
+
+                    string tempTimestamp = "";
+                    string fileContents = "";
+                    
+                    if (String.IsNullOrEmpty(UsersLastModified))
+                    {
+                        #region First-Read
+
+                        Log("MonitorUsersFile loading users.json");
+
+                        //
+                        // get timestamp
+                        //
+                        UsersLastModified = File.GetLastWriteTimeUtc("users.json").ToString("MMddyyyy-HHmmss");
+
+                        //
+                        // read and store
+                        //
+                        fileContents = File.ReadAllText("users.json");
+                        if (String.IsNullOrEmpty(fileContents))
+                        {
+                            Log("*** MonitorUsersFile empty file found at users.json");
+                            continue;
+                        }
+
+                        try
+                        {
+                            UsersList = BigQHelper.DeserializeJson<ConcurrentList<BigQUser>>(Encoding.UTF8.GetBytes(fileContents), false);
+                        }
+                        catch (Exception EInner)
+                        {
+                            LogException("MonitorUsersFile", EInner);
+                            Log("*** MonitorUsersFile unable to deserialize contents of users.json");
+                            continue;
+                        }
+                        
+                        #endregion
+                    }
+                    else
+                    {
+                        #region Subsequent-Read
+
+                        //
+                        // get timestamp
+                        //
+                        tempTimestamp = File.GetLastWriteTimeUtc("users.json").ToString("MMddyyyy-HHmmss");
+                        
+                        //
+                        // compare and update
+                        //
+                        if (String.Compare(UsersLastModified, tempTimestamp) != 0)
+                        {
+                            Log("MonitorUsersFile loading users.json");
+
+                            //
+                            // get timestamp
+                            //
+                            UsersLastModified = File.GetLastWriteTimeUtc("users.json").ToString("MMddyyyy-HHmmss");
+
+                            //
+                            // read and store
+                            //
+                            fileContents = File.ReadAllText("users.json");
+                            if (String.IsNullOrEmpty(fileContents))
+                            {
+                                Log("*** MonitorUsersFile empty file found at users.json");
+                                continue;
+                            }
+
+                            try
+                            {
+                                UsersList = BigQHelper.DeserializeJson<ConcurrentList<BigQUser>>(Encoding.UTF8.GetBytes(fileContents), false);
+                            }
+                            catch (Exception EInner)
+                            {
+                                LogException("MonitorUsersFile", EInner);
+                                Log("*** MonitorUsersFile unable to deserialize contents of users.json");
+                                continue;
+                            }
+                        }
+
+                        #endregion
+                    }                    
+
+                    #endregion
+                }
+            }
+            catch (Exception EOuter)
+            {
+                LogException("MonitorUsersFile", EOuter);
+                if (ServerStopped != null) ServerStopped();
+            }
+        }
+
+        private void MonitorPermissionsFile()
+        {
+            try
+            {
+                bool firstRun = true;
+
+                while (true)
+                {
+                    #region Wait
+                    
+                    if (!firstRun)
+                    {
+                        Thread.Sleep(5000);
+                    }
+                    else
+                    {
+                        firstRun = false;
+                    }
+
+                    #endregion
+
+                    #region Check-if-Exists
+                    
+                    if (!File.Exists("permissions.json"))
+                    {
+                        PermissionsList = new ConcurrentList<BigQPermission>();
+                        continue;
+                    }
+
+                    #endregion
+
+                    #region Process
+
+                    string tempTimestamp = "";
+                    string fileContents = "";
+                        
+                    if (String.IsNullOrEmpty(PermissionsLastModified))
+                    {
+                        #region First-Read
+
+                        Log("MonitorPermissionsFile loading permissions.json");
+
+                        //
+                        // get timestamp
+                        //
+                        PermissionsLastModified = File.GetLastWriteTimeUtc("permissions.json").ToString("MMddyyyy-HHmmss");
+
+                        //
+                        // read and store
+                        //
+                        fileContents = File.ReadAllText("permissions.json");
+                        if (String.IsNullOrEmpty(fileContents))
+                        {
+                            Log("*** MonitorPermissionsFile empty file found at permissions.json");
+                            continue;
+                        }
+
+                        try
+                        {
+                            PermissionsList = BigQHelper.DeserializeJson<ConcurrentList<BigQPermission>>(Encoding.UTF8.GetBytes(fileContents), false);
+                        }
+                        catch (Exception EInner)
+                        {
+                            LogException("MonitorPermissionsFile", EInner);
+                            Log("*** MonitorPermissionsFile unable to deserialize contents of permissions.json");
+                            continue;
+                        }
+
+                        #endregion
+                    }
+                    else
+                    {
+                        #region Subsequent-Read
+                        
+                        //
+                        // get timestamp
+                        //
+                        tempTimestamp = File.GetLastWriteTimeUtc("permissions.json").ToString("MMddyyyy-HHmmss");
+
+                        //
+                        // compare and update
+                        //
+                        if (String.Compare(PermissionsLastModified, tempTimestamp) != 0)
+                        {
+                            Log("MonitorPermissionsFile loading permissions.json");
+
+                            //
+                            // get timestamp
+                            //
+                            PermissionsLastModified = File.GetLastWriteTimeUtc("permissions.json").ToString("MMddyyyy-HHmmss");
+
+                            //
+                            // read and store
+                            //
+                            fileContents = File.ReadAllText("permissions.json");
+                            if (String.IsNullOrEmpty(fileContents))
+                            {
+                                Console.WriteLine("10");
+
+                                Log("*** MonitorPermissionsFile empty file found at permissions.json");
+                                continue;
+                            }
+
+                            try
+                            {
+                                PermissionsList = BigQHelper.DeserializeJson<ConcurrentList<BigQPermission>>(Encoding.UTF8.GetBytes(fileContents), false);
+                            }
+                            catch (Exception EInner)
+                            {
+                                LogException("MonitorPermissionsFile", EInner);
+                                Log("*** MonitorPermissionsFile unable to deserialize contents of permissions.json");
+                                continue;
+                            }
+                        }
+
+                        #endregion
+                    }
+
+                    #endregion
+                }
+            }
+            catch (Exception EOuter)
+            {
+                LogException("MonitorPermissionsFile", EOuter);
+                if (ServerStopped != null) ServerStopped();
+            }
+        }
+
+        private bool AllowConnection(string email, string ip)
+        {
+            try
+            {
+                if (UsersList != null && UsersList.Count > 0)
+                {
+                    #region Check-for-Null-Values
+
+                    if (String.IsNullOrEmpty(email))
+                    {
+                        Log("*** AllowConnection no email supplied");
+                        return false;
+                    }
+
+                    if (String.IsNullOrEmpty(ip))
+                    {
+                        Log("*** AllowConnection no IP supplied");
+                        return false;
+                    }
+
+                    #endregion
+
+                    #region Users-List-Present
+
+                    BigQUser currUser = GetUser(email);
+                    if (currUser == null)
+                    {
+                        Log("*** AllowConnection unable to find entry for email " + email);
+                        return false;
+                    }
+
+                    if (String.IsNullOrEmpty(currUser.Permission))
+                    {
+                        #region No-Permissions-Only-Check-IP
+
+                        if (currUser.IPWhiteList == null || currUser.IPWhiteList.Count < 1)
+                        {
+                            // deault permit
+                            return true;
+                        }
+                        else
+                        {
+                            if (currUser.IPWhiteList.Contains(ip)) return true;
+                            return false;
+                        }
+
+                        #endregion
+                    }
+                    else
+                    {
+                        #region Check-Permissions-Object
+
+                        BigQPermission currPermission = GetPermission(currUser.Permission);
+                        if (currPermission == null)
+                        {
+                            Log("*** AllowConnection permission entry " + currUser.Permission + " not found for user " + email);
+                            return false;
+                        }
+
+                        if (!currPermission.Login)
+                        {
+                            Log("*** AllowConnection login permission denied in permission entry " + currUser.Permission + " for user " + email);
+                            return false;
+                        }
+
+                        #endregion
+
+                        #region Check-IP
+
+                        if (currUser.IPWhiteList == null || currUser.IPWhiteList.Count < 1)
+                        {
+                            // deault permit
+                            return true;
+                        }
+                        else
+                        {
+                            if (currUser.IPWhiteList.Contains(ip)) return true;
+                            return false;
+                        }
+
+                        #endregion
+                    }
+                    
+                    #endregion
+                }
+                else
+                {
+                    #region Default-Permit
+
+                    return true;
+
+                    #endregion
+                }
+            }
+            catch (Exception EOuter)
+            {
+                LogException("AllowConnection", EOuter);
+                return false;
+            }
+        }
+
+        private BigQUser GetUser(string email)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (UsersList == null || UsersList.Count < 1) return null;
+
+                if (String.IsNullOrEmpty(email))
+                {
+                    Log("*** GetUser null email supplied");
+                    return null;
+                }
+
+                #endregion
+
+                #region Process
+
+                foreach (BigQUser currUser in UsersList)
+                {
+                    if (String.IsNullOrEmpty(currUser.Email)) continue;
+                    if (String.Compare(currUser.Email.ToLower(), email.ToLower()) == 0)
+                    {
+                        return currUser;
+                    }
+                }
+
+                Log("*** GetUser unable to find email " + email);
+                return null;
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                LogException("GetUser", EOuter);
+                return null;
+            }
+        }
+
+        private BigQPermission GetUserPermission(string email)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (PermissionsList == null || PermissionsList.Count < 1) return null;
+                if (UsersList == null || UsersList.Count < 1) return null;
+
+                if (String.IsNullOrEmpty(email))
+                {
+                    Log("*** GetUserPermissions null email supplied");
+                    return null;
+                }
+
+                #endregion
+
+                #region Process
+
+                BigQUser currUser = GetUser(email);
+                if (currUser == null)
+                {
+                    Log("*** GetUserPermission unable to find user " + email);
+                    return null;
+                }
+                
+                if (String.IsNullOrEmpty(currUser.Permission)) return null;
+                return GetPermission(currUser.Permission);
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                LogException("GetUserPermissions", EOuter);
+                return null;
+            }
+        }
+
+        private BigQPermission GetPermission(string permission)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (PermissionsList == null || PermissionsList.Count < 1) return null;
+                if (String.IsNullOrEmpty(permission))
+                {
+                    Log("*** GetPermission null permission supplied");
+                    return null;
+                }
+
+                #endregion
+
+                #region Process
+
+                foreach (BigQPermission currPermission in PermissionsList)
+                {
+                    if (String.IsNullOrEmpty(currPermission.Name)) continue;
+                    if (String.Compare(permission.ToLower(), currPermission.Name.ToLower()) == 0)
+                    {
+                        return currPermission;
+                    }
+                }
+
+                Log("*** GetPermission permission " + permission + " not found");
+                return null;
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                LogException("GetPermission", EOuter);
+                return null;
+            }
+        }
+
+        private bool AuthorizeMessage(BigQMessage CurrentMessage)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (CurrentMessage == null)
+                {
+                    Log("*** AuthorizeMessage null message supplied");
+                    return false;
+                }
+
+                if (UsersList == null || UsersList.Count < 1)
+                {
+                    // default permit
+                    return true;
+                }
+
+                #endregion
+
+                #region Process
+
+                if (!String.IsNullOrEmpty(CurrentMessage.Email))
+                {
+                    #region Authenticate-Credentials
+
+                    BigQUser currUser = GetUser(CurrentMessage.Email);
+                    if (currUser == null)
+                    {
+                        Log("*** AuthenticateUser unable to find user " + CurrentMessage.Email);
+                        return false;
+                    }
+
+                    if (!String.IsNullOrEmpty(currUser.Password))
+                    {
+                        if (String.Compare(currUser.Password, CurrentMessage.Password) != 0)
+                        {
+                            Log("*** AuthenticateUser invalid password supplied for user " + CurrentMessage.Email);
+                            return false;
+                        }
+                    }
+
+                    #endregion
+
+                    #region Verify-Permissions
+
+                    if (String.IsNullOrEmpty(currUser.Permission))
+                    {
+                        // default permit
+                        // Log("AuthenticateUser default permit in use (user " + CurrentMessage.Email + " has null permission list)");
+                        return true;
+                    }
+
+                    if (String.IsNullOrEmpty(CurrentMessage.Command))
+                    {
+                        // default permit
+                        // Log("AuthenticateUser default permit in use (user " + CurrentMessage.Email + " sending message with no command)");
+                        return true;
+                    }
+
+                    BigQPermission currPermission = GetPermission(currUser.Permission);
+                    if (currPermission == null)
+                    {
+                        Log("*** AuthorizeMessage unable to find permission " + currUser.Permission + " for user " + currUser.Email);
+                        return false;
+                    }
+
+                    if (currPermission.Permissions == null || currPermission.Permissions.Count < 1)
+                    {
+                        // default permit
+                        // Log("AuthorizeMessage default permit in use (no permissions found for permission name " + currUser.Permission);
+                        return true;
+                    }
+
+                    if (currPermission.Permissions.Contains(CurrentMessage.Command))
+                    {
+                        // Log("AuthorizeMessage found permission for command " + CurrentMessage.Command + " in permission " + currUser.Permission + " for user " + currUser.Email);
+                        return true;
+                    }
+                    else
+                    {
+                        Log("*** AuthorizeMessage permission " + currPermission.Name + " does not contain command " + CurrentMessage.Command + " for user " + currUser.Email);
+                        return false;
+                    }
+
+                    #endregion
+                }
+                else
+                {
+                    #region No-Material
+
+                    Log("*** AuthenticateUser no authentication material supplied");
+                    return false;
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                LogException("AuthorizeMessage", EOuter);
+                return false;
+            }
+        }
         
         #endregion
-        
+
         #region Private-Transport-and-Connection-Methods
 
         private void TCPAcceptConnections()
@@ -477,6 +1133,9 @@ namespace BigQ
         
         private void TCPDataReceiver(BigQClient CurrentClient)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             try
             {
                 #region Check-for-Null-Values
@@ -508,7 +1167,7 @@ namespace BigQ
                 while (true)
                 {
                     #region Check-if-Client-Connected
-
+                    
                     if (!CurrentClient.ClientTCPInterface.Connected || !BigQHelper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
                     {
                         Log("TCPDataReceiver client " + CurrentClient.IpPort() + " disconnected");
@@ -531,18 +1190,21 @@ namespace BigQ
                     }
 
                     #endregion
-                    
-                    #region Retrieve-Message
 
-                    BigQMessage CurrentMessage = BigQHelper.TCPMessageRead(CurrentClient.ClientTCPInterface);
+                    #region Retrieve-Message
+                    
+                    BigQMessage CurrentMessage = BigQHelper.TCPMessageRead(CurrentClient.ClientTCPInterface, LogMessageResponseTime);
                     if (CurrentMessage == null)
                     {
-                        Log("*** TCPDataReceiver unable to read from client " + CurrentClient.IpPort());
+                        // Log("*** TCPDataReceiver unable to read from client " + CurrentClient.IpPort());
+                        Thread.Sleep(30);
                         continue;
                     }
                     else
                     {
-                        Log("TCPDataReceiver successfully received message from client " + CurrentClient.IpPort());   
+                        if (LogMessageResponseTime) Log("TCPDataReceiver received message from " + CurrentClient.IpPort() + " after " + sw.Elapsed.TotalMilliseconds + "ms of inactivity, resetting stopwatch");
+                        sw.Reset();
+                        sw.Start();
                     }
 
                     if (!CurrentMessage.IsValid())
@@ -552,7 +1214,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Log("TCPDataReceiver valid message received from client " + CurrentClient.IpPort());
+                        if (LogMessageResponseTime) Log("TCPDataReceiver verified message validity from " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
                     }
 
                     #endregion
@@ -560,6 +1222,10 @@ namespace BigQ
                     #region Process-Message
 
                     MessageProcessor(CurrentClient, CurrentMessage);
+                    if (LogMessageResponseTime) Log("TCPDataReceiver processed message from " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                    sw.Reset();
+                    sw.Start();
+
                     if (MessageReceived != null) Task.Run(() => MessageReceived(CurrentMessage));
                     // Log("TCPDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
@@ -588,6 +1254,9 @@ namespace BigQ
 
         private void WSDataReceiver(BigQClient CurrentClient)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             try
             {
                 #region Check-for-Null-Values
@@ -611,7 +1280,7 @@ namespace BigQ
                 while (true)
                 {
                     #region Check-if-Client-Connected
-
+                    
                     if (!BigQHelper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
                     {
                         Log("WSDataReceiver client " + CurrentClient.IpPort() + " disconnected");
@@ -636,15 +1305,8 @@ namespace BigQ
                     #endregion
 
                     #region Retrieve-Message
-
-                    Task<BigQMessage> MessageTask = BigQHelper.WSMessageRead(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface);
-                    if (MessageTask == null)
-                    {
-                        Log("*** WSDataReceiver unable to read from client " + CurrentClient.IpPort() + " (message read task failed)");
-                        continue;
-                    }
-
-                    BigQMessage CurrentMessage = MessageTask.Result;
+                    
+                    BigQMessage CurrentMessage = BigQHelper.WSMessageRead(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, LogMessageResponseTime).Result;
                     if (CurrentMessage == null)
                     {
                         Log("WSDataReceiver unable to read message from client " + CurrentClient.IpPort());
@@ -652,7 +1314,10 @@ namespace BigQ
                     }
                     else
                     {
-                        Log("WSDataReceiver successfully received message from client " + CurrentClient.IpPort());
+                        if (LogMessageResponseTime) Log("WSDataReceiver received message from " + CurrentClient.IpPort() + " after " + sw.Elapsed.TotalMilliseconds + "ms of inactivity, resetting stopwatch");
+                        sw.Reset();
+                        sw.Start();
+
                         Task.Run(() => MessageReceived(CurrentMessage));
                     }
 
@@ -663,7 +1328,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Log("WSDataReceiver valid message received from client " + CurrentClient.IpPort());
+                        if (LogMessageResponseTime) Log("WSDataReceiver verified message validity from " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
                     }
 
                     #endregion
@@ -671,8 +1336,11 @@ namespace BigQ
                     #region Process-Message
 
                     MessageProcessor(CurrentClient, CurrentMessage);
+                    if (LogMessageResponseTime) Log("WSDataReceiver processed message from " + CurrentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                    sw.Reset();
+                    sw.Start();
+
                     if (MessageReceived != null) Task.Run(() => MessageReceived(CurrentMessage));
-                    // Log("WSDataReceiver finished processing message from client " + CurrentClient.IpPort());
 
                     #endregion
                 }
@@ -752,7 +1420,7 @@ namespace BigQ
 
                 #region Send-Message
 
-                if (!BigQHelper.TCPMessageWrite(CurrentClient.ClientTCPInterface, Message))
+                if (!BigQHelper.TCPMessageWrite(CurrentClient.ClientTCPInterface, Message, LogMessageResponseTime))
                 {
                     Log("TCPDataSender unable to send data to client " + CurrentClient.IpPort());
                     return false;
@@ -863,7 +1531,7 @@ namespace BigQ
 
                 #region Send-Message
 
-                Task<bool> MessageTask = BigQHelper.WSMessageWrite(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, Message);
+                Task<bool> MessageTask = BigQHelper.WSMessageWrite(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, Message, LogMessageResponseTime);
                 if (MessageTask == null)
                 {
                     Log("*** WSDataSender unable to send to client " + CurrentClient.IpPort() + " (message read task failed)");
@@ -1146,7 +1814,7 @@ namespace BigQ
 
                     bool success = false;
                     BigQMessage HeartbeatMessage = HeartbeatRequestMessage(CurrentClient);
-                    Task<bool> MessageTask = BigQHelper.WSMessageWrite(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, HeartbeatMessage);
+                    Task<bool> MessageTask = BigQHelper.WSMessageWrite(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, HeartbeatMessage, LogMessageResponseTime);
                     if (MessageTask != null) success = MessageTask.Result;
 
                     if (!success)
@@ -2528,6 +3196,64 @@ namespace BigQ
             }
         }
 
+        private List<BigQUser> GetCurrentUsersFile()
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            try
+            {
+                if (UsersList == null || UsersList.Count < 1)
+                {
+                    Log("*** GetCurrentUsersFile no users listed or no users file");
+                    return null;
+                }
+
+                List<BigQUser> ret = new List<BigQUser>();
+                foreach (BigQUser curr in UsersList)
+                {
+                    ret.Add(curr);
+                }
+
+                Log("GetCurrentUsersFile returning " + ret.Count + " users");
+                return ret;
+            }
+            finally
+            {
+                sw.Stop();
+                if (LogLockMethodResponseTime) Log("GetCurrentUsersFile " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
+        }
+
+        private List<BigQPermission> GetCurrentPermissionsFile()
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            try
+            {
+                if (PermissionsList == null || PermissionsList.Count < 1)
+                {
+                    Log("*** GetCurrentPermissionsFile no permissions listed or no permissions file");
+                    return null;
+                }
+
+                List<BigQPermission> ret = new List<BigQPermission>();
+                foreach (BigQPermission curr in PermissionsList)
+                {
+                    ret.Add(curr);
+                }
+
+                Log("GetCurrentPermissionsFile returning " + ret.Count + " permissions");
+                return ret;
+            }
+            finally
+            {
+                sw.Stop();
+                if (LogLockMethodResponseTime) Log("GetCurrentPermissionsFile " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
+        }
+
         #endregion
 
         #region Private-Message-Processing-Methods
@@ -2703,6 +3429,26 @@ namespace BigQ
                             return false;
                         }
                     }
+                }
+
+                #endregion
+
+                #region Authorize-Message
+
+                if (!AuthorizeMessage(CurrentMessage))
+                {
+                    if (String.IsNullOrEmpty(CurrentMessage.Command))
+                    {
+                        Log("*** MessageProcessor unable to authenticate or authorize message from " + CurrentMessage.Email + " " + CurrentMessage.SenderGuid);
+                    }
+                    else
+                    {
+                        Log("*** MessageProcessor unable to authenticate or authorize message of type " + CurrentMessage.Command + " from " + CurrentMessage.Email + " " + CurrentMessage.SenderGuid);
+                    }
+
+                    ResponseMessage = AuthorizationFailedMessage(CurrentMessage);
+                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                    return ResponseSuccess;
                 }
 
                 #endregion
@@ -3443,7 +4189,6 @@ namespace BigQ
 
             try
             {
-                CurrentMessage = RedactMessage(CurrentMessage);
                 CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
                 CurrentMessage.SyncRequest = null;
                 CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
@@ -3455,6 +4200,7 @@ namespace BigQ
 
                 if (!UpdateClient(CurrentClient))
                 {
+                    Log("*** ProcessLoginMessage unable to update client " + CurrentClient.ClientGuid + " " + CurrentClient.IpPort());
                     CurrentMessage.Success = false;
                     CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to update client details");
                 }
@@ -3466,6 +4212,7 @@ namespace BigQ
                     runSendServerJoinNotifications = true;
                 }
 
+                CurrentMessage = RedactMessage(CurrentMessage);
                 return CurrentMessage;
             }
             finally
@@ -3764,6 +4511,8 @@ namespace BigQ
                 }
                 else
                 {
+                    if (LogMessageResponseTime) Log("ProcessListChannelsMessage retrieved GetAllChannels after " + sw.Elapsed.TotalMilliseconds + "ms");
+
                     foreach (BigQChannel curr in ret)
                     {
                         CurrentChannel.Subscribers = null;
@@ -3786,6 +4535,8 @@ namespace BigQ
                             continue;
                         }
                     }
+
+                    if (LogMessageResponseTime) Log("ProcessListChannelsMessage built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
                 }
 
                 CurrentMessage = RedactMessage(CurrentMessage);
@@ -3834,6 +4585,8 @@ namespace BigQ
                 }
                 else
                 {
+                    if (LogMessageResponseTime) Log("ProcessListChannelSubscribersMessage retrieved GetChannelSubscribers after " + sw.Elapsed.TotalMilliseconds + "ms");
+
                     foreach (BigQClient curr in Clients)
                     {
                         BigQClient temp = new BigQClient();
@@ -3852,6 +4605,8 @@ namespace BigQ
                         temp.UpdatedUTC = curr.UpdatedUTC;
                         ret.Add(temp);
                     }
+
+                    if (LogMessageResponseTime) Log("ProcessListChannelSubscribers built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
 
                     CurrentMessage = RedactMessage(CurrentMessage);
                     CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
@@ -3890,26 +4645,34 @@ namespace BigQ
                 }
                 else
                 {
+                    if (LogMessageResponseTime) Log("ProcessListClientsMessage retrieved GetAllClients after " + sw.Elapsed.TotalMilliseconds + "ms");
+
                     foreach (BigQClient curr in Clients)
                     {
                         BigQClient temp = new BigQClient();
-                        temp.Password = null;
-                        temp.SourceIp = null;
-                        temp.SourcePort = 0;
                         temp.IsWebsocket = curr.IsWebsocket;
+                        temp.SourceIp = curr.SourceIp;
+                        temp.SourcePort = curr.SourcePort;
                         temp.IsTCP = curr.IsTCP;
 
+                        //
+                        // contexts will not serialize
+                        //
                         temp.ClientTCPInterface = null;
                         temp.ClientHTTPContext = null;
                         temp.ClientWSContext = null;
                         temp.ClientWSInterface = null;
 
                         temp.Email = curr.Email;
+                        temp.Password = null;
                         temp.ClientGuid = curr.ClientGuid;
                         temp.CreatedUTC = curr.CreatedUTC;
                         temp.UpdatedUTC = curr.UpdatedUTC;
+
                         ret.Add(temp);
                     }
+
+                    if (LogMessageResponseTime) Log("ProcessListClientsMessage built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
                 }
 
                 CurrentMessage = RedactMessage(CurrentMessage);
@@ -3933,6 +4696,18 @@ namespace BigQ
         #endregion
 
         #region Private-Message-Builders
+
+        private BigQMessage AuthorizationFailedMessage(BigQMessage CurrentMessage)
+        {
+            CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
+            CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
+            CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            CurrentMessage.Success = false;
+            CurrentMessage.SyncRequest = null;
+            CurrentMessage.SyncResponse = null;
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Authorization failed");
+            return CurrentMessage;
+        }
 
         private BigQMessage LoginRequiredMessage()
         {
@@ -3961,7 +4736,6 @@ namespace BigQ
 
         private BigQMessage UnknownCommandMessage(BigQClient CurrentClient, BigQMessage CurrentMessage)
         {
-            CurrentMessage = RedactMessage(CurrentMessage);
             CurrentMessage.RecipientGuid = CurrentMessage.SenderGuid;
             CurrentMessage.SenderGuid = "00000000-0000-0000-0000-000000000000";
             CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
@@ -4335,6 +5109,19 @@ namespace BigQ
             Log(" = Exception Source: " + e.Source);
             Log(" = Exception StackTrace: " + e.StackTrace);
             Log("================================================================================");
+        }
+
+        private void PrintException(string method, Exception e)
+        {
+            Console.WriteLine("================================================================================");
+            Console.WriteLine(" = Method: " + method);
+            Console.WriteLine(" = Exception Type: " + e.GetType().ToString());
+            Console.WriteLine(" = Exception Data: " + e.Data);
+            Console.WriteLine(" = Inner Exception: " + e.InnerException);
+            Console.WriteLine(" = Exception Message: " + e.Message);
+            Console.WriteLine(" = Exception Source: " + e.Source);
+            Console.WriteLine(" = Exception StackTrace: " + e.StackTrace);
+            Console.WriteLine("================================================================================");
         }
 
         #endregion
