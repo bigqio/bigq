@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
-using Newtonsoft.Json;
+// using Newtonsoft.Json;
 
 namespace BigQ
 {
@@ -1178,9 +1178,15 @@ namespace BigQ
                 Log("");
             }
 
-            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
-            settings.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore;
-            return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
+            // Newtonsoft
+            // Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
+            // settings.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore;
+            // return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
+
+            // System.Web.Script.Serialization
+            JavaScriptSerializer ser = new JavaScriptSerializer();
+            ser.MaxJsonLength = Int32.MaxValue;
+            return (T)ser.Deserialize<T>(json);
         }
 
         public static T DeserializeJson<T>(byte[] bytes, bool debug)
@@ -1193,18 +1199,27 @@ namespace BigQ
                 Log("");
             }
 
-            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
-            string json = Encoding.UTF8.GetString(bytes);
-            return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
+            // Newtonsoft
+            // Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
+            // string json = Encoding.UTF8.GetString(bytes);
+            // return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
+
+            // System.Web.Script.Serialization
+            JavaScriptSerializer ser = new JavaScriptSerializer();
+            ser.MaxJsonLength = Int32.MaxValue;
+            return (T)ser.Deserialize<T>(Encoding.UTF8.GetString(bytes));
         }
 
+        /* Removed Newtonsoft-based method
         public static T JObjectToObject<T>(object obj)
         {
             Newtonsoft.Json.Linq.JObject jobject = (Newtonsoft.Json.Linq.JObject)obj;
             T ret = jobject.ToObject<T>();
             return ret;
         }
+        */
 
+        /* Removed Newtonsoft-based method
         public static T JArrayToList<T>(object obj)
         {
             // 
@@ -1216,10 +1231,18 @@ namespace BigQ
             Newtonsoft.Json.Linq.JArray jarray = (Newtonsoft.Json.Linq.JArray)obj;
             return jarray.ToObject<T>();
         }
+        */
 
         public static string SerializeJson(object obj)
         {
-            string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings { });
+            // Newtonsoft
+            // string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings { });
+            // return json;
+
+            // System.Web.Script.Serialization
+            JavaScriptSerializer ser = new JavaScriptSerializer();
+            ser.MaxJsonLength = Int32.MaxValue;
+            string json = ser.Serialize(obj);
             return json;
         }
 

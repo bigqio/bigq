@@ -7,7 +7,7 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
 ## description
-bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.
+bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.  bigq is tested and compatible with Mono.
 
 Core use cases for bigq:
 - simple sockets wrapper - we make sockets programming easier
