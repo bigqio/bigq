@@ -59,7 +59,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Samples\client.json" />
+    <None Include="Samples\permissions.json" />
     <None Include="Samples\server.json" />
+    <None Include="Samples\users.json" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
