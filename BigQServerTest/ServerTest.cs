@@ -9,49 +9,13 @@ namespace BigQServerTest
 {
     class ServerTest
     {
-        static BigQServer server;
-        static bool DEBUG = false;
+        static Server server;
 
         static void Main(string[] args)
         {
-            Console.Clear();
-            Console.WriteLine("");
-            Console.WriteLine("");
-
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(@" $$\       $$\                      ");
-            Console.WriteLine(@" $$ |      \__|                     ");
-            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
-            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
-            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
-            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
-            Console.WriteLine(@"               $$\   $$ |      $$ | ");
-            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
-            Console.WriteLine(@"                \______/       \__| ");
-            Console.ResetColor();
-
-            Console.WriteLine("");
-            Console.WriteLine("");
-            Console.WriteLine("BigQ Server");
-            Console.WriteLine("");
-
-            //
             // initialize
-            //
-            server = new BigQServer(null, 8000, null, 8001, DEBUG, true, true, true, 0);
-
-            // callbacks
-            server.MessageReceived = MessageReceived;
-            server.ServerStopped = ServerStopped;
-            server.ClientConnected = ClientConnected;
-            server.ClientLogin = ClientLogin;
-            server.ClientDisconnected = ClientDisconnected;
-
-            if (DEBUG) server.LogMessage = LogMessage;
-            else server.LogMessage = null;
-
+            StartServer();
+            
             bool RunForever = true;
             while (RunForever)
             {
@@ -79,10 +43,10 @@ namespace BigQServerTest
                         break;
 
                     case "listchannels":
-                        List<BigQChannel> channels = server.ListChannels();
+                        List<Channel> channels = server.ListChannels();
                         if (channels != null)
                         {
-                            foreach (BigQChannel curr in channels)
+                            foreach (Channel curr in channels)
                             {
                                 if (curr.Private == 1)
                                 {
@@ -103,12 +67,12 @@ namespace BigQServerTest
                     case "listchannelsubscribers":
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
-                        List<BigQClient> subscribers = server.ListChannelSubscribers(guid);
+                        List<Client> subscribers = server.ListChannelSubscribers(guid);
                         if (subscribers != null)
                         {
-                            foreach (BigQClient curr in subscribers)
+                            foreach (Client curr in subscribers)
                             {
-                                Console.WriteLine("  " + curr.SourceIp + ":" + curr.SourcePort + "  " + curr.Email + "  [" + curr.ClientGuid + "]");
+                                Console.WriteLine("  " + curr.SourceIP + ":" + curr.SourcePort + "  " + curr.Email + "  [" + curr.ClientGUID + "]");
                             }
                         }
                         else
@@ -118,18 +82,20 @@ namespace BigQServerTest
                         break;
 
                     case "listclients":
-                        List<BigQClient> clients = server.ListClients();
+                        List<Client> clients = server.ListClients();
                         if (clients != null)
                         {
-                            foreach (BigQClient curr in clients)
+                            foreach (Client curr in clients)
                             {
-                                Console.Write("  " + curr.SourceIp + ":" + curr.SourcePort + " ");
+                                Console.Write("  " + curr.SourceIP + ":" + curr.SourcePort + " ");
 
-                                if (String.IsNullOrEmpty(curr.ClientGuid)) Console.Write("[login pending] ");
-                                else Console.Write(curr.Email + " [" + curr.ClientGuid + "] ");
+                                if (String.IsNullOrEmpty(curr.ClientGUID)) Console.Write("[login pending] ");
+                                else Console.Write(curr.Email + " [" + curr.ClientGUID + "] ");
 
                                 if (curr.IsTCP) Console.Write("[TCP] ");
-                                if (curr.IsWebsocket) Console.Write("[WS] ");
+                                else if (curr.IsTCPSSL) Console.Write("[TCP SSL] ");
+                                else if (curr.IsWebsocket) Console.Write("[WS] ");
+                                else if (curr.IsWebsocketSSL) Console.Write("[WS SSL] ");
                                 Console.WriteLine("");
                             }
                         }
@@ -174,10 +140,10 @@ namespace BigQServerTest
                         break;
 
                     case "listusersfile":
-                        List<BigQUser> users = server.ListCurrentUsersFile();
+                        List<User> users = server.ListCurrentUsersFile();
                         if (users != null && users.Count > 0)
                         {
-                            foreach (BigQUser curr in users)
+                            foreach (User curr in users)
                             {
                                 Console.WriteLine("  Email " + curr.Email + " Password " + curr.Password + " Notes " + curr.Notes + " Permission " + curr.Permission);
                                 if (curr.IPWhiteList != null && curr.IPWhiteList.Count > 0)
@@ -198,10 +164,10 @@ namespace BigQServerTest
                         break;
 
                     case "listpermissionsfile":
-                        List<BigQPermission> perms = server.ListCurrentPermissionsFile();
+                        List<Permission> perms = server.ListCurrentPermissionsFile();
                         if (perms != null && perms.Count > 0)
                         {
-                            foreach (BigQPermission curr in perms)
+                            foreach (Permission curr in perms)
                             {
                                 string permstr = "  Name " + curr.Name + " Login " + curr.Login + " Permissions ";
                                 if (curr.Permissions != null && curr.Permissions.Count > 0)
@@ -233,49 +199,54 @@ namespace BigQServerTest
 
         #region Delegates
 
-        static bool MessageReceived(BigQMessage msg)
+        static bool MessageReceived(Message msg)
         {
             // Console.WriteLine(msg.ToString());
             return true;
         }
 
-        static bool ServerStopped()
+        static bool StartServer()
         {
+            //
             // restart
-            Console.WriteLine("*** Server stopped, attempting to restart ***");
+            //
+            Console.WriteLine("Attempting to start/restart server");
             if (server != null) server.Close();
             server = null;
-            server = new BigQServer(null, 8000, null, 8001, DEBUG, true, true, true, 0);
+
+            //
+            // initialize with default configuration
+            //
+            server = new Server("server.json");
             server.MessageReceived = MessageReceived;
-            server.ServerStopped = ServerStopped;
+            server.ServerStopped = StartServer;
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
-
-            if (DEBUG) server.LogMessage = LogMessage;
-            else server.LogMessage = null;
+            server.LogMessage = LogMessage;
+            server.LogMessage = null;
 
             return true;
         }
 
-        static bool ClientConnected(BigQClient client)
+        static bool ClientConnected(Client client)
         {
             // client disconnected
             Console.WriteLine("ClientConnected received notice of connect from " + client.IpPort());
             return true;
         }
 
-        static bool ClientLogin(BigQClient client)
+        static bool ClientLogin(Client client)
         {
             // client disconnected
-            Console.WriteLine("ClientConnected received notice of connect of client GUID " + client.ClientGuid + " from " + client.IpPort());
+            Console.WriteLine("ClientConnected received notice of connect of client GUID " + client.ClientGUID + " from " + client.IpPort());
             return true;
         }
 
-        static bool ClientDisconnected(BigQClient client)
+        static bool ClientDisconnected(Client client)
         {
             // client disconnected
-            Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGuid + " from " + client.IpPort());
+            Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGUID + " from " + client.IpPort());
             return true;
         }
 

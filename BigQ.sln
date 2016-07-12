@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BigQ", "BigQ\BigQ.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BigQServerTest", "BigQServerTest\BigQServerTest.csproj", "{E8B6F489-5F17-4A8E-B79F-0209203B412A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BigQClientTestTCP", "BigQClientTest\BigQClientTestTCP.csproj", "{76C26D56-C1F4-423A-80F1-7BDA20332DEA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BigQClientTest", "BigQClientTest\BigQClientTest.csproj", "{76C26D56-C1F4-423A-80F1-7BDA20332DEA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

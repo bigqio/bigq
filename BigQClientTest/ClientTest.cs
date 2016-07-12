@@ -8,44 +8,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using BigQ;
 
-namespace BigQClientTestTCP
+namespace BigQClientTest
 {
-    class ClientTestTCP
+    class ClientTest
     {
-        static BigQClient client;
-        static bool DEBUG = false;
+        static Client client;
 
         static void Main(string[] args)
         {
-            Console.Clear();
-            Console.WriteLine("");
-            Console.WriteLine("");
-
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(@" $$\       $$\                      ");
-            Console.WriteLine(@" $$ |      \__|                     ");
-            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
-            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
-            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
-            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
-            Console.WriteLine(@"               $$\   $$ |      $$ | ");
-            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
-            Console.WriteLine(@"                \______/       \__| ");
-            Console.ResetColor();
-
-            Console.WriteLine("");
-            Console.WriteLine("");
-            Console.WriteLine("BigQ ClientTCPInterface");
-            Console.WriteLine("");
-
             string guid = "";
             string msg = "";
             int priv = 0;
-            List<BigQClient> clients;
-            List<BigQChannel> channels;
-            BigQMessage response;
+            List<Client> clients;
+            List<Channel> channels;
+            Message response;
             Dictionary<string, DateTime> pendingRequests;
 
             ConnectToServer();
@@ -53,7 +29,6 @@ namespace BigQClientTestTCP
             bool RunForever = true;
             while (RunForever)
             {
-                
                 if (client == null) Console.Write("[OFFLINE] ");
                 Console.Write("Command [? for help]: ");
 
@@ -106,11 +81,13 @@ namespace BigQClientTestTCP
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
                             else
                             {
-                                foreach (BigQClient curr in clients)
+                                foreach (Client curr in clients)
                                 {
-                                    if (curr.IsTCP) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email + " [TCP]");
-                                    else if (curr.IsWebsocket) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email + " [WS]");
-                                    else Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email + " [unknown]");
+                                    if (curr.IsTCP) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [TCP]");
+                                    else if (curr.IsTCPSSL) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [TCP SSL]");
+                                    else if (curr.IsWebsocket) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [WS]");
+                                    else if (curr.IsWebsocketSSL) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [WS SSL]");
+                                    else Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [unknown]");
                                 }
                             }
                         }
@@ -140,7 +117,7 @@ namespace BigQClientTestTCP
                         {
                             Console.WriteLine("ListChannels success");
                             if (channels == null || channels.Count < 1) Console.WriteLine("(null)");
-                            else foreach (BigQChannel curr in channels) Console.WriteLine("  " + curr.Guid + " " + curr.ChannelName + " " + curr.OwnerGuid);
+                            else foreach (Channel curr in channels) Console.WriteLine("  " + curr.Guid + " " + curr.ChannelName + " " + curr.OwnerGuid);
                         }
                         else
                         {
@@ -156,7 +133,7 @@ namespace BigQClientTestTCP
                         {
                             Console.WriteLine("ListChannelSubscribers success");
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
-                            else foreach (BigQClient curr in clients) Console.WriteLine("  " + curr.ClientGuid + " " + curr.Email);
+                            else foreach (Client curr in clients) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email);
                         }
                         else
                         {
@@ -238,7 +215,7 @@ namespace BigQClientTestTCP
                         Console.Write("Message: ");
                         msg = Console.ReadLine();
 
-                        BigQMessage respMsg = new BigQMessage();
+                        Message respMsg = new Message();
                         client.SendPrivateMessageSync(guid, msg, out respMsg);
 
                         if (respMsg != null)
@@ -264,7 +241,7 @@ namespace BigQClientTestTCP
                     case "whoami":
                         if (client == null) break;
                         Console.Write(client.IpPort());
-                        if (!String.IsNullOrEmpty(client.ClientGuid)) Console.WriteLine("  GUID " + client.ClientGuid);
+                        if (!String.IsNullOrEmpty(client.ClientGUID)) Console.WriteLine("  GUID " + client.ClientGUID);
                         else Console.WriteLine("[not logged in]");
                         break;
 
@@ -297,13 +274,13 @@ namespace BigQClientTestTCP
 
         #region Delegates
 
-        static bool AsyncMessageReceived(BigQMessage msg)
+        static bool AsyncMessageReceived(Message msg)
         {
             Console.WriteLine(msg.ToString());
             return true;
         }
 
-        static byte[] SyncMessageReceived(BigQMessage msg)
+        static byte[] SyncMessageReceived(Message msg)
         {
             Console.WriteLine("Received sync message: " + msg.ToString());
             Console.WriteLine("Press ENTER and then type your response");
@@ -318,19 +295,18 @@ namespace BigQClientTestTCP
         {
             try
             {
-                Console.WriteLine("Attempting to connect to 127.0.0.1:8000");
+                Console.WriteLine("Attempting to connect to server");
                 if (client != null) client.Close();
                 client = null;
-                client = new BigQClient(null, null, "127.0.0.1", 8000, 5000, 0, DEBUG);
+                client = new Client("client.json");
 
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;
                 client.ServerDisconnected = ConnectToServer;
+                // client.LogMessage = LogMessage;
+                client.LogMessage = null;
 
-                if (DEBUG) client.LogMessage = LogMessage;
-                else client.LogMessage = null;
-
-                BigQMessage response;
+                Message response;
                 if (!client.Login(out response))
                 {
                     Console.WriteLine("Unable to login, retrying in five seconds");
@@ -338,26 +314,26 @@ namespace BigQClientTestTCP
                     return ConnectToServer();
                 }
 
-                Console.WriteLine("Successfully connected to localhost:8000");
+                Console.WriteLine("Successfully connected to server");
                 return true;
             }
             catch (SocketException)
             {
-                Console.WriteLine("*** Unable to connect to localhost:8000 (port not reachable)");
+                Console.WriteLine("*** Unable to connect to server (port not reachable)");
                 Console.WriteLine("*** Retrying in five seconds");
                 Thread.Sleep(5000);
                 return ConnectToServer();
             }
             catch (TimeoutException)
             {
-                Console.WriteLine("*** Timeout connecting to localhost:8000");
+                Console.WriteLine("*** Timeout connecting to server");
                 Console.WriteLine("*** Retrying in five seconds");
                 Thread.Sleep(5000);
                 return ConnectToServer();
             }
             catch (Exception e)
             {
-                Console.WriteLine("*** Unable to connect to localhost:8000 due to the following exception:");
+                Console.WriteLine("*** Unable to connect to server due to the following exception:");
                 PrintException("ConnectToServer", e);
                 Console.WriteLine("*** Retrying in five seconds");
                 Thread.Sleep(5000);

@@ -4,8 +4,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,49 +19,54 @@ namespace BigQ
     /// Object containing metadata about a client on BigQ.
     /// </summary>
     [Serializable]
-    public class BigQClient
+    public class Client
     {
         #region Public-Class-Members
 
         /// <summary>
-        /// The email address associated with the client.
+        /// Contains configuration-related variables for the client.  
+        /// </summary>
+        public ClientConfiguration Config;
+
+        /// <summary>
+        /// The email address associated with the client.  Do not modify directly; used by the server.  
         /// </summary>
         public string Email;
 
         /// <summary>
-        /// The password associated with the client.  Reserved for future use.
+        /// The password associated with the client.  Do not modify directly; used by the server.  
         /// </summary>
         public string Password;
 
         /// <summary>
-        /// The GUID associated with the client.
+        /// The GUID associated with the client.  Do not modify directly; used by the server.  
         /// </summary>
-        public string ClientGuid;
+        public string ClientGUID;
 
         /// <summary>
-        /// The client's source IP address.
+        /// The client's source IP address.  Do not modify directly; used by the server.  
         /// </summary>
-        public string SourceIp;
+        public string SourceIP;
 
         /// <summary>
-        /// The source TCP port number used by the client.
+        /// The source TCP port number used by the client.  Do not modify directly; used by the server.  
         /// </summary>
         public int SourcePort;
 
         /// <summary>
-        /// The server IP address or hostname to which this client connects.
+        /// The server IP address or hostname to which this client connects.  Do not modify directly; used by the server.  
         /// </summary>
-        public string ServerIp;
+        public string ServerIP;
 
         /// <summary>
-        /// The server TCP port to which this client connects.
+        /// The server TCP port to which this client connects.  Do not modify directly; used by the server.  
         /// </summary>
         public int ServerPort;
 
         /// <summary>
         /// The UTC timestamp of when this client object was created.
         /// </summary>
-        public DateTime? CreatedUTC;
+        public DateTime CreatedUTC;
 
         /// <summary>
         /// The UTC timestamp of when this client object was last updated.
@@ -66,61 +74,84 @@ namespace BigQ
         public DateTime? UpdatedUTC;
 
         /// <summary>
-        /// Indicates whether or not the client is using raw TCP sockets for messaging.
+        /// Indicates whether or not the client is using raw TCP sockets for messaging.  Do not modify this field.
         /// </summary>
         public bool IsTCP;
 
         /// <summary>
-        /// Indicates whether or not the client is using websockets for messaging.
+        /// Indicates whether or not the client is using raw TCP sockets with SSL for messaging.  Do not modify this field.
+        /// </summary>
+        public bool IsTCPSSL;
+
+        /// <summary>
+        /// Indicates whether or not the client is using websockets for messaging.  Do not modify this field.
         /// </summary>
         public bool IsWebsocket;
 
         /// <summary>
-        /// The TcpClient for this client.  Provides direct access to the underlying socket.
+        /// Indicates whether or not the client is using websockets with SSL for messaging.  Do not modify this field.
+        /// </summary>
+        public bool IsWebsocketSSL;
+
+        /// <summary>
+        /// The TcpClient for this client, without SSL.  Provides direct access to the underlying socket.
         /// </summary>
         public TcpClient ClientTCPInterface;
 
         /// <summary>
-        /// The HttpListenerContext for this client.  Provides direct access to the underlying HTTP listener context object.
+        /// The TcpClient for this client, with SSL.  Provides direct access to the underlying socket.
+        /// </summary>
+        public TcpClient ClientTCPSSLInterface;
+
+        /// <summary>
+        /// The SslStream for this client (used only for TCP SSL connections).  Provides direct access to the underlying stream.
+        /// </summary>
+        public SslStream ClientSSLStream;
+
+        /// <summary>
+        /// The HttpListenerContext for this client, without SSL.  Provides direct access to the underlying HTTP listener context object.
         /// </summary>
         public HttpListenerContext ClientHTTPContext;
 
         /// <summary>
-        /// The WebSocketContext for this client.  Provides direct access to the underlying WebSocket context.
+        /// The WebSocketContext for this client, without SSL.  Provides direct access to the underlying WebSocket context.
         /// </summary>
         public WebSocketContext ClientWSContext;
 
         /// <summary>
-        /// The WebSocket for this client.  Provides direct access to the underlying WebSocket object.
+        /// The WebSocket for this client, without SSL.  Provides direct access to the underlying WebSocket object.
         /// </summary>
         public WebSocket ClientWSInterface;
 
         /// <summary>
-        /// Indicates whether or not the client is connected to the server.
+        /// The HttpListenerContext for this client, with SSL.  Provides direct access to the underlying HTTP listener context object.
+        /// </summary>
+        public HttpListenerContext ClientHTTPSSLContext;
+
+        /// <summary>
+        /// The WebSocketContext for this client, with SSL.  Provides direct access to the underlying WebSocket context.
+        /// </summary>
+        public WebSocketContext ClientWSSSLContext;
+
+        /// <summary>
+        /// The WebSocket for this client, with SSL.  Provides direct access to the underlying WebSocket object.
+        /// </summary>
+        public WebSocket ClientWSSSLInterface;
+
+        /// <summary>
+        /// Indicates whether or not the client is connected to the server.  Do not modify this field.
         /// </summary>
         public bool Connected;
 
         /// <summary>
-        /// Indicates whether or not the client is logged in to the server.
+        /// Indicates whether or not the client is logged in to the server.  Do not modify this field.
         /// </summary>
         public bool LoggedIn;
-        
-        /// <summary>
-        /// Set this value to true to send log messages containing response time for processed messages (requires that ou enable console debugging or message logging).
-        /// </summary>
-        public bool LogMessageResponseTime = false;
-
-        /// <summary>
-        /// Set this value to true to allow BigQ to send messages to the console for logging purposes.
-        /// </summary>
-        public bool ConsoleDebug;
 
         #endregion
 
         #region Private-Class-Members
-
-        private int HeartbeatIntervalMsec;
-        private int MaxHeartbeatFailures;
+        
         private CancellationTokenSource DataReceiverTokenSource = null;
         private CancellationToken DataReceiverToken;
         private CancellationTokenSource CleanupSyncTokenSource = null;
@@ -128,16 +159,32 @@ namespace BigQ
         private CancellationTokenSource HeartbeatTokenSource = null;
         private CancellationToken HeartbeatToken;
         private ConcurrentDictionary<string, DateTime> SyncRequests;
-        private ConcurrentDictionary<string, BigQMessage> SyncResponses;
-        private int SyncTimeoutMsec;
-
+        private ConcurrentDictionary<string, Message> SyncResponses;
+        private X509Certificate2 TCPSSLCertificate;
+        private X509Certificate2Collection TCPSSLCertificateCollection = null;
+        
         #endregion
 
         #region Public-Delegates
 
-        public Func<BigQMessage, bool> AsyncMessageReceived;
-        public Func<BigQMessage, byte[]> SyncMessageReceived;
+        /// <summary>
+        /// Delegate method called when an asynchronous message is received.
+        /// </summary>
+        public Func<Message, bool> AsyncMessageReceived;
+
+        /// <summary>
+        /// Delegate method called when a synchronous message is received.
+        /// </summary>
+        public Func<Message, byte[]> SyncMessageReceived;
+
+        /// <summary>
+        /// Delegate method called with the server connection is severed.
+        /// </summary>
         public Func<bool> ServerDisconnected;
+
+        /// <summary>
+        /// Delegate method called when the client desires to send a log message.
+        /// </summary>
         public Func<string, bool> LogMessage;
 
         #endregion
@@ -147,54 +194,73 @@ namespace BigQ
         /// <summary>
         /// This constructor is used by BigQServer.  Do not use it in client applications!
         /// </summary>
-        public BigQClient()
+        public Client()
         {
         }
 
         /// <summary>
-        /// Create a BigQ client instance and connect to the server.
+        /// Start an instance of the BigQ client process.
         /// </summary>
-        /// <param name="email">The email address for the client (null is acceptable).</param>
-        /// <param name="guid">The GUID for the client (null is acceptable).</param>
-        /// <param name="ip">The IP address or hostname for the server (must not be null).</param>
-        /// <param name="port">The TCP port number of the server (must be greater than zero).</param>
-        /// <param name="syncTimeoutMsec">The number of milliseconds before timing out a synchronous message request.</param>
-        /// <param name="heartbeatIntervalMsec">The number of milliseconds before timing out a heartbeat message to the server.</param>
-        /// <param name="debug">Indicates whether or not console debugging is used.</param>
-        public BigQClient(
-            string email, 
-            string guid, 
-            string ip, 
-            int port, 
-            int syncTimeoutMsec,
-            int heartbeatIntervalMsec,
-            bool debug)
+        /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
+        public Client(string configFile)
         {
-            #region Check-for-Null-or-Invalid-Values
+            #region Begin-Enumerate
 
-            if (String.IsNullOrEmpty(ip)) throw new ArgumentNullException("ip");
-            if (port < 1) throw new ArgumentOutOfRangeException("port");
-            if (syncTimeoutMsec < 1000) throw new ArgumentOutOfRangeException("syncTimeoutMsec");
-            if (heartbeatIntervalMsec < 100 && heartbeatIntervalMsec != 0) throw new ArgumentOutOfRangeException("heartbeatIntervalMsec");
+            CreatedUTC = DateTime.Now.ToUniversalTime();
+            Console.WriteLine("");
+            Console.WriteLine(@" $$\       $$\                      ");
+            Console.WriteLine(@" $$ |      \__|                     ");
+            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
+            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
+            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
+            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
+            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
+            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
+            Console.WriteLine(@"               $$\   $$ |      $$ | ");
+            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
+            Console.WriteLine(@"                \______/       \__| ");
+            Console.WriteLine("");
+            Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            Console.WriteLine("Starting BigQ client at " + CreatedUTC.ToString("MM/dd/yyyy HH:mm:ss"));
+            Console.WriteLine("");
+
+            #endregion
+
+            #region Load-and-Validate-Config
+
+            Config = null;
+
+            if (String.IsNullOrEmpty(configFile))
+            {
+                Config = ClientConfiguration.DefaultConfig();
+            }
+            else
+            {
+                Config = ClientConfiguration.LoadConfig(configFile);
+            }
+
+            if (Config == null) throw new Exception("Unable to initialize configuration.");
+
+            Config.ValidateConfig();
 
             #endregion
 
             #region Set-Class-Variables
 
-            if (String.IsNullOrEmpty(guid)) ClientGuid = Guid.NewGuid().ToString(); 
-            else ClientGuid = guid;
+            if (String.IsNullOrEmpty(Config.GUID)) Config.GUID = Guid.NewGuid().ToString();
+            if (String.IsNullOrEmpty(Config.Email)) Config.Email = Config.GUID;
+            if (String.IsNullOrEmpty(Config.Password)) Config.Password = Config.GUID;
 
-            if (String.IsNullOrEmpty(email)) Email = ClientGuid;
-            else Email = email;
+            Email = Config.Email;
+            ClientGUID = Config.GUID;
+            Password = Config.Password;
+            SourceIP = "";
+            SourcePort = 0;
+            ServerIP = "";
+            ServerPort = 0;
 
-            ServerIp = ip;
-            ServerPort = port;
-            ConsoleDebug = debug;
             SyncRequests = new ConcurrentDictionary<string, DateTime>();
-            SyncResponses = new ConcurrentDictionary<string, BigQMessage>();
-            SyncTimeoutMsec = syncTimeoutMsec;
-            HeartbeatIntervalMsec = heartbeatIntervalMsec;
-            MaxHeartbeatFailures = 5;
+            SyncResponses = new ConcurrentDictionary<string, Message>();
             Connected = false;
             LoggedIn = false;
 
@@ -209,39 +275,132 @@ namespace BigQ
 
             #endregion
 
+            #region Accept-SSL-Certificates
+
+            if (Config.AcceptInvalidSSLCerts) ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
+            #endregion
+
             #region Start-Client
 
-            //
-            // see https://social.msdn.microsoft.com/Forums/vstudio/en-US/2281199d-cd28-4b5c-95dc-5a888a6da30d/tcpclientconnect-timeout?forum=csharpgeneral
-            // removed using statement since resources are managed by the caller
-            //
-            ClientTCPInterface = new TcpClient();
-            IAsyncResult ar = ClientTCPInterface.BeginConnect(ip, port, null, null);
-            WaitHandle wh = ar.AsyncWaitHandle;
-
-            try
+            if (Config.TcpServer.Enable)
             {
-                if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
+                #region Start-TCP-Server
+
+                //
+                // see https://social.msdn.microsoft.com/Forums/vstudio/en-US/2281199d-cd28-4b5c-95dc-5a888a6da30d/tcpclientconnect-timeout?forum=csharpgeneral
+                // removed using statement since resources are managed by the caller
+                //
+                ServerIP = Config.TcpServer.IP;
+                ServerPort = Config.TcpServer.Port;
+
+                ClientTCPInterface = new TcpClient();
+                IAsyncResult ar = ClientTCPInterface.BeginConnect(Config.TcpServer.IP, Config.TcpServer.Port, null, null);
+                WaitHandle wh = ar.AsyncWaitHandle;
+
+                try
                 {
-                    ClientTCPInterface.Close();
-                    throw new TimeoutException("Timeout connecting to " + ip + ":" + port);
+                    if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
+                    {
+                        ClientTCPInterface.Close();
+                        throw new TimeoutException("Timeout connecting to " + Config.TcpServer.IP + ":" + Config.TcpServer.Port);
+                    }
+
+                    ClientTCPInterface.EndConnect(ar);
+
+                    SourceIP = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Address.ToString();
+                    SourcePort = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Port;
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+                finally
+                {
+                    wh.Close();
                 }
 
-                ClientTCPInterface.EndConnect(ar);
+                Connected = true;
 
-                SourceIp = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Address.ToString();
-                SourcePort = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Port;
+                #endregion
             }
-            catch (Exception e)
+            else if (Config.TcpSSLServer.Enable)
             {
-                throw e;
+                #region Start-TCP-SSL-Server
+
+                //
+                // Setup the SSL certificate and certificate collection
+                //
+                TCPSSLCertificate = null;
+                TCPSSLCertificateCollection = new X509Certificate2Collection();
+                if (String.IsNullOrEmpty(Config.TcpSSLServer.P12CertPassword))
+                {
+                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.P12CertFile);
+                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.P12CertFile));
+                }
+                else
+                {
+                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.P12CertFile, Config.TcpSSLServer.P12CertPassword);
+                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.P12CertFile, Config.TcpSSLServer.P12CertPassword));
+                }
+
+                ServerIP = Config.TcpSSLServer.IP;
+                ServerPort = Config.TcpSSLServer.Port;
+                
+                ClientTCPSSLInterface = new TcpClient();
+                IAsyncResult ar = ClientTCPSSLInterface.BeginConnect(Config.TcpSSLServer.IP, Config.TcpSSLServer.Port, null, null);
+                WaitHandle wh = ar.AsyncWaitHandle;
+
+                try
+                {
+                    if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
+                    {
+                        ClientTCPSSLInterface.Close();
+                        throw new TimeoutException("Timeout connecting to " + Config.TcpSSLServer.IP + ":" + Config.TcpSSLServer.Port);
+                    }
+
+                    ClientTCPSSLInterface.EndConnect(ar);
+                    SourceIP = ((IPEndPoint)ClientTCPSSLInterface.Client.LocalEndPoint).Address.ToString();
+                    SourcePort = ((IPEndPoint)ClientTCPSSLInterface.Client.LocalEndPoint).Port;
+
+                    //
+                    // Setup SSL and authenticate
+                    //
+                    if (Config.AcceptInvalidSSLCerts)
+                    {
+                        ClientSSLStream = new SslStream(ClientTCPSSLInterface.GetStream(), false, new RemoteCertificateValidationCallback(ValidateCert));
+                    }
+                    else
+                    {
+                        //
+                        // do not accept invalid SSL certificates
+                        //
+                        ClientSSLStream = new SslStream(ClientTCPSSLInterface.GetStream(), false);
+                    }
+                    
+                    ClientSSLStream.AuthenticateAsClient(Config.TcpSSLServer.IP, TCPSSLCertificateCollection, SslProtocols.Default, true);
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+                finally
+                {
+                    wh.Close();
+                }
+
+                Connected = true;
+
+                #endregion
             }
-            finally
+            else
             {
-                wh.Close();
+                #region Unknown-Server
+
+                throw new Exception("Exactly one server must be enabled in the configuration file.");
+
+                #endregion
             }
-            
-            Connected = true;
 
             #endregion
 
@@ -257,8 +416,14 @@ namespace BigQ
 
             DataReceiverTokenSource = new CancellationTokenSource();
             DataReceiverToken = DataReceiverTokenSource.Token;
-            Task.Run(() => TCPDataReceiver(), DataReceiverToken);
-            
+
+            if (Config.TcpServer.Enable) Task.Run(() => TCPDataReceiver(), DataReceiverToken);
+            else if (Config.TcpSSLServer.Enable) Task.Run(() => TCPSSLDataReceiver(), DataReceiverToken);
+            else
+            {
+                throw new Exception("Exactly one server must be enabled in the configuration file.");
+            }
+
             CleanupSyncTokenSource = new CancellationTokenSource();
             CleanupSyncToken = CleanupSyncTokenSource.Token;
             Task.Run(() => CleanupSyncRequests(), CleanupSyncToken);
@@ -277,8 +442,15 @@ namespace BigQ
             // Task.Run(() => TCPHeartbeatManager());
 
             #endregion
-        }
 
+            #region End-Enumerate
+
+            DateTime finish = DateTime.Now.ToUniversalTime();
+            Console.WriteLine("Finished starting BigQ client at " + finish.ToString("MM/dd/yyyy HH:mm:ss") + " (" + (finish - CreatedUTC).TotalMilliseconds + "ms)");
+
+            #endregion
+        }
+        
         #endregion
 
         #region Public-Methods
@@ -288,7 +460,7 @@ namespace BigQ
         /// </summary>
         /// <param name="message">The populated message object to send.</param>
         /// <returns></returns>
-        public bool SendRawMessage(BigQMessage message)
+        public bool SendRawMessage(Message message)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -296,12 +468,18 @@ namespace BigQ
             try
             {
                 if (message == null) throw new ArgumentNullException("message");
-                return TCPDataSender(message);
+                if (Config.TcpServer.Enable) return TCPDataSender(message);
+                else if (Config.TcpSSLServer.Enable) return TCPSSLDataSender(message);
+                else
+                {
+                    Log("*** SendRawMessage no server enabled");
+                    return false;
+                }
             }
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendRawMessage " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendRawMessage " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -316,23 +494,23 @@ namespace BigQ
 
             try
             {
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "Echo";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = null;
                 request.Data = null;
-                return TCPDataSender(request);
+                return SendRawMessage(request);
             }
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("Echo " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Echo " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -341,7 +519,7 @@ namespace BigQ
         /// </summary>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating if the login was successful.</returns>
-        public bool Login(out BigQMessage response)
+        public bool Login(out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -349,13 +527,13 @@ namespace BigQ
             try
             {
                 response = null;
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "Login";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = null;
@@ -373,7 +551,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** Login failed with response data " + response.Data.ToString());
                     return false;
@@ -396,7 +574,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("Login " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Login " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -406,7 +584,7 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <param name="clients">The list of clients received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListClients(out BigQMessage response, out List<BigQClient> clients)
+        public bool ListClients(out Message response, out List<Client> clients)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -416,13 +594,13 @@ namespace BigQ
                 response = null;
                 clients = null;
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "ListClients";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = null;
@@ -440,7 +618,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** ListClients failed with response data " + response.Data.ToString());
                     return false;
@@ -449,8 +627,8 @@ namespace BigQ
                 {
                     if (response.Data != null)
                     {
-                        if (LogMessageResponseTime) Log("ListClients deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
+                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListClients deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
+                        clients = Helper.DeserializeJson<List<Client>>(response.Data, false);
                     }
                     return true;
                 }
@@ -458,7 +636,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("ListClients " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListClients " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -468,7 +646,7 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <param name="channels">The list of channels received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListChannels(out BigQMessage response, out List<BigQChannel> channels)
+        public bool ListChannels(out Message response, out List<Channel> channels)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -478,13 +656,13 @@ namespace BigQ
                 response = null;
                 channels = null;
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "ListChannels";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = null;
@@ -502,7 +680,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** ListChannels failed with response data " + response.Data.ToString());
                     return false;
@@ -511,8 +689,8 @@ namespace BigQ
                 {
                     if (response.Data != null)
                     {
-                        if (LogMessageResponseTime) Log("ListChanels deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        channels = BigQHelper.DeserializeJson<List<BigQChannel>>(response.Data, false);
+                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChanels deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
+                        channels = Helper.DeserializeJson<List<Channel>>(response.Data, false);
                     }
                     return true;
                 }
@@ -520,7 +698,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("ListChannels " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannels " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -531,7 +709,7 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <param name="clients">The list of clients subscribed to the specified channel on the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListChannelSubscribers(string guid, out BigQMessage response, out List<BigQClient> clients)
+        public bool ListChannelSubscribers(string guid, out Message response, out List<Client> clients)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -543,13 +721,13 @@ namespace BigQ
 
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "ListChannelSubscribers";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = guid;
@@ -567,7 +745,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** ListChannelSubscribers failed with response data " + response.Data.ToString());
                     return false;
@@ -576,8 +754,8 @@ namespace BigQ
                 {
                     if (response.Data != null)
                     {
-                        if (LogMessageResponseTime) Log("ListChannelSubscribers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        clients = BigQHelper.DeserializeJson<List<BigQClient>>(response.Data, false);
+                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelSubscribers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
+                        clients = Helper.DeserializeJson<List<Client>>(response.Data, false);
                     }
                     return true;
                 }
@@ -585,7 +763,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("ListChannelSubscribers " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelSubscribers " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -595,7 +773,7 @@ namespace BigQ
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool JoinChannel(string guid, out BigQMessage response)
+        public bool JoinChannel(string guid, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -605,13 +783,13 @@ namespace BigQ
                 response = null;
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "JoinChannel";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = guid;
@@ -629,7 +807,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** JoinChannel failed with response data " + response.Data.ToString());
                     return false;
@@ -642,7 +820,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("JoinChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("JoinChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -652,7 +830,7 @@ namespace BigQ
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool LeaveChannel(string guid, out BigQMessage response)
+        public bool LeaveChannel(string guid, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -662,13 +840,13 @@ namespace BigQ
                 response = null;
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "LeaveChannel";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = guid;
@@ -686,7 +864,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** LeaveChannel failed with response data " + response.Data.ToString());
                     return false;
@@ -699,7 +877,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("LeaveChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("LeaveChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -710,7 +888,7 @@ namespace BigQ
         /// <param name="priv">Whether or not the channel is private (1) or public (0).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool CreateChannel(string name, int priv, out BigQMessage response)
+        public bool CreateChannel(string name, int priv, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -721,23 +899,23 @@ namespace BigQ
                 if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
                 if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-                BigQChannel CurrentChannel = new BigQChannel();
+                Channel CurrentChannel = new Channel();
                 CurrentChannel.ChannelName = name;
-                CurrentChannel.OwnerGuid = ClientGuid;
+                CurrentChannel.OwnerGuid = ClientGUID;
                 CurrentChannel.Guid = Guid.NewGuid().ToString();
                 CurrentChannel.Private = priv;
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "CreateChannel";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = CurrentChannel.Guid;
-                request.Data = Encoding.UTF8.GetBytes(BigQHelper.SerializeJson(CurrentChannel));
+                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
 
                 if (!SendServerMessageSync(request, out response))
                 {
@@ -751,7 +929,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** CreateChannel failed with response data " + response.Data.ToString());
                     return false;
@@ -764,7 +942,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("CreateChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -774,7 +952,7 @@ namespace BigQ
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool DeleteChannel(string guid, out BigQMessage response)
+        public bool DeleteChannel(string guid, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -784,13 +962,13 @@ namespace BigQ
                 response = null;
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "DeleteChannel";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = null;
@@ -808,7 +986,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** DeleteChannel failed with response data " + response.Data.ToString());
                     return false;
@@ -821,7 +999,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("DeleteChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("DeleteChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -845,7 +1023,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendPrivateMessageAsync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageAsync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -865,22 +1043,22 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                BigQMessage CurrentMessage = new BigQMessage();
+                Message CurrentMessage = new Message();
                 CurrentMessage.Email = Email;
                 CurrentMessage.Password = Password;
                 CurrentMessage.Command = null;
                 CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
                 CurrentMessage.MessageId = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGuid = ClientGuid;
+                CurrentMessage.SenderGuid = ClientGUID;
                 CurrentMessage.RecipientGuid = guid;
                 CurrentMessage.ChannelGuid = null;
                 CurrentMessage.Data = data;
-                return TCPDataSender(CurrentMessage);
+                return SendRawMessage(CurrentMessage);
             }
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendPrivateMessageAsync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageAsync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -891,7 +1069,7 @@ namespace BigQ
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendPrivateMessageSync(string guid, string data, out BigQMessage response)
+        public bool SendPrivateMessageSync(string guid, string data, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -905,7 +1083,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendPrivateMessageSync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageSync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -916,12 +1094,12 @@ namespace BigQ
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendPrivateMessageSync(string guid, byte[] data, out BigQMessage response)
+        public bool SendPrivateMessageSync(string guid, byte[] data, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            BigQMessage CurrentMessage = new BigQMessage();
+            Message CurrentMessage = new Message();
             
             try
             {
@@ -930,13 +1108,13 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                CurrentMessage = new BigQMessage();
+                CurrentMessage = new Message();
                 CurrentMessage.Email = Email;
                 CurrentMessage.Password = Password;
                 CurrentMessage.Command = null;
                 CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
                 CurrentMessage.MessageId = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGuid = ClientGuid;
+                CurrentMessage.SenderGuid = ClientGUID;
                 CurrentMessage.RecipientGuid = guid;
                 CurrentMessage.ChannelGuid = null;
                 CurrentMessage.SyncRequest = true;
@@ -948,13 +1126,13 @@ namespace BigQ
                     return false;
                 }
 
-                if (!TCPDataSender(CurrentMessage))
+                if (!SendRawMessage(CurrentMessage))
                 {
                     Log("*** SendPrivateMessage unable to send message GUID " + CurrentMessage.MessageId + " to recipient " + CurrentMessage.RecipientGuid);
                     return false;
                 }
 
-                BigQMessage ResponseMessage = new BigQMessage();
+                Message ResponseMessage = new Message();
                 if (!GetSyncResponse(CurrentMessage.MessageId, out ResponseMessage))
                 {
                     Log("*** SendPrivateMessage unable to get response for message GUID " + CurrentMessage.MessageId);
@@ -970,7 +1148,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendPrivateMessageSync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageSync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -979,7 +1157,7 @@ namespace BigQ
         /// </summary>
         /// <param name="request">The message object you wish to send to the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendServerMessageAsync(BigQMessage request)
+        public bool SendServerMessageAsync(Message request)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -988,12 +1166,12 @@ namespace BigQ
             {
                 if (request == null) throw new ArgumentNullException("request");
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
-                return TCPDataSender(request);
+                return SendRawMessage(request);
             }
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendServerMessageAsync " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendServerMessageAsync " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1003,7 +1181,7 @@ namespace BigQ
         /// <param name="request">The message object you wish to send to the server.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendServerMessageSync(BigQMessage request, out BigQMessage response)
+        public bool SendServerMessageSync(Message request, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -1027,7 +1205,7 @@ namespace BigQ
                     // Log("SendServerMessageSync registered sync request GUID " + request.MessageId);
                 }
 
-                if (!TCPDataSender(request))
+                if (!SendRawMessage(request))
                 {
                     Log("*** SendServerMessageSync unable to send message GUID " + request.MessageId + " to server");
                     return false;
@@ -1037,7 +1215,7 @@ namespace BigQ
                     // Log("SendServerMessageSync sent message GUID " + request.MessageId + " to server");
                 }
 
-                BigQMessage ResponseMessage = new BigQMessage();
+                Message ResponseMessage = new Message();
                 if (!GetSyncResponse(request.MessageId, out ResponseMessage))
                 {
                     Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageId);
@@ -1054,7 +1232,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendServerMessageSync " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendServerMessageSync " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1078,7 +1256,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendChannelMessage (string) " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMessage (string) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1098,22 +1276,22 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                BigQMessage CurrentMessage = new BigQMessage();
+                Message CurrentMessage = new Message();
                 CurrentMessage.Email = Email;
                 CurrentMessage.Password = Password;
                 CurrentMessage.Command = null;
                 CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
                 CurrentMessage.MessageId = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGuid = ClientGuid;
+                CurrentMessage.SenderGuid = ClientGUID;
                 CurrentMessage.RecipientGuid = null;
                 CurrentMessage.ChannelGuid = guid;
                 CurrentMessage.Data = data;
-                return TCPDataSender(CurrentMessage);
+                return SendRawMessage(CurrentMessage);
             }
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("SendChannelMessage (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMessage (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1139,7 +1317,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("PendingSyncRequests " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("PendingSyncRequests " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1149,7 +1327,7 @@ namespace BigQ
         /// <param name="guid">The GUID of the client.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool IsClientConnected(string guid, out BigQMessage response)
+        public bool IsClientConnected(string guid, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -1158,13 +1336,13 @@ namespace BigQ
             {
                 response = null;
 
-                BigQMessage request = new BigQMessage();
+                Message request = new Message();
                 request.Email = Email;
                 request.Password = Password;
                 request.Command = "IsClientConnected";
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageId = Guid.NewGuid().ToString();
-                request.SenderGuid = ClientGuid;
+                request.SenderGuid = ClientGUID;
                 request.RecipientGuid = "00000000-0000-0000-0000-000000000000";
                 request.SyncRequest = true;
                 request.ChannelGuid = null;
@@ -1182,7 +1360,7 @@ namespace BigQ
                     return false;
                 }
 
-                if (!BigQHelper.IsTrue(response.Success))
+                if (!Helper.IsTrue(response.Success))
                 {
                     Log("*** ListClients failed with response data " + response.Data.ToString());
                     return false;
@@ -1191,7 +1369,7 @@ namespace BigQ
                 {
                     if (response.Data != null)
                     {
-                        return BigQHelper.IsTrue(Encoding.UTF8.GetString(response.Data));
+                        return Helper.IsTrue(Encoding.UTF8.GetString(response.Data));
                     }
                     return false;
                 }
@@ -1199,7 +1377,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("IsClientConnected " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("IsClientConnected " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1209,7 +1387,7 @@ namespace BigQ
         /// <returns>Formatted string containing the IP address and port of the client.</returns>
         public string IpPort()
         {
-            return SourceIp + ":" + SourcePort;
+            return SourceIP + ":" + SourcePort;
         }
 
         /// <summary>
@@ -1252,7 +1430,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("Close " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Close " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1277,7 +1455,7 @@ namespace BigQ
             if (SyncResponses == null)
             {
                 Log("*** SyncResponseReady null sync responses list, initializing");
-                SyncResponses = new ConcurrentDictionary<string, BigQMessage>();
+                SyncResponses = new ConcurrentDictionary<string, Message>();
                 return false;
             }
 
@@ -1379,7 +1557,7 @@ namespace BigQ
             return false;
         }
 
-        private bool AddSyncResponse(BigQMessage response)
+        private bool AddSyncResponse(Message response)
         {
             if (response == null)
             {
@@ -1404,12 +1582,12 @@ namespace BigQ
             return true;
         }
 
-        private bool GetSyncResponse(string guid, out BigQMessage response)
+        private bool GetSyncResponse(string guid, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            response = new BigQMessage();
+            response = new Message();
             DateTime start = DateTime.Now;
             bool timeoutExceeded = false;
             bool messageReceived = false;
@@ -1425,14 +1603,14 @@ namespace BigQ
                 if (SyncResponses == null)
                 {
                     Log("*** GetSyncResponse null sync responses list, initializing");
-                    SyncResponses = new ConcurrentDictionary<string, BigQMessage>();
+                    SyncResponses = new ConcurrentDictionary<string, Message>();
                     return false;
                 }
 
                 int iterations = 0;
                 while (true)
                 {
-                    // if (LogMessageResponseTime) Log("GetSyncResponse iteration " + iterations + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                    // if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("GetSyncResponse iteration " + iterations + " " + sw.Elapsed.TotalMilliseconds + "ms");
 
                     if (SyncResponses.ContainsKey(guid))
                     {
@@ -1451,7 +1629,7 @@ namespace BigQ
                     // Check if timeout exceeded
                     //
                     TimeSpan ts = DateTime.Now - start;
-                    if (ts.TotalMilliseconds > SyncTimeoutMsec)
+                    if (ts.TotalMilliseconds > Config.SyncTimeoutMs)
                     {
                         Log("*** GetSyncResponse timeout waiting for response for message GUID " + guid);
                         timeoutExceeded = true;
@@ -1468,7 +1646,7 @@ namespace BigQ
                 if (messageReceived) Task.Run(() => RemoveSyncRequest(guid));
 
                 sw.Stop();
-                if (LogMessageResponseTime)
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime)
                 {
                     Log("GetSyncResponse " + sw.Elapsed.TotalMilliseconds + "ms (timeout " + timeoutExceeded + ")");
                 }
@@ -1479,14 +1657,14 @@ namespace BigQ
         {
             while (true)
             {
-                Thread.Sleep(SyncTimeoutMsec);
+                Thread.Sleep(Config.SyncTimeoutMs);
                 List<string> ExpiredMessageIDs = new List<string>();
                 DateTime TempDateTime;
-                BigQMessage TempMessage;
+                Message TempMessage;
 
                 foreach (KeyValuePair<string, DateTime> CurrentRequest in SyncRequests)
                 {
-                    DateTime ExpirationDateTime = CurrentRequest.Value.AddMilliseconds(SyncTimeoutMsec);
+                    DateTime ExpirationDateTime = CurrentRequest.Value.AddMilliseconds(Config.SyncTimeoutMs);
 
                     if (DateTime.Compare(ExpirationDateTime, DateTime.Now) < 0)
                     {
@@ -1525,7 +1703,15 @@ namespace BigQ
 
         #region Private-Methods
 
-        private bool TCPDataSender(BigQMessage Message)
+        public bool ValidateCert(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            // return true; // Allow untrusted certificates.
+            return Config.AcceptInvalidSSLCerts;
+        }
+
+        #region TCP-Server
+
+        private bool TCPDataSender(Message Message)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -1544,9 +1730,9 @@ namespace BigQ
 
                 #region Check-if-Client-Connected
 
-                if (!BigQHelper.IsTCPPeerConnected(ClientTCPInterface))
+                if (!Helper.IsTCPPeerConnected(ClientTCPInterface))
                 {
-                    Log("Server " + ServerIp + ":" + ServerPort + " not connected");
+                    Log("TCPDataSender server " + ServerIP + ":" + ServerPort + " not connected");
                     Connected = false;
 
                     // 
@@ -1562,14 +1748,14 @@ namespace BigQ
 
                 #region Send-Message
 
-                if (!BigQHelper.TCPMessageWrite(ClientTCPInterface, Message, LogMessageResponseTime))
+                if (!Helper.TCPMessageWrite(ClientTCPInterface, Message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
                 {
-                    Log("TCPDataSender unable to send data to server " + ServerIp + ":" + ServerPort);
+                    Log("TCPDataSender unable to send data to server " + ServerIP + ":" + ServerPort);
                     return false;
                 }
                 else
                 {
-                    Log("TCPDataSender successfully sent message to server " + ServerIp + ":" + ServerPort);
+                    Log("TCPDataSender successfully sent message to server " + ServerIP + ":" + ServerPort);
                 }
 
                 #endregion
@@ -1579,7 +1765,7 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (LogMessageResponseTime) Log("TCPDataSender " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPDataSender " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
         
@@ -1593,7 +1779,7 @@ namespace BigQ
 
                 if (!ClientTCPInterface.Connected)
                 {
-                    Log("*** TCPDataReceiver server " + ServerIp + ":" + ServerPort + " is no longer connected");
+                    Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " is no longer connected");
                     return;
                 }
 
@@ -1607,9 +1793,9 @@ namespace BigQ
                 {
                     #region Check-if-Client-Connected-to-Server
 
-                    if (!ClientTCPInterface.Connected || !BigQHelper.IsTCPPeerConnected(ClientTCPInterface))
+                    if (!ClientTCPInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPInterface))
                     {
-                        Log("*** TCPDataReceiver server " + ServerIp + ":" + ServerPort + " disconnected");
+                        Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
                         Connected = false;
 
                         disconnectDetected = true;
@@ -1617,17 +1803,17 @@ namespace BigQ
                     }
                     else
                     {
-                        // Log("TCPDataReceiver server " + ServerIp + ":" + ServerPort + " is still connected");
+                        // Log("TCPDataReceiver server " + ServerIP + ":" + ServerPort + " is still connected");
                     }
 
                     #endregion
 
                     #region Read-Message
                     
-                    BigQMessage CurrentMessage = BigQHelper.TCPMessageRead(ClientTCPInterface, LogMessageResponseTime);
+                    Message CurrentMessage = Helper.TCPMessageRead(ClientTCPInterface, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
                     if (CurrentMessage == null)
                     {
-                        // Log("TCPDataReceiver unable to read message from server " + ServerIp + ":" + ServerPort);
+                        // Log("TCPDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
                         Thread.Sleep(30);
                         continue;
                     }
@@ -1658,7 +1844,7 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (BigQHelper.IsTrue(CurrentMessage.SyncRequest))
+                    else if (Helper.IsTrue(CurrentMessage.SyncRequest))
                     {
                         #region Handle-Incoming-Sync-Request
 
@@ -1673,7 +1859,7 @@ namespace BigQ
                             CurrentMessage.Data = ResponseData;
 
                             string TempGuid = String.Copy(CurrentMessage.SenderGuid);
-                            CurrentMessage.SenderGuid = ClientGuid;
+                            CurrentMessage.SenderGuid = ClientGUID;
                             CurrentMessage.RecipientGuid = TempGuid;
 
                             TCPDataSender(CurrentMessage);
@@ -1694,7 +1880,7 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (BigQHelper.IsTrue(CurrentMessage.SyncResponse))
+                    else if (Helper.IsTrue(CurrentMessage.SyncResponse))
                     {
                         #region Handle-Incoming-Sync-Response
 
@@ -1781,15 +1967,275 @@ namespace BigQ
             }
         }
 
+        #endregion
+
+        #region TCP-SSL-Server
+
+        private bool TCPSSLDataSender(Message Message)
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (Message == null)
+                {
+                    Log("*** TCPSSLDataSender null message supplied");
+                    return false;
+                }
+
+                #endregion
+
+                #region Check-if-Client-Connected
+
+                if (!Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
+                {
+                    Log("TCPSSLDataSender server " + ServerIP + ":" + ServerPort + " not connected");
+                    Connected = false;
+
+                    // 
+                    //
+                    // Do not fire event here; allow TCPDataReceiver to do it
+                    //
+                    //
+                    // if (ServerDisconnected != null) ServerDisconnected();
+                    return false;
+                }
+
+                #endregion
+
+                #region Send-Message
+
+                if (!Helper.TCPSSLMessageWrite(ClientTCPSSLInterface, ClientSSLStream, Message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
+                {
+                    Log("TCPSSLDataSender unable to send data to server " + ServerIP + ":" + ServerPort);
+                    return false;
+                }
+                else
+                {
+                    Log("TCPSSLDataSender successfully sent message to server " + ServerIP + ":" + ServerPort);
+                }
+
+                #endregion
+
+                return true;
+            }
+            finally
+            {
+                sw.Stop();
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPSSLDataSender " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
+        }
+
+        private void TCPSSLDataReceiver()
+        {
+            bool disconnectDetected = false;
+
+            try
+            {
+                #region Attach-to-Stream
+
+                if (!ClientTCPSSLInterface.Connected)
+                {
+                    Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " is no longer connected");
+                    return;
+                }
+                
+                #endregion
+
+                #region Wait-for-Data
+
+                while (true)
+                {
+                    #region Check-if-Client-Connected-to-Server
+
+                    if (!ClientTCPSSLInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
+                    {
+                        Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
+                        Connected = false;
+
+                        disconnectDetected = true;
+                        break;
+                    }
+                    else
+                    {
+                        // Log("TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " is still connected");
+                    }
+
+                    #endregion
+
+                    #region Read-Message
+
+                    Message CurrentMessage = Helper.TCPSSLMessageRead(ClientTCPSSLInterface, ClientSSLStream, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
+                    if (CurrentMessage == null)
+                    {
+                        // Log("TCPSSLDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
+                        Thread.Sleep(30);
+                        continue;
+                    }
+                    else
+                    {
+                        /*
+                        Console.WriteLine("");
+                        Console.WriteLine(CurrentMessage.ToString());
+                        Console.WriteLine("");
+                        */
+                    }
+
+                    #endregion
+
+                    #region Handle-Message
+
+                    if (String.Compare(CurrentMessage.SenderGuid, "00000000-0000-0000-0000-000000000000") == 0
+                        && !String.IsNullOrEmpty(CurrentMessage.Command)
+                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
+                    {
+                        #region Handle-Incoming-Server-Heartbeat
+
+                        // 
+                        //
+                        // do nothing, just continue
+                        //
+                        //
+
+                        #endregion
+                    }
+                    else if (Helper.IsTrue(CurrentMessage.SyncRequest))
+                    {
+                        #region Handle-Incoming-Sync-Request
+
+                        Log("TCPSSLDataReceiver sync request detected for message GUID " + CurrentMessage.MessageId);
+
+                        if (SyncMessageReceived != null)
+                        {
+                            byte[] ResponseData = SyncMessageReceived(CurrentMessage);
+
+                            CurrentMessage.SyncRequest = false;
+                            CurrentMessage.SyncResponse = true;
+                            CurrentMessage.Data = ResponseData;
+
+                            string TempGuid = String.Copy(CurrentMessage.SenderGuid);
+                            CurrentMessage.SenderGuid = ClientGUID;
+                            CurrentMessage.RecipientGuid = TempGuid;
+
+                            TCPSSLDataSender(CurrentMessage);
+                            Log("TCPSSLDataReceiver sent response message for message GUID " + CurrentMessage.MessageId);
+                        }
+                        else
+                        {
+                            Log("*** TCPSSLDataReceiver sync request received for MessageId " + CurrentMessage.MessageId + " but no handler specified, sending async");
+                            if (AsyncMessageReceived != null)
+                            {
+                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                            }
+                            else
+                            {
+                                Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
+                            }
+                        }
+
+                        #endregion
+                    }
+                    else if (Helper.IsTrue(CurrentMessage.SyncResponse))
+                    {
+                        #region Handle-Incoming-Sync-Response
+
+                        Log("TCPSSLDataReceiver sync response detected for message GUID " + CurrentMessage.MessageId);
+
+                        if (SyncRequestExists(CurrentMessage.MessageId))
+                        {
+                            Log("TCPSSLDataReceiver sync request exists for message GUID " + CurrentMessage.MessageId);
+
+                            if (AddSyncResponse(CurrentMessage))
+                            {
+                                Log("TCPSSLDataReceiver added sync response for message GUID " + CurrentMessage.MessageId);
+                            }
+                            else
+                            {
+                                Log("*** TCPSSLDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageId + ", sending async");
+                                if (AsyncMessageReceived != null)
+                                {
+                                    Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                }
+                                else
+                                {
+                                    Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
+                                }
+
+                            }
+                        }
+                        else
+                        {
+                            Log("*** TCPSSLDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageId + ", sending async");
+                            if (AsyncMessageReceived != null)
+                            {
+                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                            }
+                            else
+                            {
+                                Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
+                            }
+                        }
+
+                        #endregion
+                    }
+                    else
+                    {
+                        #region Handle-Async
+
+                        Log("TCPSSLDataReceiver async message GUID " + CurrentMessage.MessageId);
+
+                        if (AsyncMessageReceived != null)
+                        {
+                            Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                        }
+                        else
+                        {
+                            Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
+                        }
+
+                        #endregion
+                    }
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            catch (ObjectDisposedException)
+            {
+                Log("*** TCPSSLDataReceiver no longer connected (object disposed exception)");
+            }
+            catch (Exception EOuter)
+            {
+                Log("*** TCPSSLDataReceiver outer exception detected");
+                LogException("TCPSSLDataReceiver", EOuter);
+            }
+            finally
+            {
+                if (disconnectDetected || !Connected)
+                {
+                    if (ServerDisconnected != null)
+                    {
+                        Task.Run(() => ServerDisconnected());
+                    }
+                }
+            }
+        }
+
+        #endregion
+        
         private void HeartbeatManager()
         {
             try
             {
                 #region Check-for-Disable
 
-                if (HeartbeatIntervalMsec == 0)
+                if (Config.Heartbeat.IntervalMs == 0)
                 {
-                    Log("*** TCPHeartbeatManager disabled");
+                    Log("*** HeartbeatManager disabled");
                     return;
                 }
 
@@ -1797,12 +2243,23 @@ namespace BigQ
 
                 #region Check-for-Null-Values
 
-                if (ClientTCPInterface == null)
+                if (Config.TcpServer.Enable)
                 {
-                    Log("*** TCPHeartbeatManager null client supplied");
-                    return;
+                    if (ClientTCPInterface == null)
+                    {
+                        Log("*** HeartbeatManager null TCP client supplied");
+                        return;
+                    }
                 }
-                
+                else if (Config.TcpSSLServer.Enable)
+                {
+                    if (ClientTCPSSLInterface == null)
+                    {
+                        Log("*** HeartbeatManager null TCP SSL client supplied");
+                        return;
+                    }
+                }
+
                 #endregion
 
                 #region Variables
@@ -1828,18 +2285,30 @@ namespace BigQ
                     }
                     else
                     {
-                        Thread.Sleep(HeartbeatIntervalMsec);
+                        Thread.Sleep(Config.Heartbeat.IntervalMs);
                     }
 
                     #endregion
 
                     #region Check-if-Client-Connected
 
-                    if (!BigQHelper.IsTCPPeerConnected(ClientTCPInterface))
+                    if (Config.TcpServer.Enable)
                     {
-                        Log("TCPHeartbeatManager client disconnected from server " + ServerIp + ":" + ServerPort);
-                        Connected = false;
-                        return;
+                        if (!Helper.IsTCPPeerConnected(ClientTCPInterface))
+                        {
+                            Log("HeartbeatManager TCP client disconnected from server " + ServerIP + ":" + ServerPort);
+                            Connected = false;
+                            return;
+                        }
+                    }
+                    else if (Config.TcpServer.Enable)
+                    {
+                        if (!Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
+                        {
+                            Log("HeartbeatManager TCP SSL client disconnected from server " + ServerIP + ":" + ServerPort);
+                            Connected = false;
+                            return;
+                        }
                     }
 
                     #endregion
@@ -1847,18 +2316,18 @@ namespace BigQ
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
-                    BigQMessage HeartbeatMessage = HeartbeatRequestMessage();
+                    Message HeartbeatMessage = HeartbeatRequestMessage();
                     
                     if (!SendServerMessageAsync(HeartbeatMessage))
                     { 
                         numConsecutiveFailures++;
                         lastFailure = DateTime.Now;
 
-                        Log("*** TCPHeartbeatManager failed to send heartbeat to server " + ServerIp + ":" + ServerPort + " (" + numConsecutiveFailures + "/" + MaxHeartbeatFailures + " consecutive failures)");
+                        Log("*** HeartbeatManager failed to send heartbeat to server " + ServerIP + ":" + ServerPort + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
 
-                        if (numConsecutiveFailures >= MaxHeartbeatFailures)
+                        if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
-                            Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached");
+                            Log("*** HeartbeatManager maximum number of failed heartbeats reached");
                             Connected = false;
                             return;
                         }
@@ -1876,20 +2345,20 @@ namespace BigQ
             }
             catch (Exception EOuter)
             {
-                LogException("TCPHeartbeatManager", EOuter);
+                LogException("HeartbeatManager", EOuter);
             }
             finally
             {
             }
         }
 
-        private BigQMessage HeartbeatRequestMessage()
+        private Message HeartbeatRequestMessage()
         {
-            BigQMessage ResponseMessage = new BigQMessage();
+            Message ResponseMessage = new Message();
             ResponseMessage.MessageId = Guid.NewGuid().ToString();
             ResponseMessage.RecipientGuid = "00000000-0000-0000-0000-000000000000";
             ResponseMessage.Command = "HeartbeatRequest";
-            ResponseMessage.SenderGuid = ClientGuid;
+            ResponseMessage.SenderGuid = ClientGUID;
             ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             ResponseMessage.Data = null;
             return ResponseMessage;
@@ -1902,7 +2371,7 @@ namespace BigQ
         private void Log(string message)
         {
             if (LogMessage != null) LogMessage(message);
-            if (ConsoleDebug)
+            if (Config.Debug.Enable && Config.Debug.ConsoleLogging)
             {
                 Console.WriteLine(message);
             }

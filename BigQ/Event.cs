@@ -10,7 +10,7 @@ namespace BigQ
     /// Object containing metadata about an event that occurred on BigQ.
     /// </summary>
     [Serializable]
-    public class BigQEvent
+    public class Event
     {
         //
         //
@@ -37,7 +37,7 @@ namespace BigQ
         /// <summary>
         /// Do not use.  Used internally by BigQ libraries.
         /// </summary>
-        public BigQEvent()
+        public Event()
         {
 
         }

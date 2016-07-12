@@ -11,7 +11,7 @@ namespace BigQ
     /// Object containing metadata and data from a message sent from one client to another on BigQ.
     /// </summary>
     [Serializable]
-    public class BigQMessage
+    public class Message
     {
         #region Class-Variables
 
@@ -113,7 +113,7 @@ namespace BigQ
         /// <summary>
         /// Do not use.  This is used internally by BigQ libraries.
         /// </summary>
-        public BigQMessage()
+        public Message()
         {
 
         }
@@ -122,7 +122,7 @@ namespace BigQ
         /// Converts a byte array to a populated BigQMessage object.
         /// </summary>
         /// <param name="bytes">The byte array containing the message data.</param>
-        public BigQMessage(byte[] bytes)
+        public Message(byte[] bytes)
         {
             //
             //
@@ -493,19 +493,19 @@ namespace BigQ
 
             if (Success != null)
             {
-                headerSb.Append("Success: " + BigQHelper.IsTrue(Success));
+                headerSb.Append("Success: " + Helper.IsTrue(Success));
                 headerSb.Append("\r\n");
             }
 
             if (SyncRequest != null)
             {
-                headerSb.Append("SyncRequest: " + BigQHelper.IsTrue(SyncRequest));
+                headerSb.Append("SyncRequest: " + Helper.IsTrue(SyncRequest));
                 headerSb.Append("\r\n");
             }
 
             if (SyncResponse != null)
             {
-                headerSb.Append("SyncResponse: " + BigQHelper.IsTrue(SyncResponse));
+                headerSb.Append("SyncResponse: " + Helper.IsTrue(SyncResponse));
                 headerSb.Append("\r\n");
             }
 

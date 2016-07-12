@@ -10,7 +10,7 @@ namespace BigQ
     /// Object containing metadata about a channel on BigQ.
     /// </summary>
     [Serializable]
-    public class BigQChannel
+    public class Channel
     {
         #region Class-Members
 
@@ -21,7 +21,7 @@ namespace BigQ
         public DateTime? UpdatedUTC;
         public int? Private;
 
-        public List<BigQClient> Subscribers;
+        public List<Client> Subscribers;
 
         #endregion
 

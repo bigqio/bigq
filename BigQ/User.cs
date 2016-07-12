@@ -11,7 +11,7 @@ namespace BigQ
     /// Object containing metadata about a user on BigQ.
     /// </summary>
     [Serializable]
-    public class BigQUser
+    public class User
     {
         #region Class-Variables
 
@@ -53,7 +53,7 @@ namespace BigQ
         /// <summary>
         /// Do not use.  This is used internally by BigQ libraries.
         /// </summary>
-        public BigQUser()
+        public User()
         {
 
         }

@@ -11,7 +11,7 @@ namespace BigQ
     /// Object containing information about collections of permissions on BigQ.
     /// </summary>
     [Serializable]
-    public class BigQPermission
+    public class Permission
     {
         #region Class-Variables
 
@@ -43,7 +43,7 @@ namespace BigQ
         /// <summary>
         /// Do not use.  This is used internally by BigQ libraries.
         /// </summary>
-        public BigQPermission()
+        public Permission()
         {
 
         }

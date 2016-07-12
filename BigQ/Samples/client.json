@@ -1,0 +1,29 @@
+﻿{
+	"Version": "1.0.0",
+	"GUID": "01234567-0123-0123-0123-012345678901",
+	"Email": "",
+	"Password": "",
+	"AcceptInvalidSSLCerts": true,
+	"Heartbeat": {
+		"Enable": false,
+		"IntervalMs": 1000,
+		"MaxFailures": 5
+	},
+	"Debug": {
+		"Enable": true,
+		"MsgResponseTime": true,
+		"ConsoleLogging": true
+	},
+	"TcpServer": {
+		"Enable": false,
+		"IP": "0.0.0.0",
+		"Port": 8000
+	},
+	"TcpSSLServer": {
+		"Enable": false,
+		"IP": "0.0.0.0",
+		"Port": 8001,
+		"P12CertFile": "client.p12",
+		"P12CertPassword": "password"
+	}
+}

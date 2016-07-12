@@ -78,3 +78,14 @@ D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQServerTest\obj\Debug\BigQServerTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ\BigQServerTest\obj\Debug\BigQServerTest.exe
 D:\Code\BigQ\BigQ\BigQServerTest\obj\Debug\BigQServerTest.pdb
+D:\Code\BigQ\BigQconcurrent\BigQServerTest\bin\Debug\BigQServerTest.exe.config
+D:\Code\BigQ\BigQconcurrent\BigQServerTest\obj\Debug\BigQServerTest.exe
+D:\Code\BigQ\BigQconcurrent\BigQServerTest\obj\Debug\BigQServerTest.pdb
+D:\Code\BigQ\BigQv2\BigQServerTest\bin\Debug\BigQServerTest.exe.config
+D:\Code\BigQ\BigQv2\BigQServerTest\bin\Debug\BigQServerTest.exe
+D:\Code\BigQ\BigQv2\BigQServerTest\bin\Debug\BigQServerTest.pdb
+D:\Code\BigQ\BigQv2\BigQServerTest\bin\Debug\BigQ.dll
+D:\Code\BigQ\BigQv2\BigQServerTest\bin\Debug\BigQ.pdb
+D:\Code\BigQ\BigQv2\BigQServerTest\obj\Debug\BigQServerTest.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQv2\BigQServerTest\obj\Debug\BigQServerTest.exe
+D:\Code\BigQ\BigQv2\BigQServerTest\obj\Debug\BigQServerTest.pdb

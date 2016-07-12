@@ -11,7 +11,7 @@ bigq is a messaging platform using TCP sockets and websockets (intentionally not
 
 Core use cases for bigq:
 - simple sockets wrapper - we make sockets programming easier
-- connecting TCP-based applications with those limited to use of websockets
+- standard communication layer connecting apps through diverse transports including TCP, TCP with SSL, websockets, or websockets with SSL
 - real-time messaging like chat applications
 - message distribution/publisher-subscriber using channels
 - cluster management
@@ -31,7 +31,8 @@ using BigQ;
 //
 // start the server
 //
-BigQServer server = new BigQServer(null, 8000, false, false, true, true, 0);
+Server server = new Server(null);			// with a default configuration
+Server server = new Server("server.json");	// with a configuration file
 
 //
 // set callbacks
@@ -46,10 +47,10 @@ server.LogMessage = LogMessage;
 //
 // callback implementation, these methods should return true
 //
-static bool MessageReceived(BigQMessage msg) { ... }
-static bool ClientConnected(BigQClient client) { ... }
-static bool ClientLogin(BigQClient client) { ... }
-static bool ClientDisconnected(BigQClient client) { ... }
+static bool MessageReceived(Message msg) { ... }
+static bool ClientConnected(Client client) { ... }
+static bool ClientLogin(Client client) { ... }
+static bool ClientDisconnected(Client client) { ... }
 static bool LogMessage(string msg) { ... }
 ```
 
@@ -59,9 +60,10 @@ Refer to the BigQClientTest project for a thorough example.
 using BigQ;
 
 //
-// connect to server
+// start the client and connect to the server
 //
-BigQClient client = new BigQClient(null, null, "127.0.0.1", 8000, 10000, 0, false);
+Client client = new Client(null);			// with a default configuration
+Client client = new Client("client.json");	// with a configuration file
 
 //
 // set callbacks
@@ -75,22 +77,22 @@ client.LogMessage = LogMessage;
 // implement callbacks, these methods should return true
 // sync message callback should return the data to be returned to requestor
 //
-static bool AsyncMessageReceived(BigQMessage msg) { ... }
-static byte[] SyncMessageReceived(BigQMessage msg) { return Encoding.UTF8.GetBytes("Hello!"); }
+static bool AsyncMessageReceived(Message msg) { ... }
+static byte[] SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
 static bool ServerDisconnected() { ... }
 static bool LogMessage(string msg) { ... }
 
 //
-// login
+// login from the client
 //
-BigQMessage response;
+Message response;
 if (!client.Login(out response)) { // handle failures }
 ```
 
 ## sending message to another client
 ```
-BigQMessage response;
-List<BigQClient> clients;
+Message response;
+List<Client> clients;
 
 // 
 // find a client to message
@@ -113,9 +115,9 @@ if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle er
 
 ## managing channels on the client
 ```
-BigQMessage response;
-List<BigQChannel> channels;
-List<BigQClient> clients;
+Message response;
+List<Channel> channels;
+List<Client> clients;
 
 //
 // list channels
@@ -149,8 +151,11 @@ if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle
 ## connecting using websockets
 please refer to the sample Javascript chat application on github.
 
+## connecting using SSL
+when connecting using SSL, if you are using self-signed certificates, be sure to set 'AcceptInvalidSSLCerts' to true in the config file on both the server and client, and enable the TcpSSLServer (and configure it accordingly).  If this value is left to false, you will encounter exceptions if a node attempts to connect using a certificate that cannot be validated.  Be sure to use PFX files for your client and server certificates!
+
 ## authorization
-bigq uses two filesystem files (users.json and permissions.json) to determine if messages should be authorized.  Please refer to the sample files in the project for their structure.  It is important to note that using this feature can affect performance.
+bigq uses two filesystem files (defined in the server configuration file) to determine if messages should be authorized.  Please refer to the sample files in the project for their structure.  It is important to note that using this feature can and will affect performance.
 
 ## bigq framing
 bigq uses a simple framing mechanism that closely follows HTTP.  A set of headers start each message, with each header ending in a carriage return and newline ```\r\n```.  The headers contain a variety of metadata, and most importantly, ContentLength, which indicates how many bytes are to be read after the header delimiter.  The header delimiter is an additional carriage return and newline ```\r\n``` which follows the carriage return and newline of the final header.  The body is internally treated as a byte array so the connected clients will need to manage encoding.
@@ -160,4 +165,100 @@ ContentType: application/json
 ContentLength: 22
 
 { first_name: 'joel' }
+```
+
+## sample server configuration file
+multiple servers can be set to enabled at any given time.  Values for servers can NOT be changed while BigQ is running.  If you wish to start another server, or change a server's settings, BigQ will have to be restarted for those changes to take affect.
+```
+{
+  "Version": "1.0.0",
+  "AcceptInvalidSSLCerts": true,
+  "Files": {
+    "UsersFile": "users.json",
+    "PermissionsFile": "permissions.json"
+  },
+	"Heartbeat": {
+		"Enable": false,
+		"IntervalMs": 1000,
+		"MaxFailures": 5
+	},
+	"Notification": {
+		"MsgAcknowledgement": false,
+		"ServerJoinNotification": true,
+		"ChannelJoinNotification": true
+	},
+	"Debug": {
+		"Enable": true,
+		"LockMethodResponseTime": true,
+		"MsgResponseTime": true,
+		"ConsoleLogging": true
+	},
+	"TcpServer": {
+		"Enable": true,
+		"IP": "0.0.0.0",
+		"Port": 8000
+	},
+	"TcpSSLServer": {
+		"Enable": true,
+		"IP": "127.0.0.1",
+		"Port": 8001,
+		"P12CertFile": "server.pfx",
+		"P12CertPassword": "password"
+	},
+	"WebsocketServer": {
+		"Enable": false,
+		"IP": "0.0.0.0",
+		"Port": 8002
+	},
+	"WebsocketSSLServer": {
+		"Enable": false,
+		"IP": "0.0.0.0",
+		"Port": 8003,
+		"P12CertFile": "server.pfx",
+		"P12CertPassword": "password"
+	}
+}
+
+```
+
+## sample client configuration file
+note: only one server can be set as enabled at a time!
+```
+{
+	"Version": "1.0.0",
+	"GUID": "01234567-0123-0123-0123-012345678901",
+	"Email": "",
+	"Password": "",
+	"AcceptInvalidSSLCerts": true,
+	"Heartbeat": {
+		"Enable": false,
+		"IntervalMs": 1000,
+		"MaxFailures": 5
+	},
+	"Debug": {
+		"Enable": true,
+		"MsgResponseTime": true,
+		"ConsoleLogging": true
+	},
+	"TcpServer": {
+		"Enable": true,
+		"IP": "0.0.0.0",
+		"Port": 8000
+	},
+	"TcpSSLServer": {
+		"Enable": false,
+		"IP": "0.0.0.0",
+		"Port": 8001,
+		"P12CertFile": "client.pfx",
+		"P12CertPassword": "password"
+	}
+}
+
+```
+
+## running under Mono
+BigQ works well in Mono environments to the extent that we have tested it.  It is recommended that when running under Mono, you execute the containing EXE using --server and after using the Mono Ahead-of-Time Compiler (AOT).
+```
+mono --aot=nrgctx-trampolines=8096,nimt-trampolines=8096,ntrampolines=4048 --server myapp.exe
+mono --server myapp.exe
 ```

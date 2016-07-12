@@ -44,16 +44,22 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BigQChannel.cs" />
-    <Compile Include="BigQClient.cs" />
-    <Compile Include="BigQHelper.cs" />
-    <Compile Include="BigQEvent.cs" />
+    <Compile Include="ClientConfiguration.cs" />
+    <Compile Include="ServerConfiguration.cs" />
+    <Compile Include="Channel.cs" />
+    <Compile Include="Client.cs" />
+    <Compile Include="Helper.cs" />
+    <Compile Include="Event.cs" />
     <Compile Include="ConcurrentList.cs" />
-    <Compile Include="BigQPermission.cs" />
-    <Compile Include="BigQUser.cs" />
-    <Compile Include="BigQMessage.cs" />
-    <Compile Include="BigQServer.cs" />
+    <Compile Include="Permission.cs" />
+    <Compile Include="User.cs" />
+    <Compile Include="Message.cs" />
+    <Compile Include="Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Samples\client.json" />
+    <None Include="Samples\server.json" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

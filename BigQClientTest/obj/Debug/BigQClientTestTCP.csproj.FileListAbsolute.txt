@@ -36,3 +36,11 @@ D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQClientTest\obj\Debug\BigQClientTestTCP.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ\BigQClientTest\obj\Debug\BigQClientTest.exe
 D:\Code\BigQ\BigQ\BigQClientTest\obj\Debug\BigQClientTest.pdb
+D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQClientTest.exe.config
+D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQClientTest.exe
+D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQClientTest.pdb
+D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQ.dll
+D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQ.pdb
+D:\Code\BigQ\BigQv2\BigQClientTest\obj\Debug\BigQClientTestTCP.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQv2\BigQClientTest\obj\Debug\BigQClientTest.exe
+D:\Code\BigQ\BigQv2\BigQClientTest\obj\Debug\BigQClientTest.pdb
