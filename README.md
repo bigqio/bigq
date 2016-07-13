@@ -230,6 +230,7 @@ note: only one server can be set as enabled at a time!
 	"Email": "",
 	"Password": "",
 	"AcceptInvalidSSLCerts": true,
+        "SyncTimeoutMs": 10000,
 	"Heartbeat": {
 		"Enable": false,
 		"IntervalMs": 1000,
