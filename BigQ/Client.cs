@@ -204,30 +204,9 @@ namespace BigQ
         /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
         public Client(string configFile)
         {
-            #region Begin-Enumerate
-
-            CreatedUTC = DateTime.Now.ToUniversalTime();
-            Console.WriteLine("");
-            Console.WriteLine(@" $$\       $$\                      ");
-            Console.WriteLine(@" $$ |      \__|                     ");
-            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
-            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
-            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
-            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
-            Console.WriteLine(@"               $$\   $$ |      $$ | ");
-            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
-            Console.WriteLine(@"                \______/       \__| ");
-            Console.WriteLine("");
-            Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
-            Console.WriteLine("Starting BigQ client at " + CreatedUTC.ToString("MM/dd/yyyy HH:mm:ss"));
-            Console.WriteLine("");
-
-            #endregion
-
             #region Load-and-Validate-Config
 
+            CreatedUTC = DateTime.Now.ToUniversalTime();
             Config = null;
 
             if (String.IsNullOrEmpty(configFile))
@@ -440,13 +419,6 @@ namespace BigQ
             // HeartbeatTokenSource = new CancellationTokenSource();
             // HeartbeatToken = HeartbeatTokenSource.Token;
             // Task.Run(() => TCPHeartbeatManager());
-
-            #endregion
-
-            #region End-Enumerate
-
-            DateTime finish = DateTime.Now.ToUniversalTime();
-            Console.WriteLine("Finished starting BigQ client at " + finish.ToString("MM/dd/yyyy HH:mm:ss") + " (" + (finish - CreatedUTC).TotalMilliseconds + "ms)");
 
             #endregion
         }
@@ -2233,9 +2205,15 @@ namespace BigQ
             {
                 #region Check-for-Disable
 
+                if (!Config.Heartbeat.Enable)
+                {
+                    Log("HeartbeatManager disabled");
+                    return;
+                }
+
                 if (Config.Heartbeat.IntervalMs == 0)
                 {
-                    Log("*** HeartbeatManager disabled");
+                    Log("HeartbeatManager disabled");
                     return;
                 }
 

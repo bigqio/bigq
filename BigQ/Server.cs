@@ -139,30 +139,9 @@ namespace BigQ
         /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
         public Server(string configFile)
         {
-            #region Begin-Enumerate
-
-            CreatedUTC = DateTime.Now.ToUniversalTime();
-            Console.WriteLine("");
-            Console.WriteLine(@" $$\       $$\                      ");
-            Console.WriteLine(@" $$ |      \__|                     ");
-            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
-            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
-            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
-            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
-            Console.WriteLine(@"               $$\   $$ |      $$ | ");
-            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
-            Console.WriteLine(@"                \______/       \__| ");
-            Console.WriteLine("");
-            Console.WriteLine("BigQ Server Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
-            Console.WriteLine("Starting BigQ server at " + CreatedUTC.ToString("MM/dd/yyyy HH:mm:ss"));
-            Console.WriteLine("");
-
-            #endregion
-
             #region Load-and-Validate-Config
 
+            CreatedUTC = DateTime.Now.ToUniversalTime();
             Config = null;
 
             if (String.IsNullOrEmpty(configFile))
@@ -343,13 +322,6 @@ namespace BigQ
 
                 #endregion
             }
-
-            #endregion
-
-            #region End-Enumerate
-
-            DateTime finish = DateTime.Now.ToUniversalTime();
-            Console.WriteLine("Finished starting BigQ server at " + finish.ToString("MM/dd/yyyy HH:mm:ss") + " (" + (finish - CreatedUTC).TotalMilliseconds + "ms)");
 
             #endregion
         }

@@ -40,14 +40,6 @@ D:\Code\BigQ\BigQ3\BigQClientTest\bin\Debug\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQ3\BigQClientTest\obj\Debug\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ3\BigQClientTest\obj\Debug\BigQClientTest.exe
 D:\Code\BigQ\BigQ3\BigQClientTest\obj\Debug\BigQClientTest.pdb
-D:\code\bigq\BigQ\BigQClientTest\bin\Debug\BigQClientTest.exe.config
-D:\code\bigq\BigQ\BigQClientTest\bin\Debug\BigQClientTest.exe
-D:\code\bigq\BigQ\BigQClientTest\bin\Debug\BigQClientTest.pdb
-D:\code\bigq\BigQ\BigQClientTest\bin\Debug\BigQ.dll
-D:\code\bigq\BigQ\BigQClientTest\bin\Debug\BigQ.pdb
-D:\code\bigq\BigQ\BigQClientTest\obj\Debug\BigQClientTest.csprojResolveAssemblyReference.cache
-D:\code\bigq\BigQ\BigQClientTest\obj\Debug\BigQClientTest.exe
-D:\code\bigq\BigQ\BigQClientTest\obj\Debug\BigQClientTest.pdb
 D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQClientTest.exe.config
 D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQClientTest.exe
 D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQClientTest.pdb
@@ -56,3 +48,11 @@ D:\Code\BigQ\BigQv2\BigQClientTest\bin\Debug\BigQ.pdb
 D:\Code\BigQ\BigQv2\BigQClientTest\obj\Debug\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQv2\BigQClientTest\obj\Debug\BigQClientTest.exe
 D:\Code\BigQ\BigQv2\BigQClientTest\obj\Debug\BigQClientTest.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\BigQClientTest.exe.config
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\BigQClientTest.exe
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\BigQClientTest.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\BigQ.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\BigQ.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\obj\Debug\BigQClientTest.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQ\BigQClientTest\obj\Debug\BigQClientTest.exe
+D:\Code\BigQ\BigQ\BigQClientTest\obj\Debug\BigQClientTest.pdb

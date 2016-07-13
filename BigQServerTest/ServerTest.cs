@@ -14,6 +14,23 @@ namespace BigQServerTest
         static void Main(string[] args)
         {
             // initialize
+            Console.WriteLine("");
+            Console.WriteLine(@" $$\       $$\                      ");
+            Console.WriteLine(@" $$ |      \__|                     ");
+            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
+            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
+            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
+            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
+            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
+            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
+            Console.WriteLine(@"               $$\   $$ |      $$ | ");
+            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
+            Console.WriteLine(@"                \______/       \__| ");
+            Console.WriteLine("");
+            Console.WriteLine("BigQ Server Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            Console.WriteLine("Starting BigQ server at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss") + " UTC");
+            Console.WriteLine("");
+            
             StartServer();
             
             bool RunForever = true;

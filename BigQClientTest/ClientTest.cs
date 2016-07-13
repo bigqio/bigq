@@ -24,6 +24,23 @@ namespace BigQClientTest
             Message response;
             Dictionary<string, DateTime> pendingRequests;
 
+            Console.WriteLine("");
+            Console.WriteLine(@" $$\       $$\                      ");
+            Console.WriteLine(@" $$ |      \__|                     ");
+            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
+            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
+            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
+            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
+            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
+            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
+            Console.WriteLine(@"               $$\   $$ |      $$ | ");
+            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
+            Console.WriteLine(@"                \______/       \__| ");
+            Console.WriteLine("");
+            Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            Console.WriteLine("Starting BigQ client at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss"));
+            Console.WriteLine("");
+
             ConnectToServer();
 
             bool RunForever = true;
