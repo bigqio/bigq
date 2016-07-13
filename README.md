@@ -170,53 +170,53 @@ ContentLength: 22
 ## sample server configuration file
 multiple servers can be set to enabled at any given time.  Values for servers can NOT be changed while BigQ is running.  If you wish to start another server, or change a server's settings, BigQ will have to be restarted for those changes to take affect.
 ```
-{
-  "Version": "1.0.0",
-  "AcceptInvalidSSLCerts": true,
-  "Files": {
-    "UsersFile": "users.json",
-    "PermissionsFile": "permissions.json"
-  },
-	"Heartbeat": {
-		"Enable": false,
-		"IntervalMs": 1000,
-		"MaxFailures": 5
-	},
-	"Notification": {
-		"MsgAcknowledgement": false,
-		"ServerJoinNotification": true,
-		"ChannelJoinNotification": true
-	},
-	"Debug": {
-		"Enable": true,
-		"LockMethodResponseTime": true,
-		"MsgResponseTime": true,
-		"ConsoleLogging": true
-	},
-	"TcpServer": {
-		"Enable": true,
-		"IP": "0.0.0.0",
-		"Port": 8000
-	},
-	"TcpSSLServer": {
-		"Enable": true,
-		"IP": "127.0.0.1",
-		"Port": 8001,
-		"P12CertFile": "server.pfx",
-		"P12CertPassword": "password"
-	},
-	"WebsocketServer": {
-		"Enable": false,
-		"IP": "0.0.0.0",
-		"Port": 8002
-	},
-	"WebsocketSSLServer": {
-		"Enable": false,
-		"IP": "0.0.0.0",
-		"Port": 8003,
-		"P12CertFile": "server.pfx",
-		"P12CertPassword": "password"
-	}
+{  
+   "Version":"1.0.0",
+   "AcceptInvalidSSLCerts":true,
+   "Files":{  
+      "UsersFile":"users.json",
+      "PermissionsFile":"permissions.json"
+   },
+   "Heartbeat":{  
+      "Enable":false,
+      "IntervalMs":1000,
+      "MaxFailures":5
+   },
+   "Notification":{  
+      "MsgAcknowledgement":false,
+      "ServerJoinNotification":true,
+      "ChannelJoinNotification":true
+   },
+   "Debug":{  
+      "Enable":true,
+      "LockMethodResponseTime":true,
+      "MsgResponseTime":true,
+      "ConsoleLogging":true
+   },
+   "TcpServer":{  
+      "Enable":true,
+      "IP":"0.0.0.0",
+      "Port":8000
+   },
+   "TcpSSLServer":{  
+      "Enable":true,
+      "IP":"127.0.0.1",
+      "Port":8001,
+      "P12CertFile":"server.pfx",
+      "P12CertPassword":"password"
+   },
+   "WebsocketServer":{  
+      "Enable":false,
+      "IP":"0.0.0.0",
+      "Port":8002
+   },
+   "WebsocketSSLServer":{  
+      "Enable":false,
+      "IP":"0.0.0.0",
+      "Port":8003,
+      "P12CertFile":"server.pfx",
+      "P12CertPassword":"password"
+   }
 }
 
 ```
@@ -224,35 +224,35 @@ multiple servers can be set to enabled at any given time.  Values for servers ca
 ## sample client configuration file
 note: only one server can be set as enabled at a time!
 ```
-{
-	"Version": "1.0.0",
-	"GUID": "01234567-0123-0123-0123-012345678901",
-	"Email": "",
-	"Password": "",
-	"AcceptInvalidSSLCerts": true,
-        "SyncTimeoutMs": 10000,
-	"Heartbeat": {
-		"Enable": false,
-		"IntervalMs": 1000,
-		"MaxFailures": 5
-	},
-	"Debug": {
-		"Enable": true,
-		"MsgResponseTime": true,
-		"ConsoleLogging": true
-	},
-	"TcpServer": {
-		"Enable": true,
-		"IP": "0.0.0.0",
-		"Port": 8000
-	},
-	"TcpSSLServer": {
-		"Enable": false,
-		"IP": "0.0.0.0",
-		"Port": 8001,
-		"P12CertFile": "client.pfx",
-		"P12CertPassword": "password"
-	}
+{  
+   "Version":"1.0.0",
+   "GUID":"01234567-0123-0123-0123-012345678901",
+   "Email":"",
+   "Password":"",
+   "AcceptInvalidSSLCerts":true,
+   "SyncTimeoutMs":10000,
+   "Heartbeat":{  
+      "Enable":false,
+      "IntervalMs":1000,
+      "MaxFailures":5
+   },
+   "Debug":{  
+      "Enable":true,
+      "MsgResponseTime":true,
+      "ConsoleLogging":true
+   },
+   "TcpServer":{  
+      "Enable":true,
+      "IP":"0.0.0.0",
+      "Port":8000
+   },
+   "TcpSSLServer":{  
+      "Enable":false,
+      "IP":"0.0.0.0",
+      "Port":8001,
+      "P12CertFile":"client.pfx",
+      "P12CertPassword":"password"
+   }
 }
 
 ```
