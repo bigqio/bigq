@@ -20,3 +20,7 @@ D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.dll
 D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.dll
 D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.pdb
+D:\code\bigq\BigQ142\BigQ\bin\Release\BigQ.dll
+D:\code\bigq\BigQ142\BigQ\bin\Release\BigQ.pdb
+D:\code\bigq\BigQ142\BigQ\obj\Release\BigQ.dll
+D:\code\bigq\BigQ142\BigQ\obj\Release\BigQ.pdb

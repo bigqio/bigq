@@ -59,32 +59,32 @@ namespace BigQ
         /// <summary>
         /// Unique identifier for the message.
         /// </summary>
-        public string MessageId;                        // GUID
+        public string MessageID;                        // GUID
 
         /// <summary>
         /// Reserved for future use.
         /// </summary>
-        public string ConversationId;                   // can be used for grouping messages into conversation
+        public string ConversationID;                   // can be used for grouping messages into conversation
 
         /// <summary>
         /// Reserved for future use.
         /// </summary>
-        public long? MessageSequenceNumber;             // can be used to indicate message ordering
+        public long? MessageSeqnum;             // can be used to indicate message ordering
 
         /// <summary>
         /// Unique identifier for the sender.
         /// </summary>
-        public string SenderGuid;                       // sender's GUID
+        public string SenderGUID;                       // sender's GUID
 
         /// <summary>
         /// Unique identifier for the recipient.
         /// </summary>
-        public string RecipientGuid;                    // recipient's GUID
+        public string RecipientGUID;                    // recipient's GUID
 
         /// <summary>
         /// Unique identifier for the channel.
         /// </summary>
-        public string ChannelGuid;                      // channel's GUID or null
+        public string ChannelGUID;                      // channel's GUID or null
 
         /// <summary>
         /// Dictionary containing key/value pairs for user-supplied headers.
@@ -154,12 +154,12 @@ namespace BigQ
             Success = null;
             SyncRequest = null;
             SyncResponse = null;
-            MessageId = null;
-            ConversationId = null;
-            MessageSequenceNumber = null;
-            SenderGuid = null;
-            RecipientGuid = null;
-            ChannelGuid = null;
+            MessageID = null;
+            ConversationID = null;
+            MessageSeqnum = null;
+            SenderGUID = null;
+            RecipientGUID = null;
+            ChannelGUID = null;
             UserHeaders = new Dictionary<string, string>();
             ContentType = null;
             ContentLength = null;
@@ -274,17 +274,17 @@ namespace BigQ
                         break;
 
                     case "messageid":
-                        MessageId = val;
+                        MessageID = val;
                         break;
 
                     case "conversationid":
-                        ConversationId = val;
+                        ConversationID = val;
                         break;
 
                     case "messagesequencenumber":
                         try
                         {
-                            MessageSequenceNumber = Convert.ToInt64(val);
+                            MessageSeqnum = Convert.ToInt64(val);
                         }
                         catch (Exception)
                         {
@@ -293,15 +293,15 @@ namespace BigQ
                         break;
 
                     case "senderguid":
-                        SenderGuid = val;
+                        SenderGUID = val;
                         break;
 
                     case "recipientguid":
-                        RecipientGuid = val;
+                        RecipientGUID = val;
                         break;
 
                     case "channelguid":
-                        ChannelGuid = val;
+                        ChannelGUID = val;
                         break;
 
                     case "contenttype":
@@ -343,8 +343,8 @@ namespace BigQ
         public bool IsValid()
         {
             List<string> errors = new List<string>();
-            if (String.IsNullOrEmpty(MessageId)) errors.Add("MessageId is missing");
-            if (String.IsNullOrEmpty(SenderGuid)) errors.Add("SenderGuid is missing");
+            if (String.IsNullOrEmpty(MessageID)) errors.Add("MessageId is missing");
+            if (String.IsNullOrEmpty(SenderGUID)) errors.Add("SenderGUID is missing");
             if (CreatedUTC == null) errors.Add("CreatedUTC is missing");
 
             if (Data != null)
@@ -380,18 +380,18 @@ namespace BigQ
             string ret = "";
             ret += Environment.NewLine;
 
-            if (!String.IsNullOrEmpty(MessageId))
+            if (!String.IsNullOrEmpty(MessageID))
             {
-                ret += " | Message ID " + MessageId + " Created " + Convert.ToDateTime(CreatedUTC).ToString("MM/dd/yyyy HH:mm:ss.fffffff") + Environment.NewLine;
+                ret += " | Message ID " + MessageID + " Created " + Convert.ToDateTime(CreatedUTC).ToString("MM/dd/yyyy HH:mm:ss.fffffff") + Environment.NewLine;
             }
 
-            if (!String.IsNullOrEmpty(ChannelGuid))
+            if (!String.IsNullOrEmpty(ChannelGUID))
             {
-                ret += " | " + SenderGuid + " -> Channel " + ChannelGuid + Environment.NewLine;
+                ret += " | " + SenderGUID + " -> Channel " + ChannelGUID + Environment.NewLine;
             }
             else
             {
-                ret += " | " + SenderGuid + " -> " + RecipientGuid + Environment.NewLine;
+                ret += " | " + SenderGUID + " -> " + RecipientGUID + Environment.NewLine;
             }
             
             if (!String.IsNullOrEmpty(Email)
@@ -519,58 +519,58 @@ namespace BigQ
                 }
             }
             
-            if (!String.IsNullOrEmpty(MessageId))
+            if (!String.IsNullOrEmpty(MessageID))
             {
                 string sanitizedMessageId;
-                if (SanitizeString(MessageId, out sanitizedMessageId))
+                if (SanitizeString(MessageID, out sanitizedMessageId))
                 {
                     headerSb.Append("MessageId: " + sanitizedMessageId);
                     headerSb.Append("\r\n");
                 }
             }
 
-            if (!String.IsNullOrEmpty(ConversationId))
+            if (!String.IsNullOrEmpty(ConversationID))
             {
                 string sanitizedConversationId;
-                if (SanitizeString(ConversationId, out sanitizedConversationId))
+                if (SanitizeString(ConversationID, out sanitizedConversationId))
                 {
                     headerSb.Append("ConversationId: " + sanitizedConversationId);
                     headerSb.Append("\r\n");
                 }
             }
 
-            if (MessageSequenceNumber != null)
+            if (MessageSeqnum != null)
             {
-                headerSb.Append("MessageSequenceNumber: " + MessageSequenceNumber);
+                headerSb.Append("MessageSequenceNumber: " + MessageSeqnum);
                 headerSb.Append("\r\n");
             }
 
-            if (!String.IsNullOrEmpty(SenderGuid))
+            if (!String.IsNullOrEmpty(SenderGUID))
             {
                 string sanitizedSenderGuid;
-                if (SanitizeString(SenderGuid, out sanitizedSenderGuid))
+                if (SanitizeString(SenderGUID, out sanitizedSenderGuid))
                 {
-                    headerSb.Append("SenderGuid: " + sanitizedSenderGuid);
+                    headerSb.Append("SenderGUID: " + sanitizedSenderGuid);
                     headerSb.Append("\r\n");
                 }
             }
 
-            if (!String.IsNullOrEmpty(RecipientGuid))
+            if (!String.IsNullOrEmpty(RecipientGUID))
             {
                 string sanitizedRecipientGuid;
-                if (SanitizeString(RecipientGuid, out sanitizedRecipientGuid))
+                if (SanitizeString(RecipientGUID, out sanitizedRecipientGuid))
                 {
-                    headerSb.Append("RecipientGuid: " + sanitizedRecipientGuid);
+                    headerSb.Append("RecipientGUID: " + sanitizedRecipientGuid);
                     headerSb.Append("\r\n");
                 }
             }
 
-            if (!String.IsNullOrEmpty(ChannelGuid))
+            if (!String.IsNullOrEmpty(ChannelGUID))
             {
                 string sanitizedChannelGuid;
-                if (SanitizeString(ChannelGuid, out sanitizedChannelGuid))
+                if (SanitizeString(ChannelGUID, out sanitizedChannelGuid))
                 {
-                    headerSb.Append("ChannelGuid: " + sanitizedChannelGuid);
+                    headerSb.Append("ChannelGUID: " + sanitizedChannelGuid);
                     headerSb.Append("\r\n");
                 }
             }

@@ -11,11 +11,18 @@ bigq is a messaging platform using TCP sockets and websockets (intentionally not
 
 Core use cases for bigq:
 - simple sockets wrapper - we make sockets programming easier
-- standard communication layer connecting apps through diverse transports including TCP, TCP with SSL, websockets, or websockets with SSL
+- standard communication layer connecting apps through diverse transports including:
+  - TCP
+  - TCP with SSL
+  - Websockets
+  - Websockets with SSL
 - real-time messaging like chat applications
-- message distribution/publisher-subscriber using channels
+- flexible distribution options
+  - unicast node to node
+  - multicast channels for publisher-subscriber
+  - broadcast channels
 - cluster management
-- notifications and events
+- near real-time notifications and events
 
 ## performance
 bigq is still early in development.  While we have high aspirations on performance, it's not there yet.  The software has excellent stability in lower throughput environments with lower rates of network change (adds, removes).  Performance will be a focus area in the coming releases.

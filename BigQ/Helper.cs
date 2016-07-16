@@ -53,7 +53,7 @@ namespace BigQ
                 #region Add-Values-if-Needed
 
                 if (CurrentMessage.CreatedUTC == null) CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                if (String.IsNullOrEmpty(CurrentMessage.MessageId)) CurrentMessage.MessageId = Guid.NewGuid().ToString();
+                if (String.IsNullOrEmpty(CurrentMessage.MessageID)) CurrentMessage.MessageID = Guid.NewGuid().ToString();
 
                 if (CurrentMessage.Data == null || CurrentMessage.Data.Length < 1) CurrentMessage.ContentLength = 0;
                 else CurrentMessage.ContentLength = CurrentMessage.Data.Length;
@@ -741,7 +741,7 @@ namespace BigQ
                 #region Add-Values-if-Needed
 
                 if (CurrentMessage.CreatedUTC == null) CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                if (String.IsNullOrEmpty(CurrentMessage.MessageId)) CurrentMessage.MessageId = Guid.NewGuid().ToString();
+                if (String.IsNullOrEmpty(CurrentMessage.MessageID)) CurrentMessage.MessageID = Guid.NewGuid().ToString();
 
                 if (CurrentMessage.Data == null || CurrentMessage.Data.Length < 1) CurrentMessage.ContentLength = 0;
                 else CurrentMessage.ContentLength = CurrentMessage.Data.Length;
@@ -1109,7 +1109,7 @@ namespace BigQ
                 #region Add-Values-if-Needed
 
                 if (CurentMessage.CreatedUTC == null) CurentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                if (String.IsNullOrEmpty(CurentMessage.MessageId)) CurentMessage.MessageId = Guid.NewGuid().ToString();
+                if (String.IsNullOrEmpty(CurentMessage.MessageID)) CurentMessage.MessageID = Guid.NewGuid().ToString();
 
                 if (CurentMessage.Data == null || CurentMessage.Data.Length < 1) CurentMessage.ContentLength = 0;
                 else CurentMessage.ContentLength = CurentMessage.Data.Length;
@@ -1474,7 +1474,7 @@ namespace BigQ
                 #region Add-Values-if-Needed
 
                 if (CurentMessage.CreatedUTC == null) CurentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                if (String.IsNullOrEmpty(CurentMessage.MessageId)) CurentMessage.MessageId = Guid.NewGuid().ToString();
+                if (String.IsNullOrEmpty(CurentMessage.MessageID)) CurentMessage.MessageID = Guid.NewGuid().ToString();
 
                 if (CurentMessage.Data == null || CurentMessage.Data.Length < 1) CurentMessage.ContentLength = 0;
                 else CurentMessage.ContentLength = CurentMessage.Data.Length;

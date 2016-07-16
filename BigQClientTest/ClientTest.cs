@@ -16,12 +16,13 @@ namespace BigQClientTest
 
         static void Main(string[] args)
         {
+            bool runForever = true;
             string guid = "";
             string msg = "";
             int priv = 0;
-            List<Client> clients;
-            List<Channel> channels;
-            Message response;
+            List<Client> clients = new List<Client>();
+            List<Channel> channels = new List<Channel>();
+            Message response = new Message();
             Dictionary<string, DateTime> pendingRequests;
 
             Console.WriteLine("");
@@ -42,9 +43,8 @@ namespace BigQClientTest
             Console.WriteLine("");
 
             ConnectToServer();
-
-            bool RunForever = true;
-            while (RunForever)
+            
+            while (runForever)
             {
                 if (client == null) Console.Write("[OFFLINE] ");
                 Console.Write("Command [? for help]: ");
@@ -57,15 +57,19 @@ namespace BigQClientTest
                     case "?":
                         // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
                         Console.WriteLine("Available Commands:");
-                        Console.WriteLine("  q  cls  echo  login  listchannels  listchannelsubscribers  joinchannel");
-                        Console.WriteLine("  leavechannel  createchannel  deletechannel  sendprivasync  sendprivsync");
+                        Console.WriteLine("  q  cls  echo  debugon  debugoff");
+                        Console.WriteLine("  login  listchannels  listchannelmembers  listchannelsubscribers");
+                        Console.WriteLine("  createbroadcastchannel  createmulticastchannel  deletechannel"); 
+                        Console.WriteLine("  joinchannel  leavechannel");
+                        Console.WriteLine("  subscribechannel unsubscribechannel");
+                        Console.WriteLine("  sendprivasync  sendprivsync");
                         Console.WriteLine("  sendchannel  listclients  isclientconnected  whoami  pendingsyncrequests");
                         Console.WriteLine("");
                         break;
 
                     case "q":
                     case "quit":
-                        RunForever = false;
+                        runForever = false;
                         break;
 
                     case "c":
@@ -76,6 +80,18 @@ namespace BigQClientTest
                     case "echo":
                         if (client == null) break;
                         client.Echo();
+                        break;
+
+                    case "debugon":
+                        client.Config.Debug.Enable = true;
+                        client.Config.Debug.ConsoleLogging = true;
+                        client.Config.Debug.MsgResponseTime = true;
+                        break;
+
+                    case "debugoff":
+                        client.Config.Debug.Enable = false;
+                        client.Config.Debug.ConsoleLogging = false;
+                        client.Config.Debug.MsgResponseTime = false;
                         break;
 
                     case "login":
@@ -100,11 +116,14 @@ namespace BigQClientTest
                             {
                                 foreach (Client curr in clients)
                                 {
-                                    if (curr.IsTCP) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [TCP]");
-                                    else if (curr.IsTCPSSL) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [TCP SSL]");
-                                    else if (curr.IsWebsocket) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [WS]");
-                                    else if (curr.IsWebsocketSSL) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [WS SSL]");
-                                    else Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email + " [unknown]");
+                                    string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    if (curr.IsTCP) line += "TCP ";
+                                    else if (curr.IsTCPSSL) line += "TCPSSL ";
+                                    else if (curr.IsWebsocket) line += "WS ";
+                                    else if (curr.IsWebsocketSSL) line += "WSSSL ";
+                                    else line += "unknown ";
+
+                                    Console.WriteLine(line);
                                 }
                             }
                         }
@@ -116,15 +135,15 @@ namespace BigQClientTest
 
                     case "isclientconnected":
                         if (client == null) break;
-                        Console.Write("ClientTCPInterface GUID: ");
+                        Console.Write("Client GUID: ");
                         guid = Console.ReadLine();
                         if (client.IsClientConnected(guid, out response))
                         {
-                            Console.WriteLine("ClientTCPInterface " + guid + " is connected");
+                            Console.WriteLine("Client " + guid + " is connected");
                         }
                         else
                         {
-                            Console.WriteLine("ClientTCPInterface " + guid + " is not connected");
+                            Console.WriteLine("Client  " + guid + " is not connected");
                         }
                         break;
                          
@@ -134,11 +153,53 @@ namespace BigQClientTest
                         {
                             Console.WriteLine("ListChannels success");
                             if (channels == null || channels.Count < 1) Console.WriteLine("(null)");
-                            else foreach (Channel curr in channels) Console.WriteLine("  " + curr.Guid + " " + curr.ChannelName + " " + curr.OwnerGuid);
+                            else
+                            {
+                                foreach (Channel curr in channels)
+                                {
+                                    string line = "  " + curr.Guid + ": " + curr.ChannelName + " owner " + curr.OwnerGuid + " ";
+                                    if (curr.Private == 1) line += "priv ";
+                                    else line += "pub ";
+                                    if (curr.Broadcast == 1) line += "bcast ";
+                                    else if (curr.Multicast == 1) line += "mcast ";
+                                    else line += "unknown ";
+
+                                    Console.WriteLine(line);
+                                }
+                            }
                         }
                         else
                         {
                             Console.WriteLine("ListChannels failed");
+                        }
+                        break;
+
+                    case "listchannelmembers":
+                        if (client == null) break;
+                        Console.Write("Channel GUID: ");
+                        guid = Console.ReadLine();
+                        if (client.ListChannelMembers(guid, out response, out clients))
+                        {
+                            Console.WriteLine("ListChannelMembers success");
+                            if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
+                            else
+                            {
+                                foreach (Client curr in clients)
+                                {
+                                    string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    if (curr.IsTCP) line += "TCP ";
+                                    else if (curr.IsTCPSSL) line += "TCPSSL ";
+                                    else if (curr.IsWebsocket) line += "WS ";
+                                    else if (curr.IsWebsocketSSL) line += "WSSSL ";
+                                    else line += "unknown ";
+
+                                    Console.WriteLine(line);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("ListChannelMembers failed");
                         }
                         break;
 
@@ -150,7 +211,20 @@ namespace BigQClientTest
                         {
                             Console.WriteLine("ListChannelSubscribers success");
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
-                            else foreach (Client curr in clients) Console.WriteLine("  " + curr.ClientGUID + " " + curr.Email);
+                            else
+                            {
+                                foreach (Client curr in clients)
+                                {
+                                    string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    if (curr.IsTCP) line += "TCP ";
+                                    else if (curr.IsTCPSSL) line += "TCPSSL ";
+                                    else if (curr.IsWebsocket) line += "WS ";
+                                    else if (curr.IsWebsocketSSL) line += "WSSSL ";
+                                    else line += "unknown ";
+
+                                    Console.WriteLine(line);
+                                }
+                            }
                         }
                         else
                         {
@@ -186,19 +260,63 @@ namespace BigQClientTest
                         }
                         break;
 
-                    case "createchannel":
+                    case "subscribechannel":
                         if (client == null) break;
-                        Console.Write("Name: ");
+                        Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
-                        Console.Write("Private (0/1): ");
-                        priv = Convert.ToInt32(Console.ReadLine());
-                        if (client.CreateChannel(guid, priv, out response))
+                        if (client.SubscribeChannel(guid, out response))
                         {
-                            Console.WriteLine("CreateChannel success");
+                            Console.WriteLine("SubscribeChannel success");
                         }
                         else
                         {
-                            Console.WriteLine("CreateChannel failed");
+                            Console.WriteLine("SubscribeChannel failed");
+                        }
+                        break;
+
+                    case "unsubscribechannel":
+                        if (client == null) break;
+                        Console.Write("Channel GUID: ");
+                        guid = Console.ReadLine();
+                        if (client.UnsubscribeChannel(guid, out response))
+                        {
+                            Console.WriteLine("UnsubscribeChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("UnsubscribeChannel failed");
+                        }
+                        break;
+
+                    case "createbroadcastchannel":
+                        if (client == null) break;
+                        Console.Write("Name          : ");
+                        guid = Console.ReadLine();
+                        Console.Write("Private (0/1) : ");
+                        priv = Convert.ToInt32(Console.ReadLine());
+                        if (client.CreateBroadcastChannel(guid, priv, out response))
+                        {
+                            Console.WriteLine("CreateBroadcastChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("CreateBroadcastChannel failed");
+                        }
+                        break;
+
+                    case "createmulticastchannel":
+                        if (client == null) break;
+                        Console.Write("Name          : ");
+                        guid = Console.ReadLine();
+                        Console.Write("Private (0/1) : ");
+                        priv = Convert.ToInt32(Console.ReadLine());
+                        if (client.CreateMulticastChannel(guid, priv, out response))
+                        {
+                            Console.WriteLine("CreateMulticastChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("CreateMulticastChannel failed");
                         }
                         break;
 
@@ -237,7 +355,7 @@ namespace BigQClientTest
 
                         if (respMsg != null)
                         {
-                            Console.WriteLine("Sync response received for GUID " + respMsg.MessageId);
+                            Console.WriteLine("Sync response received for GUID " + respMsg.MessageID);
                             Console.WriteLine(respMsg.ToString());
                         }
                         else
@@ -273,7 +391,10 @@ namespace BigQClientTest
                             else
                             {
                                 Console.WriteLine(pendingRequests.Count + " requests");
-                                foreach (KeyValuePair<string, DateTime> curr in pendingRequests) Console.WriteLine("  " + curr.Key + ": " + curr.Value.ToString("MM/dd/yyyy hh:mm:ss"));
+                                foreach (KeyValuePair<string, DateTime> curr in pendingRequests)
+                                {
+                                    Console.WriteLine("  " + curr.Key + ": " + curr.Value.ToString("MM/dd/yyyy hh:mm:ss"));
+                                }
                             }
                         }
                         else
@@ -315,7 +436,7 @@ namespace BigQClientTest
                 Console.WriteLine("Attempting to connect to server");
                 if (client != null) client.Close();
                 client = null;
-                client = new Client("client.json");
+                client = new Client(null);
 
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;

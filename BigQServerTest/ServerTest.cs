@@ -13,7 +13,17 @@ namespace BigQServerTest
 
         static void Main(string[] args)
         {
-            // initialize
+            bool runForever = true;
+            string guid = "";
+            List<Client> clients = new List<Client>();
+            List<Client> members = new List<Client>();
+            List<Client> subscribers = new List<Client>();
+            List<Channel> channels = new List<Channel>();
+            Dictionary<string, string> guidMaps = new Dictionary<string, string>();
+            Dictionary<string, DateTime> sendMaps = new Dictionary<string, DateTime>();
+            List<User> users = new List<User>();
+            List<Permission> perms = new List<Permission>();
+
             Console.WriteLine("");
             Console.WriteLine(@" $$\       $$\                      ");
             Console.WriteLine(@" $$ |      \__|                     ");
@@ -32,26 +42,29 @@ namespace BigQServerTest
             Console.WriteLine("");
             
             StartServer();
-            
-            bool RunForever = true;
-            while (RunForever)
+
+            while (runForever)
             {
-                // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
-                Console.WriteLine("---");
-                Console.WriteLine("Commands: q quit cls listchannels listchannelsubscribers count");
-                Console.WriteLine("          listclients listclientguidmaps listclientactivesendmaps");
-                Console.WriteLine("          listusersfile  listpermissionsfile");
-                Console.Write("Command: ");
+                Console.Write("Command [? for help]: ");
                 string cmd = Console.ReadLine();
                 if (String.IsNullOrEmpty(cmd)) continue;
 
-                string guid = "";
-                
                 switch (cmd.ToLower())
                 {
+                    case "?":
+                        // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
+                        Console.WriteLine("Available Commands:");
+                        Console.WriteLine("  q  quit  cls  debugon  debugoff");
+                        Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
+                        Console.WriteLine("  listclients  listclientguidmaps");
+                        Console.WriteLine("  listclientactivesend  clearclientactivesend");
+                        Console.WriteLine("  listusersfile  listpermissionsfile  connectioncount");
+                        Console.WriteLine("");
+                        break;
+
                     case "q":
                     case "quit":
-                        RunForever = false;
+                        runForever = false;
                         break;
 
                     case "c":
@@ -59,20 +72,58 @@ namespace BigQServerTest
                         Console.Clear();
                         break;
 
+                    case "debugon":
+                        server.Config.Debug.Enable = true;
+                        server.Config.Debug.ConsoleLogging = true;
+                        server.Config.Debug.LockMethodResponseTime = true;
+                        server.Config.Debug.MsgResponseTime = true;
+                        break;
+
+                    case "debugoff":
+                        server.Config.Debug.Enable = false;
+                        server.Config.Debug.ConsoleLogging = false;
+                        server.Config.Debug.LockMethodResponseTime = false;
+                        server.Config.Debug.MsgResponseTime = false;
+                        break;
+
                     case "listchannels":
-                        List<Channel> channels = server.ListChannels();
+                        channels = server.ListChannels();
                         if (channels != null)
                         {
                             foreach (Channel curr in channels)
                             {
-                                if (curr.Private == 1)
-                                {
-                                    Console.WriteLine("  " + curr.Guid + ": " + curr.ChannelName + " (owner " + curr.OwnerGuid + ") [priv]");
-                                }
-                                else
-                                {
-                                    Console.WriteLine("  " + curr.Guid + ": " + curr.ChannelName + " (owner " + curr.OwnerGuid + ") [pub]");
-                                }                                
+                                string line = "  " + curr.Guid + ": " + curr.ChannelName + " owner " + curr.OwnerGuid + " ";
+                                if (curr.Private == 1) line += "priv ";
+                                else line += "pub ";
+                                if (curr.Broadcast == 1) line += "bcast ";
+                                else if (curr.Multicast == 1) line += "mcast ";
+                                else line += "unknown ";
+
+                                Console.WriteLine(line);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "listchannelmembers":
+                        Console.Write("Channel GUID: ");
+                        guid = Console.ReadLine();
+                        members = server.ListChannelMembers(guid);
+                        if (members != null)
+                        {
+                            foreach (Client curr in members)
+                            {
+                                string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                if (curr.IsTCP) line += "TCP ";
+                                else if (curr.IsTCPSSL) line += "TCPSSL ";
+                                else if (curr.IsWebsocket) line += "WS ";
+                                else if (curr.IsWebsocketSSL) line += "WSSSL ";
+                                else line += "unknown ";
+
+                                Console.WriteLine(line);
                             }
                         }
                         else
@@ -84,12 +135,19 @@ namespace BigQServerTest
                     case "listchannelsubscribers":
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
-                        List<Client> subscribers = server.ListChannelSubscribers(guid);
+                        subscribers = server.ListChannelSubscribers(guid);
                         if (subscribers != null)
                         {
                             foreach (Client curr in subscribers)
                             {
-                                Console.WriteLine("  " + curr.SourceIP + ":" + curr.SourcePort + "  " + curr.Email + "  [" + curr.ClientGUID + "]");
+                                string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                if (curr.IsTCP) line += "TCP ";
+                                else if (curr.IsTCPSSL) line += "TCPSSL ";
+                                else if (curr.IsWebsocket) line += "WS ";
+                                else if (curr.IsWebsocketSSL) line += "WSSSL ";
+                                else line += "unknown ";
+
+                                Console.WriteLine(line);
                             }
                         }
                         else
@@ -99,21 +157,19 @@ namespace BigQServerTest
                         break;
 
                     case "listclients":
-                        List<Client> clients = server.ListClients();
+                        clients = server.ListClients();
                         if (clients != null)
                         {
                             foreach (Client curr in clients)
                             {
-                                Console.Write("  " + curr.SourceIP + ":" + curr.SourcePort + " ");
+                                string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                if (curr.IsTCP) line += "TCP ";
+                                else if (curr.IsTCPSSL) line += "TCPSSL ";
+                                else if (curr.IsWebsocket) line += "WS ";
+                                else if (curr.IsWebsocketSSL) line += "WSSSL ";
+                                else line += "unknown ";
 
-                                if (String.IsNullOrEmpty(curr.ClientGUID)) Console.Write("[login pending] ");
-                                else Console.Write(curr.Email + " [" + curr.ClientGUID + "] ");
-
-                                if (curr.IsTCP) Console.Write("[TCP] ");
-                                else if (curr.IsTCPSSL) Console.Write("[TCP SSL] ");
-                                else if (curr.IsWebsocket) Console.Write("[WS] ");
-                                else if (curr.IsWebsocketSSL) Console.Write("[WS SSL] ");
-                                Console.WriteLine("");
+                                Console.WriteLine(line);
                             }
                         }
                         else
@@ -123,7 +179,7 @@ namespace BigQServerTest
                         break;
 
                     case "listclientguidmaps":
-                        Dictionary<string, string> guidMaps = server.ListClientGuidMaps();
+                        guidMaps = server.ListClientGUIDMaps();
                         if (guidMaps != null && guidMaps.Count > 0)
                         {
                             foreach (KeyValuePair<string, string> curr in guidMaps)
@@ -137,13 +193,13 @@ namespace BigQServerTest
                         }
                         break;
 
-                    case "listclientactivesendmaps":
-                        Dictionary<string, string> sendMaps = server.ListClientActiveSendMap();
+                    case "listclientactivesend":
+                        sendMaps = server.ListClientActiveSend();
                         if (sendMaps != null && sendMaps.Count > 0)
                         {
-                            foreach (KeyValuePair<string, string> curr in sendMaps)
+                            foreach (KeyValuePair<string, DateTime> curr in sendMaps)
                             {
-                                Console.WriteLine("  Recipient " + curr.Key + "  Sender " + curr.Value);
+                                Console.WriteLine("  Recipient " + curr.Key + "  Added " + curr.Value + " UTC");
                             }
                         }
                         else
@@ -152,12 +208,16 @@ namespace BigQServerTest
                         }
                         break;
 
-                    case "count":
+                    case "clearclientactivesend":
+                        server.ClearClientActiveSend();
+                        break;
+
+                    case "connectioncount":
                         Console.WriteLine("Active connection count: " + server.ConnectionCount());
                         break;
 
                     case "listusersfile":
-                        List<User> users = server.ListCurrentUsersFile();
+                        users = server.ListCurrentUsersFile();
                         if (users != null && users.Count > 0)
                         {
                             foreach (User curr in users)
@@ -181,7 +241,7 @@ namespace BigQServerTest
                         break;
 
                     case "listpermissionsfile":
-                        List<Permission> perms = server.ListCurrentPermissionsFile();
+                        perms = server.ListCurrentPermissionsFile();
                         if (perms != null && perms.Count > 0)
                         {
                             foreach (Permission curr in perms)
@@ -234,7 +294,7 @@ namespace BigQServerTest
             //
             // initialize with default configuration
             //
-            server = new Server("server.json");
+            server = new Server(null);
             server.MessageReceived = MessageReceived;
             server.ServerStopped = StartServer;
             server.ClientConnected = ClientConnected;

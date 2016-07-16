@@ -20,7 +20,10 @@ namespace BigQ
         public DateTime? CreatedUTC;
         public DateTime? UpdatedUTC;
         public int? Private;
+        public int? Broadcast;
+        public int? Multicast;
 
+        public List<Client> Members;
         public List<Client> Subscribers;
 
         #endregion

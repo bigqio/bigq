@@ -9,7 +9,7 @@ cd BigQClientTest\bin\debug
 FOR /L %%i IN (1,1,%1) DO (
 ECHO Starting client %%i
 start BigQClientTest.exe
-TIMEOUT 5 > NUL
+TIMEOUT 1 > NUL
 )
 cd ..\..\..
 @echo on
