@@ -83,10 +83,8 @@ if (!client.Login(out response)) { // handle failures }
 ```
 
 ## unicast messaging: one to one
+unicast messages are sent directly between clients
 ```
-//
-// unicast messages are sent directly between clients
-//
 Message response;
 List<Client> clients;
 
@@ -104,10 +102,8 @@ if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle er
 ```
 
 ## multicast messaging: one to many
+messages sent to a multicast channel are sent to all subscribers
 ```
-//
-// messages sent to a multicast channel are sent to all subscribers
-//
 Message response;
 List<Channel> channels;
 List<Client> clients;
@@ -135,10 +131,8 @@ if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle
 ```
 
 ## broadcast messaging: one to all
+messages sent to a broadcast channel are sent to all members (not just subscribers)
 ```
-//
-// messages sent to a broadcast channel are sent to all members (not just subscribers)
-//
 Message response;
 List<Channel> channels;
 List<Client> clients;
