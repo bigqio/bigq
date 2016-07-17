@@ -35,15 +35,11 @@ Refer to the BigQServerTest project for a thorough example.
 ```
 using BigQ;
 ...
-//
 // start the server
-//
 Server server = new Server(null);			// with a default configuration
 Server server = new Server("server.json");	// with a configuration file
 
-//
 // set callbacks
-//
 server.MessageReceived = MessageReceived;		
 server.ServerStopped = ServerStopped;				
 server.ClientConnected = ClientConnected;
@@ -51,9 +47,7 @@ server.ClientLogin = ClientLogin;
 server.ClientDisconnected = ClientDisconnected;
 server.LogMessage = LogMessage;
 
-//
 // callback implementation, these methods should return true
-//
 static bool MessageReceived(Message msg) { ... }
 static bool ClientConnected(Client client) { ... }
 static bool ClientLogin(Client client) { ... }
@@ -66,93 +60,104 @@ Refer to the BigQClientTest project for a thorough example.
 ```
 using BigQ;
 
-//
 // start the client and connect to the server
-//
 Client client = new Client(null);			// with a default configuration
 Client client = new Client("client.json");	// with a configuration file
 
-//
 // set callbacks
-//
 client.AsyncMessageReceived = AsyncMessageReceived;
 client.SyncMessageReceived = SyncMessageReceived;
 client.ServerDisconnected = ServerDisconnected;
 client.LogMessage = LogMessage;
 
-//
 // implement callbacks, these methods should return true
 // sync message callback should return the data to be returned to requestor
-//
 static bool AsyncMessageReceived(Message msg) { ... }
 static byte[] SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
 static bool ServerDisconnected() { ... }
 static bool LogMessage(string msg) { ... }
 
-//
 // login from the client
-//
 Message response;
 if (!client.Login(out response)) { // handle failures }
 ```
 
-## sending message to another client
+## unicast messaging: one to one
 ```
+//
+// unicast messages are sent directly between clients
+//
 Message response;
 List<Client> clients;
 
-// 
 // find a client to message
-//
 if (!client.ListClients(out response, out clients)) { // handle errors }
 
-//
 // private async message
 // received by 'AsyncMessageReceived' on recipient
-//
 if (!client.SendPrivateMessageAsync(guid, msg)) { // handle errors }
 
-//
 // private sync message
 // received by 'SyncMessageReceived' on recipient client
 // which should return response data
-//
 if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle errors }
 ```
 
-## managing channels on the client
+## multicast messaging: one to many
 ```
+//
+// messages sent to a multicast channel are sent to all subscribers
+//
 Message response;
 List<Channel> channels;
 List<Client> clients;
 
-//
-// list channels
-//
+// publishers: list and join, or create a channel
 if (!client.ListChannels(out response, out channels)) { // handle errors }
-
-// 
-// create or join a channel
-//
-if (!client.CreateChannel(guid, false, out response)) { // handle errors }
 if (!client.JoinChannel(guid, out response)) { // handle errors }
+if (!client.CreateChannel(guid, false, out response)) { // handle errors }
 
+// subscribers subscribe to a channel
+if (!client.SubscribeChannel(guid, out response)) { // handle errors }
+
+// publishers send channel message to subscribers
+// received by 'AsyncMessageReceived' on each client that is a member of that channel
+if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
+
+// leave a channel, unsubscribe, or delete it if yours
+if (!client.LeaveChannel(guid, out response)) { // handle errors }
+if (!client.UnsubscribeChannel(guid, out response)) { // handle errors }
+if (!client.DeleteChannel(guid, out response)) { // handle errors }
+
+// list channel members or subscribers
+if (!client.ListChannelMembers(guid, out response, out clients)) { // handle errors }
+if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
+```
+
+## broadcast messaging: one to all
+```
 //
-// leave a channel, or delete it if yours
+// messages sent to a broadcast channel are sent to all members (not just subscribers)
 //
+Message response;
+List<Channel> channels;
+List<Client> clients;
+
+// list and join, or create a channel
+if (!client.ListChannels(out response, out channels)) { // handle errors }
+if (!client.JoinChannel(guid, out response)) { // handle errors }
+if (!client.CreateChannel(guid, false, out response)) { // handle errors }
+
+// send channel message to all members
+// received by 'AsyncMessageReceived' on each client that is a member of that channel
+if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
+
+// leave a channel, unsubscribe, or delete it if yours
 if (!client.LeaveChannel(guid, out response)) { // handle errors }
 if (!client.DeleteChannel(guid, out response)) { // handle errors }
 
-//
-// send channel message
-// received by 'AsyncMessageReceived' on each client that is a member of that channel
-//
-if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
-
-//
 // list channel members
-//
-if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
+if (!client.ListChannelMembers(guid, out response, out clients)) { // handle errors }
 ```
 
 ## connecting using websockets
