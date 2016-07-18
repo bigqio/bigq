@@ -32,3 +32,11 @@ D:\code\bigq\BigQ142\BigQClientTest\bin\Release\BigQ.pdb
 D:\code\bigq\BigQ142\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\code\bigq\BigQ142\BigQClientTest\obj\Release\BigQClientTest.exe
 D:\code\bigq\BigQ142\BigQClientTest\obj\Release\BigQClientTest.pdb
+D:\code\bigq\BigQ-observable\BigQClientTest\bin\Release\BigQClientTest.exe.config
+D:\code\bigq\BigQ-observable\BigQClientTest\bin\Release\BigQClientTest.exe
+D:\code\bigq\BigQ-observable\BigQClientTest\bin\Release\BigQClientTest.pdb
+D:\code\bigq\BigQ-observable\BigQClientTest\bin\Release\BigQ.dll
+D:\code\bigq\BigQ-observable\BigQClientTest\bin\Release\BigQ.pdb
+D:\code\bigq\BigQ-observable\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
+D:\code\bigq\BigQ-observable\BigQClientTest\obj\Release\BigQClientTest.exe
+D:\code\bigq\BigQ-observable\BigQClientTest\obj\Release\BigQClientTest.pdb

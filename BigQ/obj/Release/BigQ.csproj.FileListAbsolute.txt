@@ -24,3 +24,7 @@ D:\code\bigq\BigQ142\BigQ\bin\Release\BigQ.dll
 D:\code\bigq\BigQ142\BigQ\bin\Release\BigQ.pdb
 D:\code\bigq\BigQ142\BigQ\obj\Release\BigQ.dll
 D:\code\bigq\BigQ142\BigQ\obj\Release\BigQ.pdb
+D:\code\bigq\BigQ-observable\BigQ\bin\Release\BigQ.dll
+D:\code\bigq\BigQ-observable\BigQ\bin\Release\BigQ.pdb
+D:\code\bigq\BigQ-observable\BigQ\obj\Release\BigQ.dll
+D:\code\bigq\BigQ-observable\BigQ\obj\Release\BigQ.pdb
