@@ -147,11 +147,11 @@ namespace BigQ
         /// Indicates whether or not the client is logged in to the server.  Do not modify this field.
         /// </summary>
         public bool LoggedIn;
-
+        
         #endregion
 
         #region Private-Class-Members
-        
+
         private CancellationTokenSource DataReceiverTokenSource = null;
         private CancellationToken DataReceiverToken;
         private CancellationTokenSource CleanupSyncTokenSource = null;
@@ -312,15 +312,15 @@ namespace BigQ
                 //
                 TCPSSLCertificate = null;
                 TCPSSLCertificateCollection = new X509Certificate2Collection();
-                if (String.IsNullOrEmpty(Config.TcpSSLServer.P12CertPassword))
+                if (String.IsNullOrEmpty(Config.TcpSSLServer.PFXCertPassword))
                 {
-                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.P12CertFile);
-                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.P12CertFile));
+                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile);
+                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.PFXCertFile));
                 }
                 else
                 {
-                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.P12CertFile, Config.TcpSSLServer.P12CertPassword);
-                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.P12CertFile, Config.TcpSSLServer.P12CertPassword));
+                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile, Config.TcpSSLServer.PFXCertPassword);
+                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.PFXCertFile, Config.TcpSSLServer.PFXCertPassword));
                 }
 
                 ServerIP = Config.TcpSSLServer.IP;

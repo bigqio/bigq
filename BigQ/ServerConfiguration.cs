@@ -15,85 +15,256 @@ namespace BigQ
     {
         #region Public-Class-Members
 
+        /// <summary>
+        /// The version number of the BigQ binary.
+        /// </summary>
         public string Version;
+
+        /// <summary>
+        /// Whether or not the BigQ server should accept SSL certificates that are self-signed or unable to be verified.
+        /// </summary>
         public bool AcceptInvalidSSLCerts;
+
+        /// <summary>
+        /// Settings related to files referenced by BigQ.
+        /// </summary>
         public FilesSettings Files;
+
+        /// <summary>
+        /// Settings related to heartbeat exchanges between client and server.
+        /// </summary>
         public HeartbeatSettings Heartbeat;
+
+        /// <summary>
+        /// Settings related to notifications sent by the server.
+        /// </summary>
         public NotificationSettings Notification;
+
+        /// <summary>
+        /// Settings related to debugging server behavior and log messages.
+        /// </summary>
         public DebugSettings Debug;
+
+        /// <summary>
+        /// Settings related to the BigQ TCP server (no SSL).
+        /// </summary>
         public TcpServerSettings TcpServer;
+
+        /// <summary>
+        /// Settings related to the BigQ TCP server (with SSL).
+        /// </summary>
         public TcpSSLServerSettings TcpSSLServer;
+
+        /// <summary>
+        /// Settings related to the BigQ websocket server (no SSL).
+        /// </summary>
         public WebsocketServerSettings WebsocketServer;
+
+        /// <summary>
+        /// Settings related to the BigQ websocket server (with SSL).
+        /// </summary>
         public WebsocketSSLServerSettings WebsocketSSLServer;
 
         #endregion
 
         #region Public-Subordinate-Classes
 
+        /// <summary>
+        /// Settings related to files referenced by BigQ.
+        /// </summary>
         public class FilesSettings
         {
+            /// <summary>
+            /// The JSON file containing user definitions.
+            /// </summary>
             public string UsersFile;
+
+            /// <summary>
+            /// The JSON file containing permission definitions.
+            /// </summary>
             public string PermissionsFile;
         }
 
+        /// <summary>
+        /// Settings related to heartbeat exchanges between client and server.
+        /// </summary>
         public class HeartbeatSettings
         {
+            /// <summary>
+            /// Enable or disable heartbeats.
+            /// </summary>
             public bool Enable;
+
+            /// <summary>
+            /// The frequency with which heartbeat messages should be sent to each client, in milliseconds.
+            /// </summary>
             public int IntervalMs;
+
+            /// <summary>
+            /// The maximum number of heartbeat failures to tolerate before considering the client disconnected.
+            /// </summary>
             public int MaxFailures;
         }
 
+        /// <summary>
+        /// Settings related to notifications sent by the server.
+        /// </summary>
         public class NotificationSettings
         {
+            /// <summary>
+            /// Enable or disable sending acknowledgements for received messages.
+            /// </summary>
             public bool MsgAcknowledgement;
+
+            /// <summary>
+            /// Enable or disable sending notifications when a client joins the server.
+            /// </summary>
             public bool ServerJoinNotification;
+
+            /// <summary>
+            /// Enable or disable sending notifications when a client joins a channel.
+            /// </summary>
             public bool ChannelJoinNotification;
         }
 
+        /// <summary>
+        /// Settings related to debugging server behavior and log messages.
+        /// </summary>
         public class DebugSettings
         {
+            /// <summary>
+            /// Enable or disable debugging.
+            /// </summary>
             public bool Enable;
+
+            /// <summary>
+            /// Enable or disable log messages for critical methods involving thread-shared resources.
+            /// </summary>
             public bool LockMethodResponseTime;
+
+            /// <summary>
+            /// Enable or disable log messages with response time information for messages sent.
+            /// </summary>
             public bool MsgResponseTime;
+
+            /// <summary>
+            /// Enable or disabling logging to the console.
+            /// </summary>
             public bool ConsoleLogging;
         }
 
+        /// <summary>
+        /// Settings related to the BigQ TCP server (no SSL).
+        /// </summary>
         public class TcpServerSettings
         {
+            /// <summary>
+            /// Enable or disable the TCP server.
+            /// </summary>
             public bool Enable;
+
+            /// <summary>
+            /// IP address on which the server should listen.
+            /// </summary>
             public string IP;
+
+            /// <summary>
+            /// The port number on which the server should listen.
+            /// </summary>
             public int Port;
         }
 
+        /// <summary>
+        /// Settings related to the BigQ TCP server (with SSL).
+        /// </summary>
         public class TcpSSLServerSettings
         {
+            /// <summary>
+            /// Enable or disable the TCP SSL server.
+            /// </summary>
             public bool Enable;
+
+            /// <summary>
+            /// IP address on which the server should listen.
+            /// </summary>
             public string IP;
+
+            /// <summary>
+            /// The port number on which the server should listen.
+            /// </summary>
             public int Port;
-            public string P12CertFile;
-            public string P12CertPassword;
+
+            /// <summary>
+            /// The server certificate (PFX file) the server should use to authenticate itself in SSL connections.
+            /// </summary>
+            public string PFXCertFile;
+
+            /// <summary>
+            /// The password for the server certificate (PFX file).
+            /// </summary>
+            public string PFXCertPassword;
         }
 
+        /// <summary>
+        /// Settings related to the BigQ websocket server (no SSL).
+        /// </summary>
         public class WebsocketServerSettings
         {
+            /// <summary>
+            /// Enable or disable the websocket server.
+            /// </summary>
             public bool Enable;
+
+            /// <summary>
+            /// The IP address on which the server should listen.
+            /// </summary>
             public string IP;
+
+            /// <summary>
+            /// The port number on which the server should listen.
+            /// </summary>
             public int Port;
         }
 
+        /// <summary>
+        /// Settings related to the BigQ websocket server (with SSL).
+        /// </summary>
         public class WebsocketSSLServerSettings
         {
+            /// <summary>
+            /// Enable or disable the websocket SSL server.
+            /// </summary>
             public bool Enable;
+
+            /// <summary>
+            /// The IP address on which the server should listen.
+            /// </summary>
             public string IP;
+
+            /// <summary>
+            /// The port number on which the server should listen.
+            /// </summary>
             public int Port;
-            public string P12CertFile;
-            public string P12CertPassword;
+
+            /// <summary>
+            /// The server certificate (PFX file) the server should use to authenticate itself in SSL connections.
+            /// </summary>
+            public string PFXCertFile;
+
+            /// <summary>
+            /// The password for the server certificate (PFX file).
+            /// </summary>
+            public string PFXCertPassword;
         }
 
         #endregion
 
         #region Public-Methods
 
+        /// <summary>
+        /// Save the current configuration to the specified file.
+        /// </summary>
+        /// <param name="file">The file you wish to write.</param>
         public void SaveConfig(string file)
         {
             string fileContents = Helper.SerializeJson(this);
@@ -101,6 +272,9 @@ namespace BigQ
             return;
         }
         
+        /// <summary>
+        /// Validates the current configuration object to ensure nothing required is missing and no invalid values are supplied.
+        /// </summary>
         public void ValidateConfig()
         {
             if (String.IsNullOrEmpty(Version)) throw new ArgumentNullException("Version");
@@ -129,7 +303,7 @@ namespace BigQ
             {
                 if (String.IsNullOrEmpty(TcpSSLServer.IP)) throw new ArgumentNullException("TcpSSLServer.IP");
                 if (TcpSSLServer.Port < 1) throw new ArgumentOutOfRangeException("TcpSSLServer.Port");
-                if (String.IsNullOrEmpty(TcpSSLServer.P12CertFile)) throw new ArgumentNullException("TcpSSLServer.P12CertFile");
+                if (String.IsNullOrEmpty(TcpSSLServer.PFXCertFile)) throw new ArgumentNullException("TcpSSLServer.PFXCertFile");
             }
 
             if (WebsocketServer.Enable)
@@ -142,7 +316,7 @@ namespace BigQ
             {
                 if (String.IsNullOrEmpty(WebsocketSSLServer.IP)) throw new ArgumentNullException("WebsocketSSLServer.IP");
                 if (WebsocketSSLServer.Port < 1) throw new ArgumentOutOfRangeException("WebsocketSSLServer.Port");
-                if (String.IsNullOrEmpty(TcpSSLServer.P12CertFile)) throw new ArgumentNullException("WebsocketSSLServer.P12CertFile");
+                if (String.IsNullOrEmpty(TcpSSLServer.PFXCertFile)) throw new ArgumentNullException("WebsocketSSLServer.PFXCertFile");
             }
 
             if ((TcpServer.Enable ? 1 : 0) +
@@ -159,6 +333,11 @@ namespace BigQ
 
         #region Public-Static-Methods
 
+        /// <summary>
+        /// Loads a configuration object from the filesystem.
+        /// </summary>
+        /// <param name="file">The file you wish to load.</param>
+        /// <returns></returns>
         public static ServerConfiguration LoadConfig(string file)
         {
             byte[] fileBytes = File.ReadAllBytes(file);
@@ -166,6 +345,10 @@ namespace BigQ
             return ret;
         }
 
+        /// <summary>
+        /// Supplies a default, valid server configuration.
+        /// </summary>
+        /// <returns></returns>
         public static ServerConfiguration DefaultConfig()
         {
             ServerConfiguration ret = new ServerConfiguration();
@@ -201,8 +384,8 @@ namespace BigQ
             ret.TcpSSLServer.Enable = false;
             ret.TcpSSLServer.IP = "127.0.0.1";
             ret.TcpSSLServer.Port = 8001;
-            ret.TcpSSLServer.P12CertFile = "server.crt";
-            ret.TcpSSLServer.P12CertPassword = "password";
+            ret.TcpSSLServer.PFXCertFile = "server.crt";
+            ret.TcpSSLServer.PFXCertPassword = "password";
 
             ret.WebsocketServer = new WebsocketServerSettings();
             ret.WebsocketServer.Enable = true;
@@ -213,8 +396,8 @@ namespace BigQ
             ret.WebsocketSSLServer.Enable = false;
             ret.WebsocketSSLServer.IP = "127.0.0.1";
             ret.WebsocketSSLServer.Port = 8003;
-            ret.WebsocketSSLServer.P12CertFile = "server.crt";
-            ret.WebsocketSSLServer.P12CertPassword = "password";
+            ret.WebsocketSSLServer.PFXCertFile = "server.crt";
+            ret.WebsocketSSLServer.PFXCertPassword = "password";
 
             return ret;
         }

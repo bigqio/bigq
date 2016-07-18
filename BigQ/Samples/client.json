@@ -24,7 +24,7 @@
 		"Enable": false,
 		"IP": "0.0.0.0",
 		"Port": 8001,
-		"P12CertFile": "client.p12",
-		"P12CertPassword": "password"
+		"PFXCertFile": "client.p12",
+		"PFXCertPassword": "password"
 	}
 }

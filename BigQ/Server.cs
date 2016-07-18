@@ -266,8 +266,8 @@ namespace BigQ
                 #region Start-TCP-SSL-Server
 
                 TCPSSLCertificate = null;
-                if (String.IsNullOrEmpty(Config.TcpSSLServer.P12CertPassword)) TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.P12CertFile);
-                else TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.P12CertFile, Config.TcpSSLServer.P12CertPassword);
+                if (String.IsNullOrEmpty(Config.TcpSSLServer.PFXCertPassword)) TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile);
+                else TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile, Config.TcpSSLServer.PFXCertPassword);
 
                 if (String.IsNullOrEmpty(Config.TcpSSLServer.IP))
                 {
@@ -548,7 +548,6 @@ namespace BigQ
                 {
                     Log("*** ChannelDataSender null message supplied");
                     return false;
-
                 }
 
                 #endregion
@@ -641,7 +640,7 @@ namespace BigQ
                 return false;
             }
         }
-
+        
         #endregion
 
         #region TCP-Server
@@ -688,9 +687,13 @@ namespace BigQ
                         CurrentClient.SourceIP = ClientIp;
                         CurrentClient.SourcePort = ClientPort;
                         CurrentClient.ClientTCPInterface = Client;
+                        CurrentClient.ClientTCPSSLInterface = null;
+                        CurrentClient.ClientSSLStream = null;
                         CurrentClient.ClientHTTPContext = null;
                         CurrentClient.ClientWSContext = null;
                         CurrentClient.ClientWSInterface = null;
+                        CurrentClient.ClientWSSSLContext = null;
+                        CurrentClient.ClientWSSSLInterface = null;
 
                         CurrentClient.IsTCP = true;
                         CurrentClient.IsTCPSSL = false;
@@ -1214,7 +1217,9 @@ namespace BigQ
                         CurrentClient.ClientHTTPContext = null;
                         CurrentClient.ClientWSContext = null;
                         CurrentClient.ClientWSInterface = null;
-
+                        CurrentClient.ClientWSSSLContext = null;
+                        CurrentClient.ClientWSSSLInterface = null;
+                        
                         CurrentClient.IsTCP = false;
                         CurrentClient.IsTCPSSL = true;
                         CurrentClient.IsWebsocket = false;
@@ -1746,10 +1751,14 @@ namespace BigQ
                         CurrentClient.SourceIP = ClientIp;
                         CurrentClient.SourcePort = ClientPort;
                         CurrentClient.ClientTCPInterface = null;
+                        CurrentClient.ClientTCPSSLInterface = null;
                         CurrentClient.ClientHTTPContext = Context;
+                        CurrentClient.ClientHTTPSSLContext = Context;
                         CurrentClient.ClientWSContext = wsContext;
                         CurrentClient.ClientWSInterface = Client;
-
+                        CurrentClient.ClientWSSSLContext = wsContext;
+                        CurrentClient.ClientWSSSLInterface = Client;
+                        
                         CurrentClient.IsTCP = false;
                         CurrentClient.IsTCPSSL = false;
                         CurrentClient.IsWebsocket = true;
@@ -2275,7 +2284,7 @@ namespace BigQ
                         CurrentClient.ClientHTTPSSLContext = Context;
                         CurrentClient.ClientWSSSLContext = wsContext;
                         CurrentClient.ClientWSSSLInterface = Client;
-
+                        
                         CurrentClient.IsTCP = false;
                         CurrentClient.IsTCPSSL = false;
                         CurrentClient.IsWebsocket = false;

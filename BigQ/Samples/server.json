@@ -30,8 +30,8 @@
 		"Enable": true,
 		"IP": "127.0.0.1",
 		"Port": 8001,
-		"P12CertFile": "server.p12",
-		"P12CertPassword": "password"
+		"PFXCertFile": "server.p12",
+		"PFXCertPassword": "password"
 	},
 	"WebsocketServer": {
 		"Enable": false,
@@ -42,7 +42,7 @@
 		"Enable": false,
 		"IP": "0.0.0.0",
 		"Port": 8003,
-		"P12CertFile": "server.p12",
-		"P12CertPassword": "password"
+		"PFXCertFile": "server.p12",
+		"PFXCertPassword": "password"
 	}
 }
