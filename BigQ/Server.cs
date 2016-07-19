@@ -459,8 +459,8 @@ namespace BigQ
         #region Private-Transport-and-Connection-Methods
 
         #region Agnostic
-
-        private bool DataSender(Client CurrentClient, Message CurrentMessage)
+        
+        private bool SendMessageImmediately(Client CurrentClient, Message CurrentMessage)
         {
             try
             {
@@ -468,7 +468,7 @@ namespace BigQ
 
                 if (CurrentClient == null)
                 {
-                    Log("*** DataSender null client supplied");
+                    Log("*** SendMessageImmediately null client supplied");
                     return false;
                 }
 
@@ -479,13 +479,13 @@ namespace BigQ
                     && !CurrentClient.IsWebsocketSSL
                     )
                 {
-                    Log("*** DataSender unable to discern transport for client " + CurrentClient.IpPort());
+                    Log("*** SendMessageImmediately unable to discern transport for client " + CurrentClient.IpPort());
                     return false;
                 }
 
                 if (CurrentMessage == null)
                 {
-                    Log("*** DataSender null message supplied");
+                    Log("*** SendMessageImmediately null message supplied");
                     return false;
                 }
 
@@ -511,7 +511,7 @@ namespace BigQ
                 }
                 else
                 {
-                    Log("*** DataSender unable to discern transport for client " + CurrentClient.IpPort());
+                    Log("*** SendMessageImmediately unable to discern transport for client " + CurrentClient.IpPort());
                     return false;
                 }
 
@@ -521,11 +521,11 @@ namespace BigQ
             {
                 if (CurrentClient != null)
                 {
-                    LogException("DataSender (" + CurrentClient.IpPort() + ")", EOuter);
+                    LogException("SendMessageImmediately (" + CurrentClient.IpPort() + ")", EOuter);
                 }
                 else
                 {
-                    LogException("DataSender (null)", EOuter);
+                    LogException("SendMessageImmediately (null)", EOuter);
                 }
 
                 return false;
@@ -572,10 +572,10 @@ namespace BigQ
                         {
                             CurrentMessage.RecipientGUID = curr.ClientGUID;
                             bool ResponseSuccess = false;
-                            ResponseSuccess = DataSender(curr, CurrentMessage);
+                            ResponseSuccess = QueueClientMessage(curr, CurrentMessage);
                             if (!ResponseSuccess)
                             {
-                                Log("*** ChannelDataSender error sending channel message from " + CurrentMessage.SenderGUID + " to member " + CurrentMessage.RecipientGUID + " in channel " + CurrentMessage.ChannelGUID);
+                                Log("*** ChannelDataSender error queuing channel message from " + CurrentMessage.SenderGUID + " to member " + CurrentMessage.RecipientGUID + " in channel " + CurrentMessage.ChannelGUID);
                             }
                         });
                     }
@@ -602,10 +602,10 @@ namespace BigQ
                         {
                             CurrentMessage.RecipientGUID = curr.ClientGUID;
                             bool ResponseSuccess = false;
-                            ResponseSuccess = DataSender(curr, CurrentMessage);
+                            ResponseSuccess = QueueClientMessage(curr, CurrentMessage);
                             if (!ResponseSuccess)
                             {
-                                Log("*** ChannelDataSender error sending channel message from " + CurrentMessage.SenderGUID + " to subscriber " + CurrentMessage.RecipientGUID + " in channel " + CurrentMessage.ChannelGUID);
+                                Log("*** ChannelDataSender error queuing channel message from " + CurrentMessage.SenderGUID + " to subscriber " + CurrentMessage.RecipientGUID + " in channel " + CurrentMessage.ChannelGUID);
                             }
                         });
                     }
@@ -641,6 +641,119 @@ namespace BigQ
             }
         }
         
+        private bool QueueClientMessage(Client CurrentClient, Message CurrentMessage)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** QueueClientMessage null client supplied");
+                    return false;
+                }
+
+                if (CurrentMessage == null)
+                {
+                    Log("*** QueueClientMessage null message supplied");
+                    return false;
+                }
+
+                if (CurrentClient.MessageQueue == null)
+                {
+                    CurrentClient.MessageQueue = new BlockingCollection<Message>();
+                }
+
+                #endregion
+
+                #region Process
+
+                Log("QueueClientMessage queued message for client " + CurrentClient.IpPort() + " " + CurrentClient.ClientGUID + " from " + CurrentMessage.SenderGUID);
+                CurrentClient.MessageQueue.Add(CurrentMessage);
+                return true;
+
+                #endregion
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("QueueClientMessage (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("QueueClientMessage (null)", EOuter);
+                }
+
+                return false;
+            }
+        }
+
+        private bool ProcessClientQueue(Client CurrentClient)
+        {
+            try
+            {
+                #region Check-for-Null-Values
+
+                if (CurrentClient == null)
+                {
+                    Log("*** ProcessClientQueue null client supplied");
+                    return false;
+                }
+
+                if (CurrentClient.MessageQueue == null)
+                {
+                    CurrentClient.MessageQueue = new BlockingCollection<Message>();
+                }
+
+                #endregion
+
+                #region Process
+
+                while (true)
+                {
+                    Message CurrentMessage = CurrentClient.MessageQueue.Take(CurrentClient.ProcessClientQueueToken);
+                    if (CurrentMessage != null)
+                    {
+                        bool success = SendMessageImmediately(CurrentClient, CurrentMessage);
+                        if (!success)
+                        {
+                            Log("*** ProcessClientQueue unable to deliver message from " + CurrentMessage.SenderGUID + " to " + CurrentMessage.RecipientGUID + ", requeuing");
+                            CurrentClient.MessageQueue.Add(CurrentMessage);
+                        }
+                        else
+                        {
+                            Log("ProcessClientQueue successfully sent message from " + CurrentMessage.SenderGUID + " to " + CurrentMessage.RecipientGUID);
+                        }
+                    }
+                    else
+                    {
+                        Log("*** ProcessClientQueue received null message from queue for client " + CurrentClient.ClientGUID);
+                    }
+                }
+
+                #endregion
+            }
+            catch (OperationCanceledException)
+            {
+                Log("ProcessClientQueue canceled for client " + CurrentClient.IpPort() + " likely due to disconnect");
+                return false;
+            }
+            catch (Exception EOuter)
+            {
+                if (CurrentClient != null)
+                {
+                    LogException("ProcessClientQueue (" + CurrentClient.IpPort() + ")", EOuter);
+                }
+                else
+                {
+                    LogException("ProcessClientQueue (null)", EOuter);
+                }
+
+                return false;
+            }
+        }
+
         #endregion
 
         #region TCP-Server
@@ -658,7 +771,7 @@ namespace BigQ
 
                     TcpClient Client = TCPListener.AcceptTcpClientAsync().Result;
                     Client.LingerState.Enabled = false;
-
+                    
                     Task.Run(() =>
                     {
                         #region Get-Tuple
@@ -694,6 +807,7 @@ namespace BigQ
                         CurrentClient.ClientWSInterface = null;
                         CurrentClient.ClientWSSSLContext = null;
                         CurrentClient.ClientWSSSLInterface = null;
+                        CurrentClient.MessageQueue = new BlockingCollection<Message>();
 
                         CurrentClient.IsTCP = true;
                         CurrentClient.IsTCPSSL = false;
@@ -713,11 +827,22 @@ namespace BigQ
 
                         #region Start-Data-Receiver
 
+                        CurrentClient.DataReceiverTokenSource = new CancellationTokenSource();
+                        CurrentClient.DataReceiverToken = CurrentClient.DataReceiverTokenSource.Token;
                         Log("TCPAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                        Task.Run(() => TCPDataReceiver(CurrentClient), TCPCancellationToken);
+                        Task.Run(() => TCPDataReceiver(CurrentClient), CurrentClient.DataReceiverToken);
 
                         #endregion
 
+                        #region Start-Queue-Processor
+
+                        CurrentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
+                        CurrentClient.ProcessClientQueueToken = CurrentClient.ProcessClientQueueTokenSource.Token;
+                        Log("TCPAcceptConnections starting queue processor for " + CurrentClient.IpPort());
+                        Task.Run(() => ProcessClientQueue(CurrentClient), CurrentClient.ProcessClientQueueToken);
+
+                        #endregion
+                        
                     }, TCPCancellationToken);
                 }
 
@@ -848,6 +973,17 @@ namespace BigQ
             {
                 TCPActiveConnectionThreads--;
                 Log("TCPDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
+                if (CurrentClient != null)
+                {
+                    try
+                    {
+                        CurrentClient.Close();
+                    }
+                    catch (Exception EClose)
+                    {
+                        LogException("TCPDataReceiver", EClose);
+                    }
+                }               
             }
         }
 
@@ -1002,6 +1138,12 @@ namespace BigQ
 
         private void TCPHeartbeatManager(Client CurrentClient)
         {
+            //
+            //
+            // Should only be called after client login
+            //
+            //
+
             try
             {
                 #region Check-for-Disable
@@ -1219,7 +1361,8 @@ namespace BigQ
                         CurrentClient.ClientWSInterface = null;
                         CurrentClient.ClientWSSSLContext = null;
                         CurrentClient.ClientWSSSLInterface = null;
-                        
+                        CurrentClient.MessageQueue = new BlockingCollection<Message>();
+
                         CurrentClient.IsTCP = false;
                         CurrentClient.IsTCPSSL = true;
                         CurrentClient.IsWebsocket = false;
@@ -1239,10 +1382,21 @@ namespace BigQ
                         #region Start-Data-Receiver
 
                         Log("TCPSSLAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                        Task.Run(() => TCPSSLDataReceiver(CurrentClient), TCPSSLCancellationToken);
+                        CurrentClient.DataReceiverTokenSource = new CancellationTokenSource();
+                        CurrentClient.DataReceiverToken = CurrentClient.DataReceiverTokenSource.Token;
+                        Task.Run(() => TCPSSLDataReceiver(CurrentClient), CurrentClient.DataReceiverToken);
 
                         #endregion
 
+                        #region Start-Queue-Processor
+
+                        CurrentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
+                        CurrentClient.ProcessClientQueueToken = CurrentClient.ProcessClientQueueTokenSource.Token;
+                        Log("TCPSSLAcceptConnections starting queue processor for " + CurrentClient.IpPort());
+                        Task.Run(() => ProcessClientQueue(CurrentClient), CurrentClient.ProcessClientQueueToken);
+
+                        #endregion
+                        
                     }, TCPSSLCancellationToken);
                 }
 
@@ -1385,6 +1539,7 @@ namespace BigQ
             {
                 TCPSSLActiveConnectionThreads--;
                 Log("TCPSSLDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + TCPSSLActiveConnectionThreads + " connections active)");
+                CurrentClient.Close();
             }
         }
 
@@ -1539,6 +1694,12 @@ namespace BigQ
 
         private void TCPSSLHeartbeatManager(Client CurrentClient)
         {
+            //
+            //
+            // Should only be called after client login
+            //
+            //
+
             try
             {
                 #region Check-for-Disable
@@ -1735,7 +1896,7 @@ namespace BigQ
                         }
                         catch (Exception)
                         {
-                            Log("*** WSSetupConnection exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
+                            Log("*** WSAcceptConnections exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
                             Context.Response.StatusCode = 500;
                             Context.Response.Close();
                             return;
@@ -1758,7 +1919,8 @@ namespace BigQ
                         CurrentClient.ClientWSInterface = Client;
                         CurrentClient.ClientWSSSLContext = wsContext;
                         CurrentClient.ClientWSSSLInterface = Client;
-                        
+                        CurrentClient.MessageQueue = new BlockingCollection<Message>();
+
                         CurrentClient.IsTCP = false;
                         CurrentClient.IsTCPSSL = false;
                         CurrentClient.IsWebsocket = true;
@@ -1768,7 +1930,7 @@ namespace BigQ
 
                         if (!AddClient(CurrentClient))
                         {
-                            Log("*** WSSetupConnection unable to add client " + CurrentClient.IpPort());
+                            Log("*** WSAcceptConnections unable to add client " + CurrentClient.IpPort());
                             Context.Response.StatusCode = 500;
                             Context.Response.Close();
                             return;
@@ -1778,8 +1940,19 @@ namespace BigQ
 
                         #region Start-Data-Receiver
 
-                        Log("WSSetupConnection starting data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
-                        Task.Run(() => WSDataReceiver(CurrentClient), WSCancellationToken);
+                        Log("WSAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
+                        CurrentClient.DataReceiverTokenSource = new CancellationTokenSource();
+                        CurrentClient.DataReceiverToken = CurrentClient.DataReceiverTokenSource.Token;
+                        Task.Run(() => WSDataReceiver(CurrentClient), CurrentClient.DataReceiverToken);
+
+                        #endregion
+
+                        #region Start-Queue-Processor
+
+                        CurrentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
+                        CurrentClient.ProcessClientQueueToken = CurrentClient.ProcessClientQueueTokenSource.Token;
+                        Log("WSAcceptConnections starting queue processor for " + CurrentClient.IpPort());
+                        Task.Run(() => ProcessClientQueue(CurrentClient), CurrentClient.ProcessClientQueueToken);
 
                         #endregion
                         
@@ -1905,6 +2078,7 @@ namespace BigQ
             {
                 WSActiveConnectionThreads--;
                 Log("WSDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
+                CurrentClient.Close();
             }
         }
 
@@ -2060,6 +2234,12 @@ namespace BigQ
 
         private void WSHeartbeatManager(Client CurrentClient)
         {
+            //
+            //
+            // Should only be called after client login
+            //
+            //
+
             try
             {
                 #region Check-for-Disable
@@ -2261,7 +2441,7 @@ namespace BigQ
                         }
                         catch (Exception)
                         {
-                            Log("*** WSSSLSetupConnection exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
+                            Log("*** WSSSLAcceptConnections exception while gathering websocket context for client " + ClientIp + ":" + ClientPort);
                             Context.Response.StatusCode = 500;
                             Context.Response.Close();
                             return;
@@ -2284,7 +2464,8 @@ namespace BigQ
                         CurrentClient.ClientHTTPSSLContext = Context;
                         CurrentClient.ClientWSSSLContext = wsContext;
                         CurrentClient.ClientWSSSLInterface = Client;
-                        
+                        CurrentClient.MessageQueue = new BlockingCollection<Message>();
+
                         CurrentClient.IsTCP = false;
                         CurrentClient.IsTCPSSL = false;
                         CurrentClient.IsWebsocket = false;
@@ -2294,7 +2475,7 @@ namespace BigQ
 
                         if (!AddClient(CurrentClient))
                         {
-                            Log("*** WSSSLSetupConnection unable to add client " + CurrentClient.IpPort());
+                            Log("*** WSSSLAcceptConnections unable to add client " + CurrentClient.IpPort());
                             Context.Response.StatusCode = 500;
                             Context.Response.Close();
                             return;
@@ -2304,21 +2485,22 @@ namespace BigQ
 
                         #region Start-Data-Receiver
 
-                        Log("WSSSLSetupConnection starting data receiver for " + CurrentClient.IpPort() + " (now " + WSSSLActiveConnectionThreads + " connections active)");
-                        Task.Run(() => WSSSLDataReceiver(CurrentClient), WSSSLCancellationToken);
+                        Log("WSSSLAcceptConnections starting data receiver for " + CurrentClient.IpPort() + " (now " + WSSSLActiveConnectionThreads + " connections active)");
+                        CurrentClient.DataReceiverTokenSource = new CancellationTokenSource();
+                        CurrentClient.DataReceiverToken = CurrentClient.DataReceiverTokenSource.Token;
+                        Task.Run(() => WSSSLDataReceiver(CurrentClient), CurrentClient.DataReceiverToken);
 
                         #endregion
 
-                        #region Start-Heartbeat-Manager
+                        #region Start-Queue-Processor
 
-                        if (Config.Heartbeat.IntervalMs > 0)
-                        {
-                            Log("WSSSLSetupConnection starting heartbeat manager for " + CurrentClient.IpPort());
-                            Task.Run(() => WSSSLHeartbeatManager(CurrentClient), WSSSLCancellationToken);
-                        }
+                        CurrentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
+                        CurrentClient.ProcessClientQueueToken = CurrentClient.ProcessClientQueueTokenSource.Token;
+                        Log("WSSSLAcceptConnections starting queue processor for " + CurrentClient.IpPort());
+                        Task.Run(() => ProcessClientQueue(CurrentClient), CurrentClient.ProcessClientQueueToken);
 
                         #endregion
-
+                        
                     }, WSSSLCancellationToken);
                 }
 
@@ -2441,6 +2623,7 @@ namespace BigQ
             {
                 WSSSLActiveConnectionThreads--;
                 Log("WSSSLDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + WSSSLActiveConnectionThreads + " connections active)");
+                CurrentClient.Close();
             }
         }
 
@@ -2596,6 +2779,12 @@ namespace BigQ
 
         private void WSSSLHeartbeatManager(Client CurrentClient)
         {
+            //
+            //
+            // Should only be called after client login
+            //
+            //
+
             try
             {
                 #region Check-for-Disable
@@ -2783,10 +2972,10 @@ namespace BigQ
                     Task.Run(() =>
                     {
                         Message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = DataSender(curr, Message);
+                        bool ResponseSuccess = QueueClientMessage(curr, Message);
                         if (!ResponseSuccess)
                         {
-                            Log("*** ServerJoinEvent error sending server join event to " + Message.RecipientGUID + " (join by " + CurrentClient.ClientGUID + ")");
+                            Log("*** ServerJoinEvent error queuing server join event to " + Message.RecipientGUID + " (join by " + CurrentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -2838,14 +3027,14 @@ namespace BigQ
                         });
                         */
                         Message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = DataSender(curr, Message);
+                        bool ResponseSuccess = QueueClientMessage(curr, Message);
                         if (!ResponseSuccess)
                         {
-                            Log("*** ServerLeaveEvent error sending server leave event to " + Message.RecipientGUID + " (leave by " + CurrentClient.ClientGUID + ")");
+                            Log("*** ServerLeaveEvent error queuing server leave event to " + Message.RecipientGUID + " (leave by " + CurrentClient.ClientGUID + ")");
                         }
                         else
                         {
-                            Log("ServerLeaveEvent sent server leave event to " + Message.RecipientGUID + " (leave by " + CurrentClient.ClientGUID + ")");
+                            Log("ServerLeaveEvent queued server leave event to " + Message.RecipientGUID + " (leave by " + CurrentClient.ClientGUID + ")");
                         }
                     }
                 }
@@ -2898,10 +3087,10 @@ namespace BigQ
                     Task.Run(() =>
                     {
                         Message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = DataSender(curr, Message);
+                        bool ResponseSuccess = QueueClientMessage(curr, Message);
                         if (!ResponseSuccess)
                         {
-                            Log("*** ChannelJoinEvent error sending channel join event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (join by " + CurrentClient.ClientGUID + ")");
+                            Log("*** ChannelJoinEvent error queuing channel join event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (join by " + CurrentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -2954,10 +3143,10 @@ namespace BigQ
                     Task.Run(() =>
                     {
                         Message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = DataSender(curr, Message);
+                        bool ResponseSuccess = QueueClientMessage(curr, Message);
                         if (!ResponseSuccess)
                         {
-                            Log("*** ChannelLeaveEvent error sending channel leave event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (leave by " + CurrentClient.ClientGUID + ")");
+                            Log("*** ChannelLeaveEvent error queuing channel leave event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (leave by " + CurrentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -3010,10 +3199,10 @@ namespace BigQ
                     Task.Run(() =>
                     {
                         Message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = DataSender(curr, Message);
+                        bool ResponseSuccess = QueueClientMessage(curr, Message);
                         if (!ResponseSuccess)
                         {
-                            Log("*** SubscriberJoinEvent error sending subscriber join event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (join by " + CurrentClient.ClientGUID + ")");
+                            Log("*** SubscriberJoinEvent error queuing subscriber join event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (join by " + CurrentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -3066,10 +3255,10 @@ namespace BigQ
                     Task.Run(() =>
                     {
                         Message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = DataSender(curr, Message);
+                        bool ResponseSuccess = QueueClientMessage(curr, Message);
                         if (!ResponseSuccess)
                         {
-                            Log("*** SubscriberLeaveEvent error sending subscriber leave event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (leave by " + CurrentClient.ClientGUID + ")");
+                            Log("*** SubscriberLeaveEvent error queuing subscriber leave event to " + Message.RecipientGUID + " for channel " + Message.ChannelGUID + " (leave by " + CurrentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -3305,8 +3494,6 @@ namespace BigQ
                             fileContents = File.ReadAllText(Config.Files.PermissionsFile);
                             if (String.IsNullOrEmpty(fileContents))
                             {
-                                Console.WriteLine("10");
-
                                 Log("*** MonitorPermissionsFile empty file found at " + Config.Files.PermissionsFile);
                                 continue;
                             }
@@ -3808,9 +3995,9 @@ namespace BigQ
                     if (!String.IsNullOrEmpty(curr.Value.ClientGUID))
                     {
                         /*
-                        if (curr.Value.IsTCP) Console.WriteLine("GetAllClients adding TCP client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
-                        else if (curr.Value.IsWebsocket) Console.WriteLine("GetAllClients adding websocket client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
-                        else Console.WriteLine("GetAllClients adding unknown client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
+                        if (curr.Value.IsTCP) aConsole.WriteLine("GetAllClients adding TCP client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
+                        else if (curr.Value.IsWebsocket) aConsole.WriteLine("GetAllClients adding websocket client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
+                        else aConsole.WriteLine("GetAllClients adding unknown client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
                          */
 
                         ret.Add(curr.Value);
@@ -5337,7 +5524,11 @@ namespace BigQ
                             #region Null-GUID-and-Not-Login
 
                             Log("*** MessageProcessor received message from client with no GUID");
-                            ResponseSuccess = DataSender(CurrentClient, LoginRequiredMessage());
+                            ResponseSuccess = QueueClientMessage(CurrentClient, LoginRequiredMessage());
+                            if (!ResponseSuccess)
+                            {
+                                Log("*** MessageProcessor unable to queue login required message to client " + CurrentClient.IpPort());
+                            }
                             return ResponseSuccess;
 
                             #endregion
@@ -5357,7 +5548,11 @@ namespace BigQ
                         if (VerifyClient == null)
                         {
                             Log("*** MessageProcessor received message from unknown client GUID " + CurrentClient.ClientGUID + " from " + CurrentClient.IpPort());
-                            ResponseSuccess = DataSender(CurrentClient, LoginRequiredMessage());
+                            ResponseSuccess = QueueClientMessage(CurrentClient, LoginRequiredMessage());
+                            if (!ResponseSuccess)
+                            {
+                                Log("*** MessageProcessor unable to queue login required message to client " + CurrentClient.IpPort());
+                            }
                             return ResponseSuccess;
                         }
                     }
@@ -5479,7 +5674,11 @@ namespace BigQ
                     }
 
                     ResponseMessage = AuthorizationFailedMessage(CurrentMessage);
-                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** MessageProcessor unable to queue authorization failed message to client " + CurrentClient.IpPort());
+                    }
                     return ResponseSuccess;
                 }
 
@@ -5495,12 +5694,12 @@ namespace BigQ
                     {
                         case "echo":
                             ResponseMessage = ProcessEchoMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "login":
                             ResponseMessage = ProcessLoginMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "heartbeatrequest":
@@ -5509,62 +5708,62 @@ namespace BigQ
 
                         case "joinchannel":
                             ResponseMessage = ProcessJoinChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "leavechannel":
                             ResponseMessage = ProcessLeaveChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "subscribechannel":
                             ResponseMessage = ProcessSubscribeChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "unsubscribechannel":
                             ResponseMessage = ProcessUnsubscribeChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "createchannel":
                             ResponseMessage = ProcessCreateChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "deletechannel":
                             ResponseMessage = ProcessDeleteChannelMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listchannels":
                             ResponseMessage = ProcessListChannelsMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listchannelmembers":
                             ResponseMessage = ProcessListChannelMembersMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listchannelsubscribers":
                             ResponseMessage = ProcessListChannelSubscribersMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "listclients":
                             ResponseMessage = ProcessListClientsMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         case "isclientconnected":
                             ResponseMessage = ProcessIsClientConnectedMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
 
                         default:
                             ResponseMessage = UnknownCommandMessage(CurrentClient, CurrentMessage);
-                            ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                            ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
                             return ResponseSuccess;
                     }
                 }
@@ -5587,7 +5786,11 @@ namespace BigQ
 
                     Log("MessageProcessor no recipient specified either by RecipientGUID or ChannelGUID");
                     ResponseMessage = RecipientNotFoundMessage(CurrentClient, CurrentMessage);
-                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** MessageProcessor unable to queue recipient not found message to " + CurrentClient.IpPort());
+                    }
                     return false;
 
                     #endregion
@@ -5601,10 +5804,10 @@ namespace BigQ
                 {
                     #region Send-to-Recipient
 
-                    ResponseSuccess = SendPrivateMessage(CurrentClient, CurrentRecipient, CurrentMessage);
+                    ResponseSuccess = QueueClientMessage(CurrentRecipient, CurrentMessage);
                     if (!ResponseSuccess)
                     {
-                        Log("*** MessageProcessor unable to send to recipient " + CurrentRecipient.ClientGUID + ", sent failure notification to sender");
+                        Log("*** MessageProcessor unable to queue to recipient " + CurrentRecipient.ClientGUID + ", sent failure notification to sender");
                     }
 
                     return ResponseSuccess;
@@ -5666,7 +5869,11 @@ namespace BigQ
 
                     Log("MessageProcessor unable to find either recipient or channel");
                     ResponseMessage = RecipientNotFoundMessage(CurrentClient, CurrentMessage);
-                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** MessageProcessor unable to queue recipient not found message to client " + CurrentClient.IpPort());
+                    }
                     return false;
 
                     #endregion
@@ -5782,7 +5989,7 @@ namespace BigQ
 
                 #region Send-to-Recipient
 
-                ResponseSuccess = DataSender(Recipient, RedactMessage(CurrentMessage));
+                ResponseSuccess = QueueClientMessage(Recipient, RedactMessage(CurrentMessage));
 
                 #endregion
 
@@ -5820,15 +6027,15 @@ namespace BigQ
                     {
                         if (Config.Notification.MsgAcknowledgement)
                         {
-                            ResponseMessage = MessageSendSuccess(Sender, CurrentMessage);
-                            ResponseSuccess = DataSender(Sender, ResponseMessage);
+                            ResponseMessage = MessageQueueSuccess(Sender, CurrentMessage);
+                            ResponseSuccess = QueueClientMessage(Sender, ResponseMessage);
                         }
                         return true;
                     }
                     else
                     {
-                        ResponseMessage = MessageSendFailure(Sender, CurrentMessage);
-                        ResponseSuccess = DataSender(Sender, ResponseMessage);
+                        ResponseMessage = MessageQueueFailure(Sender, CurrentMessage);
+                        ResponseSuccess = QueueClientMessage(Sender, ResponseMessage);
                         return false;
                     }
 
@@ -5979,7 +6186,11 @@ namespace BigQ
                 if (!IsChannelMember(Sender, CurrentChannel))
                 {
                     ResponseMessage = NotChannelMemberMessage(Sender, CurrentMessage, CurrentChannel);
-                    ResponseSuccess = DataSender(Sender, ResponseMessage);
+                    ResponseSuccess = QueueClientMessage(Sender, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** SendChannelMembersMessage unable to queue not channel member message to " + Sender.IpPort());
+                    }
                     return false;
                 }
 
@@ -5994,8 +6205,12 @@ namespace BigQ
 
                 if (Config.Notification.MsgAcknowledgement)
                 {
-                    ResponseMessage = MessageSendSuccess(Sender, CurrentMessage);
-                    ResponseSuccess = DataSender(Sender, ResponseMessage);
+                    ResponseMessage = MessageQueueSuccess(Sender, CurrentMessage);
+                    ResponseSuccess = QueueClientMessage(Sender, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** SendChannelMembersMessage unable to queue message queue success notification to " + Sender.IpPort());
+                    }
                 }
                 return true;
 
@@ -6143,7 +6358,11 @@ namespace BigQ
                 if (!IsChannelMember(Sender, CurrentChannel))
                 {
                     ResponseMessage = NotChannelMemberMessage(Sender, CurrentMessage, CurrentChannel);
-                    ResponseSuccess = DataSender(Sender, ResponseMessage);
+                    ResponseSuccess = QueueClientMessage(Sender, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** SendChannelSubscribersMessage unable to queue not channel member message to " + Sender.IpPort());
+                    }
                     return false;
                 }
 
@@ -6158,8 +6377,12 @@ namespace BigQ
 
                 if (Config.Notification.MsgAcknowledgement)
                 {
-                    ResponseMessage = MessageSendSuccess(Sender, CurrentMessage);
-                    ResponseSuccess = DataSender(Sender, ResponseMessage);
+                    ResponseMessage = MessageQueueSuccess(Sender, CurrentMessage);
+                    ResponseSuccess = QueueClientMessage(Sender, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** SendChannelSubscribersMessage unable to queue message queue success mesage to " + Sender.IpPort());
+                    }
                 }
                 return true;
 
@@ -6241,15 +6464,15 @@ namespace BigQ
                 {
                     #region Send-to-Recipient
 
-                    ResponseSuccess = DataSender(CurrentRecipient, RedactMessage(CurrentMessage));
+                    ResponseSuccess = QueueClientMessage(CurrentRecipient, RedactMessage(CurrentMessage));
                     if (ResponseSuccess)
                     {
-                        Log("SendSystemMessage successfully sent message to recipient " + CurrentRecipient.ClientGUID);
+                        Log("SendSystemMessage successfully queued message to recipient " + CurrentRecipient.ClientGUID);
                         return true;
                     }
                     else
                     {
-                        Log("*** SendSystemMessage unable to send message to recipient " + CurrentRecipient.ClientGUID);
+                        Log("*** SendSystemMessage unable to queue message to recipient " + CurrentRecipient.ClientGUID);
                         return false;
                     }
 
@@ -6279,7 +6502,11 @@ namespace BigQ
 
                     Log("Unable to find either recipient or channel");
                     ResponseMessage = RecipientNotFoundMessage(CurrentClient, CurrentMessage);
-                    ResponseSuccess = DataSender(CurrentClient, ResponseMessage);
+                    ResponseSuccess = QueueClientMessage(CurrentClient, ResponseMessage);
+                    if (!ResponseSuccess)
+                    {
+                        Log("*** SendSystemMessage unable to queue recipient not found message to " + CurrentClient.IpPort());
+                    }
                     return false;
 
                     #endregion
@@ -6374,7 +6601,11 @@ namespace BigQ
 
                 #region Process-Recipient-Messages
 
-                ResponseSuccess = DataSender(Recipient, RedactMessage(CurrentMessage));
+                ResponseSuccess = QueueClientMessage(Recipient, RedactMessage(CurrentMessage));
+                if (!ResponseSuccess)
+                {
+                    Log("*** SendSystemPrivateMessage unable to queue message to " + Recipient.IpPort());
+                }
                 return ResponseSuccess;
 
                 #endregion
@@ -6527,10 +6758,10 @@ namespace BigQ
                     if (Config.Heartbeat.IntervalMs > 0)
                     {
                         Log("ProcessLoginMessage starting heartbeat manager for " + CurrentClient.IpPort());
-                        if (CurrentClient.IsTCP) Task.Run(() => TCPHeartbeatManager(CurrentClient), TCPSSLCancellationToken);
+                        if (CurrentClient.IsTCP) Task.Run(() => TCPHeartbeatManager(CurrentClient), TCPCancellationToken);
                         else if (CurrentClient.IsTCPSSL) Task.Run(() => TCPSSLHeartbeatManager(CurrentClient), TCPSSLCancellationToken);
-                        else if (CurrentClient.IsWebsocket) Task.Run(() => WSHeartbeatManager(CurrentClient), TCPSSLCancellationToken);
-                        else if (CurrentClient.IsWebsocketSSL) Task.Run(() => WSSSLHeartbeatManager(CurrentClient), TCPSSLCancellationToken);
+                        else if (CurrentClient.IsWebsocket) Task.Run(() => WSHeartbeatManager(CurrentClient), WSCancellationToken);
+                        else if (CurrentClient.IsWebsocketSSL) Task.Run(() => WSSSLHeartbeatManager(CurrentClient), WSSSLCancellationToken);
                         else
                         {
                             Log("*** ProcessLoginMessage unable to start heartbeat manager for " + CurrentClient.IpPort() + ", cannot determine transport from object");
@@ -7332,7 +7563,7 @@ namespace BigQ
             return CurrentMessage;
         }
         
-        private Message MessageSendSuccess(Client CurrentClient, Message CurrentMessage)
+        private Message MessageQueueSuccess(Client CurrentClient, Message CurrentMessage)
         {
             CurrentMessage = RedactMessage(CurrentMessage);
             CurrentMessage.RecipientGUID = CurrentMessage.SenderGUID;
@@ -7346,7 +7577,7 @@ namespace BigQ
             {
                 #region Individual-Recipient
 
-                CurrentMessage.Data = Encoding.UTF8.GetBytes("Message delivered to recipient");
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Message queued for recipient");
                 return CurrentMessage;
 
                 #endregion
@@ -7355,7 +7586,7 @@ namespace BigQ
             {
                 #region Channel-Recipient
 
-                CurrentMessage.Data = Encoding.UTF8.GetBytes("Message queued for delivery to channel members");
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Message queued for delivery to channel");
                 return CurrentMessage;
 
                 #endregion
@@ -7370,7 +7601,7 @@ namespace BigQ
             }
         }
 
-        private Message MessageSendFailure(Client CurrentClient, Message CurrentMessage)
+        private Message MessageQueueFailure(Client CurrentClient, Message CurrentMessage)
         {
             CurrentMessage = RedactMessage(CurrentMessage);
             CurrentMessage.RecipientGUID = CurrentMessage.SenderGUID;
@@ -7379,7 +7610,7 @@ namespace BigQ
             CurrentMessage.Success = false;
             CurrentMessage.SyncResponse = CurrentMessage.SyncRequest;
             CurrentMessage.SyncRequest = null;
-            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to send message");
+            CurrentMessage.Data = Encoding.UTF8.GetBytes("Unable to queue message");
             return CurrentMessage;
         }
 
@@ -7640,6 +7871,7 @@ namespace BigQ
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
+            ResponseMessage.Command = "Event";
 
             Event ResponseEvent = new Event();
             ResponseEvent.EventType = "ClientJoinedServer";
@@ -7658,6 +7890,7 @@ namespace BigQ
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
+            ResponseMessage.Command = "Event";
 
             Event ResponseEvent = new Event();
             ResponseEvent.EventType = "ClientLeftServer";
@@ -7677,6 +7910,7 @@ namespace BigQ
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
+            ResponseMessage.Command = "Event";
 
             Event ResponseEvent = new Event();
             ResponseEvent.EventType = "ClientJoinedChannel";
@@ -7694,6 +7928,7 @@ namespace BigQ
             ResponseMessage.ChannelGUID = CurrentChannel.Guid;
             ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.Command = "Event";
 
             Event ResponseEvent = new Event();
             ResponseEvent.EventType = "ClientLeftChannel";
@@ -7713,6 +7948,7 @@ namespace BigQ
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
+            ResponseMessage.Command = "Event";
 
             Event ResponseEvent = new Event();
             ResponseEvent.EventType = "SubscriberJoinedChannel";
@@ -7730,6 +7966,7 @@ namespace BigQ
             ResponseMessage.ChannelGUID = CurrentChannel.Guid;
             ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
+            ResponseMessage.Command = "Event";
 
             Event ResponseEvent = new Event();
             ResponseEvent.EventType = "SubscriberLeftChannel";

@@ -55,6 +55,11 @@ namespace BigQ
         /// Set by the recipient to indicate that the message is a response to a synchronous request message.
         /// </summary>
         public bool? SyncResponse;                      // set by receiver when responding
+        
+        /// <summary>
+        /// The amount of time in milliseconds to wait to receive a response to this message, if synchronous.  This parameter will override the value in the client configuration. 
+        /// </summary>
+        public int? SyncTimeoutMs;
 
         /// <summary>
         /// Unique identifier for the message.
@@ -400,6 +405,7 @@ namespace BigQ
                 || Success != null
                 || SyncRequest != null
                 || SyncResponse != null
+                || SyncTimeoutMs != null
                 )
             {
                 ret += " | ";
@@ -409,6 +415,7 @@ namespace BigQ
                 if (Success != null) ret += "Success " + Success + " ";
                 if (SyncRequest != null) ret += "SyncRequest " + SyncRequest + " ";
                 if (SyncResponse != null) ret += "SyncResponse " + SyncResponse + " ";
+                if (SyncTimeoutMs != null) ret += "SyncTimeoutMs " + SyncTimeoutMs + " ";
                 ret += Environment.NewLine;
             }
             
@@ -506,6 +513,12 @@ namespace BigQ
             if (SyncResponse != null)
             {
                 headerSb.Append("SyncResponse: " + Helper.IsTrue(SyncResponse));
+                headerSb.Append("\r\n");
+            }
+
+            if (SyncTimeoutMs != null)
+            {
+                headerSb.Append("SyncTimeoutMs: " + SyncTimeoutMs);
                 headerSb.Append("\r\n");
             }
 

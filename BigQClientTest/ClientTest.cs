@@ -428,7 +428,43 @@ namespace BigQClientTest
             if (!String.IsNullOrEmpty(resp)) return Encoding.UTF8.GetBytes(resp);
             return null;
         }
-        
+
+        static bool ClientJoinedServer(string clientGuid)
+        {
+            Console.WriteLine("Client " + clientGuid + " joined the server");
+            return true;
+        }
+
+        static bool ClientLeftServer(string clientGuid)
+        {
+            Console.WriteLine("Client " + clientGuid + " left the server");
+            return true;
+        }
+
+        static bool ClientJoinedChannel(string clientGuid, string channelGuid)
+        {
+            Console.WriteLine("Client " + clientGuid + " joined channel " + channelGuid);
+            return true;
+        }
+
+        static bool ClientLeftChannel(string clientGuid, string channelGuid)
+        {
+            Console.WriteLine("Client " + clientGuid + " left channel " + channelGuid);
+            return true;
+        }
+
+        static bool SubscriberJoinedChannel(string subscriberGuid, string channelGuid)
+        {
+            Console.WriteLine("Subscriber " + subscriberGuid + " joined channel " + channelGuid);
+            return true;
+        }
+
+        static bool SubscriberLeftChannel(string subscriberGuid, string channelGuid)
+        {
+            Console.WriteLine("Subscriber " + subscriberGuid + " left channel " + channelGuid);
+            return true;
+        }
+
         static bool ConnectToServer()
         {
             try
@@ -441,6 +477,12 @@ namespace BigQClientTest
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;
                 client.ServerDisconnected = ConnectToServer;
+                client.ClientJoinedServer = ClientJoinedServer;
+                client.ClientLeftServer = ClientLeftServer;
+                client.ClientJoinedChannel = ClientJoinedChannel;
+                client.ClientLeftChannel = ClientLeftChannel;
+                client.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                client.SubscriberLeftChannel = SubscriberLeftChannel;
                 // client.LogMessage = LogMessage;
                 client.LogMessage = null;
 

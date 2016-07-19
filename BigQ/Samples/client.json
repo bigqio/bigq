@@ -4,7 +4,7 @@
 	"Email": "",
 	"Password": "",
   "AcceptInvalidSSLCerts": true,
-  "SyncTimeoutMs": 10000,
+  "DefaultSyncTimeoutMs": 10000,
 	"Heartbeat": {
 		"Enable": false,
 		"IntervalMs": 1000,

@@ -42,9 +42,9 @@ namespace BigQ
         public bool AcceptInvalidSSLCerts;
 
         /// <summary>
-        /// The amount of time in milliseconds to wait to receive a response to a synchronous messages sent by this client.
+        /// The amount of time in milliseconds to wait to receive a response to a synchronous messages sent by this client if not explicitly set in a sent message.
         /// </summary>
-        public int SyncTimeoutMs;
+        public int DefaultSyncTimeoutMs;
 
         /// <summary>
         /// Settings related to heartbeat exchanges between client and server.
@@ -185,7 +185,7 @@ namespace BigQ
         public void ValidateConfig()
         {
             if (String.IsNullOrEmpty(Version)) throw new ArgumentNullException("Version");
-            if (SyncTimeoutMs < 1000) throw new ArgumentOutOfRangeException("SyncTimeoutMs");
+            if (DefaultSyncTimeoutMs < 1000) throw new ArgumentOutOfRangeException("DefaultSyncTimeoutMs");
             if (Heartbeat == null) throw new ArgumentNullException("Heartbeat");
             if (Debug == null) throw new ArgumentNullException("Debug");
             if (TcpServer == null) throw new ArgumentNullException("TcpServer");
@@ -245,7 +245,7 @@ namespace BigQ
             ret.GUID = Guid.NewGuid().ToString();
             ret.Email = ret.GUID;
             ret.Password = ret.GUID;
-            ret.SyncTimeoutMs = 10000;
+            ret.DefaultSyncTimeoutMs = 10000;
 
             ret.Heartbeat = new HeartbeatSettings();
             ret.Heartbeat.Enable = false;

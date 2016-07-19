@@ -147,13 +147,36 @@ namespace BigQ
         /// Indicates whether or not the client is logged in to the server.  Do not modify this field.
         /// </summary>
         public bool LoggedIn;
-        
+
+        /// <summary>
+        /// A blocking collection containing the messages that are queued for delivery to this client.
+        /// </summary>
+        public BlockingCollection<Message> MessageQueue;
+
+        /// <summary>
+        /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
+        /// </summary>
+        public CancellationTokenSource ProcessClientQueueTokenSource = null;
+
+        /// <summary>
+        /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
+        /// </summary>
+        public CancellationToken ProcessClientQueueToken;
+
+        /// <summary>
+        /// Managed by the server to destroy the thread receiving data from the client when the client is shutting down.
+        /// </summary>
+        public CancellationTokenSource DataReceiverTokenSource = null;
+
+        /// <summary>
+        /// Managed by the server to destroy the thread receiving data from the client when the client is shutting down.
+        /// </summary>
+        public CancellationToken DataReceiverToken;
+
         #endregion
 
         #region Private-Class-Members
 
-        private CancellationTokenSource DataReceiverTokenSource = null;
-        private CancellationToken DataReceiverToken;
         private CancellationTokenSource CleanupSyncTokenSource = null;
         private CancellationToken CleanupSyncToken;
         private CancellationTokenSource HeartbeatTokenSource = null;
@@ -181,6 +204,36 @@ namespace BigQ
         /// Delegate method called with the server connection is severed.
         /// </summary>
         public Func<bool> ServerDisconnected;
+
+        /// <summary>
+        /// Delegate method called when a client joins the server.
+        /// </summary>
+        public Func<string, bool> ClientJoinedServer;
+
+        /// <summary>
+        /// Delegate method called when a client leaves the server.
+        /// </summary>
+        public Func<string, bool> ClientLeftServer;
+
+        /// <summary>
+        /// Delegate method called when a client joins a channel.
+        /// </summary>
+        public Func<string, string, bool> ClientJoinedChannel;
+
+        /// <summary>
+        /// Delegate method called when a client leaves a channel.
+        /// </summary>
+        public Func<string, string, bool> ClientLeftChannel;
+
+        /// <summary>
+        /// Delegate method called when a subscriber joins a channel.
+        /// </summary>
+        public Func<string, string, bool> SubscriberJoinedChannel;
+
+        /// <summary>
+        /// Delegate method called when a subscriber leaves a channel.
+        /// </summary>
+        public Func<string, string, bool> SubscriberLeftChannel;
 
         /// <summary>
         /// Delegate method called when the client desires to send a log message.
@@ -250,6 +303,10 @@ namespace BigQ
             AsyncMessageReceived = null;
             SyncMessageReceived = null;
             ServerDisconnected = null;
+            ClientJoinedServer = null;
+            ClientLeftServer = null;
+            ClientJoinedChannel = null;
+            ClientLeftChannel = null;
             LogMessage = null;
 
             #endregion
@@ -1352,8 +1409,11 @@ namespace BigQ
                     return false;
                 }
 
+                int timeoutMs = Config.DefaultSyncTimeoutMs;
+                if (CurrentMessage.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(CurrentMessage.SyncTimeoutMs);
+
                 Message ResponseMessage = new Message();
-                if (!GetSyncResponse(CurrentMessage.MessageID, out ResponseMessage))
+                if (!GetSyncResponse(CurrentMessage.MessageID, timeoutMs, out ResponseMessage))
                 {
                     Log("*** SendPrivateMessage unable to get response for message GUID " + CurrentMessage.MessageID);
                     return false;
@@ -1435,8 +1495,11 @@ namespace BigQ
                     // Log("SendServerMessageSync sent message GUID " + request.MessageId + " to server");
                 }
 
+                int timeoutMs = Config.DefaultSyncTimeoutMs;
+                if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
+
                 Message ResponseMessage = new Message();
-                if (!GetSyncResponse(request.MessageID, out ResponseMessage))
+                if (!GetSyncResponse(request.MessageID, timeoutMs, out ResponseMessage))
                 {
                     Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageID);
                     return false;
@@ -1620,37 +1683,71 @@ namespace BigQ
 
             try
             {
-                if (DataReceiverTokenSource != null) DataReceiverTokenSource.Cancel();
-                if (CleanupSyncTokenSource != null) CleanupSyncTokenSource.Cancel();
-                if (HeartbeatTokenSource != null) HeartbeatTokenSource.Cancel();
+                if (DataReceiverTokenSource != null)
+                {
+                    DataReceiverTokenSource.Cancel(false);
+                }
+
+                if (CleanupSyncTokenSource != null)
+                {
+                    CleanupSyncTokenSource.Cancel(false);
+                }
+
+                if (HeartbeatTokenSource != null)
+                {
+                    HeartbeatTokenSource.Cancel(false);
+                }
+
+                if (ProcessClientQueueTokenSource != null)
+                {
+                    ProcessClientQueueTokenSource.Cancel(false);
+                }
 
                 if (ClientTCPInterface != null)
                 {
                     if (ClientTCPInterface.Connected)
                     {
-                        //
-                        // close the TCP stream
-                        //
                         if (ClientTCPInterface.GetStream() != null)
                         {
                             ClientTCPInterface.GetStream().Close();
                         }
                     }
-
-                    // 
-                    // close the client
-                    //
-
-                    if (ClientTCPInterface != null) ClientTCPInterface.Close();
+                    
+                    ClientTCPInterface.Close();
                 }
 
                 ClientTCPInterface = null;
+
+                if (ClientSSLStream != null)
+                {
+                    ClientSSLStream.Close();
+                }
+
+                ClientSSLStream = null;
+
+                if (ClientTCPSSLInterface != null)
+                {
+                    ClientTCPSSLInterface.Close();
+                }
+
+                ClientTCPSSLInterface = null;
+
                 return;
+            }
+            catch (Exception EOuter)
+            {
+                LogException("Close", EOuter);
             }
             finally
             {
                 sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Close " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config != null)
+                {
+                    if (Config.Debug != null)
+                    {
+                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Close " + sw.Elapsed.TotalMilliseconds + "ms");
+                    }
+                }
             }
         }
 
@@ -1802,7 +1899,7 @@ namespace BigQ
             return true;
         }
 
-        private bool GetSyncResponse(string guid, out Message response)
+        private bool GetSyncResponse(string guid, int timeoutMs, out Message response)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -1811,9 +1908,11 @@ namespace BigQ
             DateTime start = DateTime.Now;
             bool timeoutExceeded = false;
             bool messageReceived = false;
-
+            
             try
             {
+                #region Check-for-Null-Values
+
                 if (String.IsNullOrEmpty(guid))
                 {
                     Log("*** GetSyncResponse null GUID supplied");
@@ -1826,6 +1925,15 @@ namespace BigQ
                     SyncResponses = new ConcurrentDictionary<string, Message>();
                     return false;
                 }
+
+                if (timeoutMs < 1000)
+                {
+                    timeoutMs = 1000;
+                }
+
+                #endregion
+
+                #region Process
 
                 int iterations = 0;
                 while (true)
@@ -1849,7 +1957,7 @@ namespace BigQ
                     // Check if timeout exceeded
                     //
                     TimeSpan ts = DateTime.Now - start;
-                    if (ts.TotalMilliseconds > Config.SyncTimeoutMs)
+                    if (ts.TotalMilliseconds > timeoutMs)
                     {
                         Log("*** GetSyncResponse timeout waiting for response for message GUID " + guid);
                         timeoutExceeded = true;
@@ -1860,6 +1968,8 @@ namespace BigQ
                     iterations++;
                     continue;
                 }
+
+                #endregion
             }
             finally
             {
@@ -1877,14 +1987,14 @@ namespace BigQ
         {
             while (true)
             {
-                Thread.Sleep(Config.SyncTimeoutMs);
+                Thread.Sleep(Config.DefaultSyncTimeoutMs);
                 List<string> ExpiredMessageIDs = new List<string>();
                 DateTime TempDateTime;
                 Message TempMessage;
 
                 foreach (KeyValuePair<string, DateTime> CurrentRequest in SyncRequests)
                 {
-                    DateTime ExpirationDateTime = CurrentRequest.Value.AddMilliseconds(Config.SyncTimeoutMs);
+                    DateTime ExpirationDateTime = CurrentRequest.Value.AddMilliseconds(Config.DefaultSyncTimeoutMs);
 
                     if (DateTime.Compare(ExpirationDateTime, DateTime.Now) < 0)
                     {
@@ -2061,6 +2171,79 @@ namespace BigQ
                         // do nothing, just continue
                         //
                         //
+                        continue;
+
+                        #endregion
+                    }
+                    else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
+                    {
+                        #region Server-Event-Message
+
+                        if (CurrentMessage.Data != null)
+                        {
+                            #region Data-Exists
+
+                            Event ev = null;
+                            try
+                            {
+                                ev = Helper.DeserializeJson<Event>(CurrentMessage.Data, false);
+                            }
+                            catch (Exception)
+                            {
+                                Log("*** TCPDataReceiver unable to deserialize incoming server message to event");
+                                continue;
+                            }
+
+                            if (ev == null)
+                            {
+                                Log("*** TCPDataReceiver null event object after deserializing incoming server message");
+                                continue;
+                            }
+
+                            switch (ev.EventType.ToLower())
+                            {
+                                case "clientjoinedserver":
+                                    if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
+                                    continue;
+
+                                case "clientleftserver":
+                                    if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
+                                    continue;
+
+                                case "clientjoinedchannel":
+                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                case "clientleftchannel":
+                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                case "subscriberjoinedchannel":
+                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                case "subscriberleftchannel":
+                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                default:
+                                    Log("*** TCPDataReceiver unknown event type: " + ev.EventType);
+                                    continue;
+                            }
+
+                            #endregion
+                        }
+                        else
+                        {
+                            //
+                            //
+                            // do nothing, just continue
+                            //
+                            //
+
+                            continue;
+                        }
 
                         #endregion
                     }
@@ -2319,6 +2502,79 @@ namespace BigQ
                         // do nothing, just continue
                         //
                         //
+
+                        continue;
+
+                        #endregion
+                    }
+                    else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0)
+                    {
+                        #region Server-Message
+
+                        if (CurrentMessage.Data != null)
+                        {
+                            #region Data-Exists
+
+                            Event ev = null;
+                            try
+                            {
+                                ev = Helper.DeserializeJson<Event>(CurrentMessage.Data, false);
+                            }
+                            catch (Exception)
+                            {
+                                Log("*** TCPSSLDataReceiver unable to deserialize incoming server message to event");
+                                continue;
+                            }
+
+                            if (ev == null)
+                            {
+                                Log("*** TCPSSLDataReceiver null event object after deserializing incoming server message");
+                                continue;
+                            }
+
+                            switch (ev.EventType.ToLower())
+                            {
+                                case "clientjoinedserver":
+                                    if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
+                                    continue;
+
+                                case "clientleftserver":
+                                    if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
+                                    continue;
+
+                                case "clientjoinedchannel":
+                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                case "clientleftchannel":
+                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                case "subscriberjoinedchannel":
+                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                case "subscriberleftchannel":
+                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    continue;
+
+                                default:
+                                    Log("*** TCPSSLDataReceiver unknown event type: " + ev.EventType);
+                                    continue;
+                            }
+
+                            #endregion
+                        }
+                        else
+                        {
+                            //
+                            //
+                            // do nothing, just continue
+                            //
+                            //
+
+                            continue;
+                        }
 
                         #endregion
                     }
