@@ -68,6 +68,12 @@ Client client = new Client("client.json");	// with a configuration file
 client.AsyncMessageReceived = AsyncMessageReceived;
 client.SyncMessageReceived = SyncMessageReceived;
 client.ServerDisconnected = ServerDisconnected;
+client.ClientJoinedServer = ClientJoinedServer;
+client.ClientLeftServer = ClientLeftServer;
+client.ClientJoinedChannel = ClientJoinedChannel;
+client.ClientLeftChannel = ClientLeftChannel;
+client.SubscriberJoinedChannel = SubscriberJoinedChannel;
+client.SubscriberLeftChannel = SubscriberLeftChannel;
 client.LogMessage = LogMessage;
 
 // implement callbacks, these methods should return true
@@ -75,6 +81,12 @@ client.LogMessage = LogMessage;
 static bool AsyncMessageReceived(Message msg) { ... }
 static byte[] SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
 static bool ServerDisconnected() { ... }
+static bool ClientJoinedServer(string clientGuid) { ... }
+static bool ClientLeftServer(string clientGuid) { ... }
+static bool ClientJoinedChannel(string clientGuid, string channelGuid) { ... }
+static bool ClientLeftChannel(string clientGuid, string channelGuid) { ... }
+static bool SubscriberJoinedChannel(string clientGuid, string channelGuid) { ... }
+static bool SubscriberLeftChannel(string clientGuid, string channelGuid) { ... }
 static bool LogMessage(string msg) { ... }
 
 // login from the client
