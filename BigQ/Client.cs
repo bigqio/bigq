@@ -2123,6 +2123,13 @@ namespace BigQ
                 {
                     #region Check-if-Client-Connected-to-Server
 
+                    if (ClientTCPInterface == null)
+                    {
+                        Log("*** TCPDataReceiver null TCP interface detected");
+                        Thread.Sleep(25);
+                        continue;
+                    }
+
                     if (!ClientTCPInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPInterface))
                     {
                         Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
@@ -2453,6 +2460,13 @@ namespace BigQ
                 while (true)
                 {
                     #region Check-if-Client-Connected-to-Server
+
+                    if (ClientTCPSSLInterface == null)
+                    {
+                        Log("*** TCPSSLDataReceiver null TCP interface detected");
+                        Thread.Sleep(25);
+                        continue;
+                    }
 
                     if (!ClientTCPSSLInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
                     {

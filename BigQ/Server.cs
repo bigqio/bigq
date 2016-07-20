@@ -659,6 +659,18 @@ namespace BigQ
                     return false;
                 }
 
+                if (String.IsNullOrEmpty(CurrentMessage.SenderGUID))
+                {
+                    Log("*** QueueClientMessage null sender GUID supplied in message");
+                    return false;
+                }
+
+                if (String.IsNullOrEmpty(CurrentMessage.RecipientGUID))
+                {
+                    Log("*** QueueClientMessage null recipient GUID in supplied message");
+                    return false;
+                }
+                
                 if (CurrentClient.MessageQueue == null)
                 {
                     CurrentClient.MessageQueue = new BlockingCollection<Message>();
