@@ -16,14 +16,6 @@ D:\Code\BigQ\BigQv2\BigQClientTest\bin\Release\BigQ.pdb
 D:\Code\BigQ\BigQv2\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQv2\BigQClientTest\obj\Release\BigQClientTest.exe
 D:\Code\BigQ\BigQv2\BigQClientTest\obj\Release\BigQClientTest.pdb
-D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe.config
-D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe
-D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQClientTest.pdb
-D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQ.dll
-D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
-D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.exe
-D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.pdb
 D:\code\bigq\BigQ142\BigQClientTest\bin\Release\BigQClientTest.exe.config
 D:\code\bigq\BigQ142\BigQClientTest\bin\Release\BigQClientTest.exe
 D:\code\bigq\BigQ142\BigQClientTest\bin\Release\BigQClientTest.pdb
@@ -48,3 +40,11 @@ D:\code\BigQ\BigQblocking\BigQClientTest\bin\Release\BigQ.pdb
 D:\code\BigQ\BigQblocking\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\code\BigQ\BigQblocking\BigQClientTest\obj\Release\BigQClientTest.exe
 D:\code\BigQ\BigQblocking\BigQClientTest\obj\Release\BigQClientTest.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe.config
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQClientTest.exe
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQClientTest.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQ.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQ.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.exe
+D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.pdb

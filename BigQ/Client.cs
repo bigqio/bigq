@@ -2183,6 +2183,7 @@ namespace BigQ
                         #endregion
                     }
                     else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                        && !String.IsNullOrEmpty(CurrentMessage.Command)
                         && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
                     {
                         #region Server-Event-Message
@@ -2521,9 +2522,11 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0)
+                    else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                        && !String.IsNullOrEmpty(CurrentMessage.Command)
+                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
                     {
-                        #region Server-Message
+                        #region Server-Event-Message
 
                         if (CurrentMessage.Data != null)
                         {

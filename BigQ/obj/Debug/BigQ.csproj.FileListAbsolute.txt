@@ -58,10 +58,6 @@ D:\Code\BigQ\BigQv2\BigQ\bin\Debug\BigQ.dll
 D:\Code\BigQ\BigQv2\BigQ\bin\Debug\BigQ.pdb
 D:\Code\BigQ\BigQv2\BigQ\obj\Debug\BigQ.dll
 D:\Code\BigQ\BigQv2\BigQ\obj\Debug\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.dll
-D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.dll
-D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.pdb
 D:\code\bigq\BigQ142\BigQ\bin\Debug\BigQ.dll
 D:\code\bigq\BigQ142\BigQ\bin\Debug\BigQ.pdb
 D:\code\bigq\BigQ142\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache
@@ -71,3 +67,7 @@ D:\code\BigQ\BigQblocking\BigQ\bin\Debug\BigQ.dll
 D:\code\BigQ\BigQblocking\BigQ\bin\Debug\BigQ.pdb
 D:\code\BigQ\BigQblocking\BigQ\obj\Debug\BigQ.dll
 D:\code\BigQ\BigQblocking\BigQ\obj\Debug\BigQ.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.pdb
+D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.dll
+D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.pdb

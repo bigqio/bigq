@@ -16,10 +16,6 @@ D:\Code\BigQ\BigQv2\BigQ\bin\Release\BigQ.dll
 D:\Code\BigQ\BigQv2\BigQ\bin\Release\BigQ.pdb
 D:\Code\BigQ\BigQv2\BigQ\obj\Release\BigQ.dll
 D:\Code\BigQ\BigQv2\BigQ\obj\Release\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.dll
-D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.dll
-D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.pdb
 D:\code\bigq\BigQ142\BigQ\bin\Release\BigQ.dll
 D:\code\bigq\BigQ142\BigQ\bin\Release\BigQ.pdb
 D:\code\bigq\BigQ142\BigQ\obj\Release\BigQ.dll
@@ -32,4 +28,7 @@ D:\code\BigQ\BigQblocking\BigQ\bin\Release\BigQ.dll
 D:\code\BigQ\BigQblocking\BigQ\bin\Release\BigQ.pdb
 D:\code\BigQ\BigQblocking\BigQ\obj\Release\BigQ.dll
 D:\code\BigQ\BigQblocking\BigQ\obj\Release\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.pdb
+D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.dll
+D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.pdb
