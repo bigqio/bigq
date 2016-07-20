@@ -71,4 +71,3 @@ D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.dll
 D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.dll
 D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.pdb
-D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache

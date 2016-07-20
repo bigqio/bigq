@@ -1061,12 +1061,12 @@ namespace BigQ
                     Thread.Sleep(25);
                     addLoopCount += 25;
 
-                    if (addLoopCount % 100 == 0)
+                    if (addLoopCount % 250 == 0)
                     {
                         Log("*** TCPDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms");
                     }
 
-                    if (addLoopCount == 1200)
+                    if (addLoopCount == 2500)
                     {
                         Log("*** TCPDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
                         return false;
@@ -1139,7 +1139,7 @@ namespace BigQ
                             break;
                         }
 
-                        if (removeLoopCount % 100 == 0)
+                        if (removeLoopCount % 250 == 0)
                         {
                             Log("*** TCPDataSender locked send map attempting to remove recipient GUID " + CurrentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
                         }
@@ -1617,12 +1617,12 @@ namespace BigQ
                     Thread.Sleep(25);
                     addLoopCount += 25;
 
-                    if (addLoopCount % 100 == 0)
+                    if (addLoopCount % 250 == 0)
                     {
                         Log("*** TCPSSLDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms");
                     }
 
-                    if (addLoopCount == 1200)
+                    if (addLoopCount == 2500)
                     {
                         Log("*** TCPSSLDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
                         return false;
@@ -1695,7 +1695,7 @@ namespace BigQ
                             break;
                         }
 
-                        if (removeLoopCount % 100 == 0)
+                        if (removeLoopCount % 250 == 0)
                         {
                             Log("*** TCPSSLDataSender locked send map attempting to remove recipient GUID " + CurrentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
                         }
@@ -2156,12 +2156,12 @@ namespace BigQ
                     Thread.Sleep(25);
                     addLoopCount += 25;
 
-                    if (addLoopCount % 100 == 0)
+                    if (addLoopCount % 250 == 0)
                     {
                         Log("*** WSDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms");
                     }
 
-                    if (addLoopCount == 1200)
+                    if (addLoopCount == 2500)
                     {
                         Log("*** WSDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
                         return false;
@@ -2235,7 +2235,7 @@ namespace BigQ
                             break;
                         }
 
-                        if (removeLoopCount % 100 == 0)
+                        if (removeLoopCount % 250 == 0)
                         {
                             Log("*** WSDataSender locked send map attempting to remove recipient GUID " + CurrentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
                         }
@@ -2701,12 +2701,12 @@ namespace BigQ
                     Thread.Sleep(25);
                     addLoopCount += 25;
 
-                    if (addLoopCount % 100 == 0)
+                    if (addLoopCount % 250 == 0)
                     {
                         Log("*** WSSSLDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms");
                     }
 
-                    if (addLoopCount == 1200)
+                    if (addLoopCount == 2500)
                     {
                         Log("*** WSSSLDataSender locked send map attempting to add recipient GUID " + CurrentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
                         return false;
@@ -2780,7 +2780,7 @@ namespace BigQ
                             break;
                         }
 
-                        if (removeLoopCount % 100 == 0)
+                        if (removeLoopCount % 250 == 0)
                         {
                             Log("*** WSSSLDataSender locked send map attempting to remove recipient GUID " + CurrentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
                         }
@@ -4413,6 +4413,8 @@ namespace BigQ
 
             try
             {
+                #region Check-for-Null-Values
+
                 if (CurrentClient == null)
                 {
                     Log("*** UpdateClient null client supplied");
@@ -4425,14 +4427,54 @@ namespace BigQ
                     return false;
                 }
 
-                Log("UpdateClient " + CurrentClient.IpPort() + " entering with " + Clients.Count + " entries in client list");
+                Log("UpdateClient " + CurrentClient.IpPort() + " entering with " + Clients.Count + " clients and " + ClientGUIDMap.Count + " GUID maps");
 
-                //
-                // update Clients dictionary
-                //
-                Client existingClient = null;
+                #endregion
+
+                #region Remove-Existing-Client-GUID-Map
+
+                bool inMap = false;
+                string inMapIPPort = "";
+                string removedMap = "";
+
+                if (ClientGUIDMap != null)
+                {
+                    if (ClientGUIDMap.TryGetValue(CurrentClient.ClientGUID, out inMapIPPort))
+                    {
+                        if (!String.IsNullOrEmpty(inMapIPPort))
+                        {
+                            Log("UpdateClient found existing client GUID map for GUID " + CurrentClient.ClientGUID + ": " + inMapIPPort);
+                            inMap = true;
+                        }
+                    }
+                }
+
+                if (inMap)
+                {
+                    if (!ClientGUIDMap.TryRemove(CurrentClient.ClientGUID, out removedMap))
+                    {
+                        Log("*** UpdateClient unable to remove client GUID map for GUID " + CurrentClient.ClientGUID);
+                    }
+                }
+
+                #endregion
+
+                #region Remove-Existing-Client-Entry
+
                 Client removedClient = null;
+                if (inMap)
+                {
+                    if (!Clients.TryRemove(inMapIPPort, out removedClient))
+                    {
+                        Log("*** UpdateClient unable to remove client from clients list for GUID " + CurrentClient.ClientGUID);
+                    }
+                }
 
+                #endregion
+
+                #region Add-Updated-Client-Entry
+
+                Client existingClient = null;
                 if (Clients.TryGetValue(CurrentClient.IpPort(), out existingClient))
                 {
                     if (existingClient == null)
@@ -4493,9 +4535,10 @@ namespace BigQ
                     #endregion
                 }
 
-                //
-                // update ClientGUIDMap dictionary
-                //
+                #endregion
+
+                #region Add-Client-GUID-Map
+                
                 string existingMap = null;
                 if (ClientGUIDMap.TryGetValue(CurrentClient.ClientGUID, out existingMap))
                 {
@@ -4544,7 +4587,9 @@ namespace BigQ
                     #endregion
                 }
 
-                Log("UpdateClient " + CurrentClient.IpPort() + " exiting with " + Clients.Count + " entries in client list");
+                #endregion
+
+                Log("UpdateClient " + CurrentClient.IpPort() + " exiting with " + Clients.Count + " clients and " + ClientGUIDMap.Count + " GUID maps");
                 return true;
             }
             finally
