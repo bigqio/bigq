@@ -2125,16 +2125,16 @@ namespace BigQ
 
                     if (ClientTCPInterface == null)
                     {
-                        Log("*** TCPDataReceiver null TCP interface detected");
-                        Thread.Sleep(25);
-                        continue;
+                        Log("*** TCPDataReceiver null TCP interface detected, disconnection or close assumed");
+                        Connected = false;
+                        disconnectDetected = true;
+                        break;
                     }
 
                     if (!ClientTCPInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPInterface))
                     {
                         Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
                         Connected = false;
-
                         disconnectDetected = true;
                         break;
                     }
@@ -2464,16 +2464,15 @@ namespace BigQ
 
                     if (ClientTCPSSLInterface == null)
                     {
-                        Log("*** TCPSSLDataReceiver null TCP interface detected");
-                        Thread.Sleep(25);
-                        continue;
+                        Log("*** TCPSSLDataReceiver null TCP interface detected, disconnection or close assumed");
+                        Connected = false;
+                        disconnectDetected = true;
                     }
 
                     if (!ClientTCPSSLInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
                     {
                         Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
                         Connected = false;
-
                         disconnectDetected = true;
                         break;
                     }
