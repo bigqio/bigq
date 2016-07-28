@@ -276,12 +276,6 @@ namespace BigQServerTest
 
         #region Delegates
 
-        static bool MessageReceived(Message msg)
-        {
-            // Console.WriteLine(msg.ToString());
-            return true;
-        }
-
         static bool StartServer()
         {
             //
@@ -306,23 +300,26 @@ namespace BigQServerTest
             return true;
         }
 
+        static bool MessageReceived(Message msg)
+        {
+            // Console.WriteLine(msg.ToString());
+            return true;
+        }
+
         static bool ClientConnected(Client client)
         {
-            // client disconnected
             Console.WriteLine("ClientConnected received notice of connect from " + client.IpPort());
             return true;
         }
 
         static bool ClientLogin(Client client)
         {
-            // client disconnected
             Console.WriteLine("ClientConnected received notice of connect of client GUID " + client.ClientGUID + " from " + client.IpPort());
             return true;
         }
 
         static bool ClientDisconnected(Client client)
         {
-            // client disconnected
             Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGUID + " from " + client.IpPort());
             return true;
         }

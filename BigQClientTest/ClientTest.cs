@@ -412,6 +412,76 @@ namespace BigQClientTest
 
         #region Delegates
 
+        static bool ConnectToServer()
+        {
+            try
+            {
+                Console.WriteLine("Attempting to connect to server");
+                if (client != null) client.Close();
+                client = null;
+                client = new Client(null);
+
+                client.AsyncMessageReceived = AsyncMessageReceived;
+                client.SyncMessageReceived = SyncMessageReceived;
+                // client.ServerDisconnected = ServerDisconnected;
+                client.ServerDisconnected = ConnectToServer;
+                client.ServerConnected = ServerConnected;
+                client.ClientJoinedServer = ClientJoinedServer;
+                client.ClientLeftServer = ClientLeftServer;
+                client.ClientJoinedChannel = ClientJoinedChannel;
+                client.ClientLeftChannel = ClientLeftChannel;
+                client.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                client.SubscriberLeftChannel = SubscriberLeftChannel;
+                // client.LogMessage = LogMessage;
+                client.LogMessage = null;
+
+                Message response;
+                if (!client.Login(out response))
+                {
+                    Console.WriteLine("Unable to login, retrying in five seconds");
+                    Thread.Sleep(5000);
+                    return ConnectToServer();
+                }
+
+                Console.WriteLine("Successfully connected to server");
+                return true;
+            }
+            catch (SocketException)
+            {
+                Console.WriteLine("*** Unable to connect to server (port not reachable)");
+                Console.WriteLine("*** Retrying in five seconds");
+                Thread.Sleep(5000);
+                return ConnectToServer();
+            }
+            catch (TimeoutException)
+            {
+                Console.WriteLine("*** Timeout connecting to server");
+                Console.WriteLine("*** Retrying in five seconds");
+                Thread.Sleep(5000);
+                return ConnectToServer();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("*** Unable to connect to server due to the following exception:");
+                PrintException("ConnectToServer", e);
+                Console.WriteLine("*** Retrying in five seconds");
+                Thread.Sleep(5000);
+                return ConnectToServer();
+            }
+        }
+
+        static bool ServerDisconnected()
+        {
+            Console.WriteLine("Server disconnected");
+            return true;
+        }
+
+        static bool ServerConnected()
+        {
+            Console.WriteLine("Server connected");
+            return true;
+        }
+
         static bool AsyncMessageReceived(Message msg)
         {
             Console.WriteLine(msg.ToString());
@@ -463,62 +533,6 @@ namespace BigQClientTest
         {
             Console.WriteLine("Subscriber " + subscriberGuid + " left channel " + channelGuid);
             return true;
-        }
-
-        static bool ConnectToServer()
-        {
-            try
-            {
-                Console.WriteLine("Attempting to connect to server");
-                if (client != null) client.Close();
-                client = null;
-                client = new Client(null);
-
-                client.AsyncMessageReceived = AsyncMessageReceived;
-                client.SyncMessageReceived = SyncMessageReceived;
-                client.ServerDisconnected = ConnectToServer;
-                client.ClientJoinedServer = ClientJoinedServer;
-                client.ClientLeftServer = ClientLeftServer;
-                client.ClientJoinedChannel = ClientJoinedChannel;
-                client.ClientLeftChannel = ClientLeftChannel;
-                client.SubscriberJoinedChannel = SubscriberJoinedChannel;
-                client.SubscriberLeftChannel = SubscriberLeftChannel;
-                // client.LogMessage = LogMessage;
-                client.LogMessage = null;
-
-                Message response;
-                if (!client.Login(out response))
-                {
-                    Console.WriteLine("Unable to login, retrying in five seconds");
-                    Thread.Sleep(5000);
-                    return ConnectToServer();
-                }
-
-                Console.WriteLine("Successfully connected to server");
-                return true;
-            }
-            catch (SocketException)
-            {
-                Console.WriteLine("*** Unable to connect to server (port not reachable)");
-                Console.WriteLine("*** Retrying in five seconds");
-                Thread.Sleep(5000);
-                return ConnectToServer();
-            }
-            catch (TimeoutException)
-            {
-                Console.WriteLine("*** Timeout connecting to server");
-                Console.WriteLine("*** Retrying in five seconds");
-                Thread.Sleep(5000);
-                return ConnectToServer();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("*** Unable to connect to server due to the following exception:");
-                PrintException("ConnectToServer", e);
-                Console.WriteLine("*** Retrying in five seconds");
-                Thread.Sleep(5000);
-                return ConnectToServer();
-            }
         }
 
         static bool LogMessage(string msg)

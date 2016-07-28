@@ -201,9 +201,14 @@ namespace BigQ
         public Func<Message, byte[]> SyncMessageReceived;
 
         /// <summary>
-        /// Delegate method called with the server connection is severed.
+        /// Delegate method called when the server connection is severed.
         /// </summary>
         public Func<bool> ServerDisconnected;
+
+        /// <summary>
+        /// Delegate method called when the server connection is restored.
+        /// </summary>
+        public Func<bool> ServerConnected;
 
         /// <summary>
         /// Delegate method called when a client joins the server.
@@ -597,6 +602,8 @@ namespace BigQ
                     HeartbeatToken = HeartbeatTokenSource.Token;
                     Task.Run(() => HeartbeatManager(), HeartbeatToken);
 
+                    // call server connected delegate
+                    if (ServerConnected != null) Task.Run(() => ServerConnected());
                     return true;
                 }
             }
