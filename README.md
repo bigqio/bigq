@@ -67,6 +67,7 @@ Client client = new Client("client.json");	// with a configuration file
 // set callbacks
 client.AsyncMessageReceived = AsyncMessageReceived;
 client.SyncMessageReceived = SyncMessageReceived;
+client.ServerConnected = ServerConnected;
 client.ServerDisconnected = ServerDisconnected;
 client.ClientJoinedServer = ClientJoinedServer;
 client.ClientLeftServer = ClientLeftServer;
@@ -80,6 +81,7 @@ client.LogMessage = LogMessage;
 // sync message callback should return the data to be returned to requestor
 static bool AsyncMessageReceived(Message msg) { ... }
 static byte[] SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
+static bool ServerConnected() { ... }
 static bool ServerDisconnected() { ... }
 static bool ClientJoinedServer(string clientGuid) { ... }
 static bool ClientLeftServer(string clientGuid) { ... }
