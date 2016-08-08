@@ -1956,6 +1956,7 @@ namespace BigQ
                         }
 
                         messageReceived = true;
+                        response.Success = true;
                         Log("GetSyncResponse returning response for message GUID " + guid);
                         return true;
                     }
