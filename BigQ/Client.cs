@@ -2272,10 +2272,10 @@ namespace BigQ
                         {
                             byte[] ResponseData = SyncMessageReceived(CurrentMessage);
 
+                            CurrentMessage.Success = true;
                             CurrentMessage.SyncRequest = false;
                             CurrentMessage.SyncResponse = true;
                             CurrentMessage.Data = ResponseData;
-
                             string TempGuid = String.Copy(CurrentMessage.SenderGUID);
                             CurrentMessage.SenderGUID = ClientGUID;
                             CurrentMessage.RecipientGUID = TempGuid;
@@ -2611,6 +2611,7 @@ namespace BigQ
                         {
                             byte[] ResponseData = SyncMessageReceived(CurrentMessage);
 
+                            CurrentMessage.Success = true;
                             CurrentMessage.SyncRequest = false;
                             CurrentMessage.SyncResponse = true;
                             CurrentMessage.Data = ResponseData;
