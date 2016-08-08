@@ -21,9 +21,8 @@ namespace BigQ
         public string Version;
 
         /// <summary>
-        /// The version number of the BigQ binary.
+        /// The GUID to use for this client.  If null, a random will will be supplied.
         /// </summary>
-        /// public string Version;
         public string GUID;
 
         /// <summary>

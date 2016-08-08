@@ -7584,6 +7584,7 @@ namespace BigQ
 
         private Message RecipientNotFoundMessage(Client CurrentClient, Message CurrentMessage)
         {
+            string originalRecipientGUID = CurrentMessage.RecipientGUID;
             CurrentMessage = RedactMessage(CurrentMessage);
             CurrentMessage.RecipientGUID = CurrentMessage.SenderGUID;
             CurrentMessage.SenderGUID = "00000000-0000-0000-0000-000000000000";
@@ -7594,7 +7595,7 @@ namespace BigQ
 
             if (!String.IsNullOrEmpty(CurrentMessage.RecipientGUID))
             {
-                CurrentMessage.Data = Encoding.UTF8.GetBytes("Unknown recipient '" + CurrentMessage.RecipientGUID + "'");
+                CurrentMessage.Data = Encoding.UTF8.GetBytes("Unknown recipient '" + originalRecipientGUID + "'");
             }
             else if (!String.IsNullOrEmpty(CurrentMessage.ChannelGUID))
             {
