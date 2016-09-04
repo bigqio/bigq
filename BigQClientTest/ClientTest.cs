@@ -24,7 +24,7 @@ namespace BigQClientTest
             List<Channel> channels = new List<Channel>();
             Message response = new Message();
             Dictionary<string, DateTime> pendingRequests;
-
+            
             Console.WriteLine("");
             Console.WriteLine(@" $$\       $$\                      ");
             Console.WriteLine(@" $$ |      \__|                     ");
@@ -59,11 +59,13 @@ namespace BigQClientTest
                         Console.WriteLine("Available Commands:");
                         Console.WriteLine("  q  cls  echo  debugon  debugoff");
                         Console.WriteLine("  login  listchannels  listchannelmembers  listchannelsubscribers");
-                        Console.WriteLine("  createbroadcastchannel  createmulticastchannel  deletechannel"); 
+                        Console.WriteLine("  createbroadcastchannel  createmulticastchannel  createunicastchannel");
+                        Console.WriteLine("  deletechannel"); 
                         Console.WriteLine("  joinchannel  leavechannel");
                         Console.WriteLine("  subscribechannel unsubscribechannel");
                         Console.WriteLine("  sendprivasync  sendprivsync");
-                        Console.WriteLine("  sendchannel  listclients  isclientconnected  whoami  pendingsyncrequests");
+                        Console.WriteLine("  sendchannelasync  sendchannelsync");
+                        Console.WriteLine("  listclients  isclientconnected  whoami  pendingsyncrequests");
                         Console.WriteLine("");
                         break;
 
@@ -162,6 +164,7 @@ namespace BigQClientTest
                                     else line += "pub ";
                                     if (curr.Broadcast == 1) line += "bcast ";
                                     else if (curr.Multicast == 1) line += "mcast ";
+                                    else if (curr.Unicast == 1) line += "ucast ";
                                     else line += "unknown ";
 
                                     Console.WriteLine(line);
@@ -320,6 +323,22 @@ namespace BigQClientTest
                         }
                         break;
 
+                    case "createunicastchannel":
+                        if (client == null) break;
+                        Console.Write("Name          : ");
+                        guid = Console.ReadLine();
+                        Console.Write("Private (0/1) : ");
+                        priv = Convert.ToInt32(Console.ReadLine());
+                        if (client.CreateUnicastChannel(guid, priv, out response))
+                        {
+                            Console.WriteLine("CreateUnicastChannel success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("CreateUnicastChannel failed");
+                        }
+                        break;
+
                     case "deletechannel":
                         if (client == null) break;
                         Console.Write("GUID: ");
@@ -350,13 +369,12 @@ namespace BigQClientTest
                         Console.Write("Message: ");
                         msg = Console.ReadLine();
 
-                        Message respMsg = new Message();
-                        client.SendPrivateMessageSync(guid, msg, out respMsg);
+                        client.SendPrivateMessageSync(guid, msg, out response);
 
-                        if (respMsg != null)
+                        if (response != null)
                         {
-                            Console.WriteLine("Sync response received for GUID " + respMsg.MessageID);
-                            Console.WriteLine(respMsg.ToString());
+                            Console.WriteLine("Sync response received for GUID " + response.MessageID);
+                            Console.WriteLine(response.ToString());
                         }
                         else
                         {
@@ -364,13 +382,33 @@ namespace BigQClientTest
                         }
                         break;
 
-                    case "sendchannel":
+                    case "sendchannelasync":
                         if (client == null) break;
                         Console.Write("Channel GUID: ");
                         guid = Console.ReadLine();
                         Console.Write("Message: ");
                         msg = Console.ReadLine();
-                        client.SendChannelMessage(guid, msg);
+                        client.SendChannelMessageAsync(guid, msg);
+                        break;
+
+                    case "sendchannelsync":
+                        if (client == null) break;
+                        Console.Write("Channel GUID: ");
+                        guid = Console.ReadLine();
+                        Console.Write("Message: ");
+                        msg = Console.ReadLine();
+
+                        client.SendChannelMessageSync(guid, msg, out response);
+
+                        if (response != null)
+                        {
+                            Console.WriteLine("Sync response received for GUID " + response.MessageID);
+                            Console.WriteLine(response.ToString());
+                        }
+                        else
+                        {
+                            Console.WriteLine("*** No sync response received (null)");
+                        }
                         break;
 
                     case "whoami":

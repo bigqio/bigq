@@ -12,6 +12,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace BigQ
 {    
@@ -42,6 +44,11 @@ namespace BigQ
         /// The GUID associated with the client.  Do not modify directly; used by the server.  
         /// </summary>
         public string ClientGUID;
+
+        /// <summary>
+        /// The GUID associated with the server.  
+        /// </summary>
+        public string ServerGUID;
 
         /// <summary>
         /// The client's source IP address.  Do not modify directly; used by the server.  
@@ -287,9 +294,11 @@ namespace BigQ
             if (String.IsNullOrEmpty(Config.GUID)) Config.GUID = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(Config.Email)) Config.Email = Config.GUID;
             if (String.IsNullOrEmpty(Config.Password)) Config.Password = Config.GUID;
+            if (String.IsNullOrEmpty(Config.ServerGUID)) Config.ServerGUID = "00000000-0000-0000-0000-000000000000";
 
             Email = Config.Email;
             ClientGUID = Config.GUID;
+            ServerGUID = Config.ServerGUID;
             Password = Config.Password;
             SourceIP = "";
             SourcePort = 0;
@@ -535,7 +544,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = null;
                 request.Data = null;
@@ -568,7 +577,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = null;
                 request.Data = null;
@@ -637,7 +646,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = null;
                 request.Data = null;
@@ -664,7 +673,9 @@ namespace BigQ
                     if (response.Data != null)
                     {
                         if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListClients deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        clients = Helper.DeserializeJson<List<Client>>(response.Data, false);
+                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
+                        // clients = Helper.DeserializeJson<List<Client>>(Helper.SerializeJson(resp.Data), false);
+                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
                     }
                     return true;
                 }
@@ -699,7 +710,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = null;
                 request.Data = null;
@@ -725,8 +736,10 @@ namespace BigQ
                 {
                     if (response.Data != null)
                     {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChanels deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        channels = Helper.DeserializeJson<List<Channel>>(response.Data, false);
+                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannels deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
+                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
+                        // channels = Helper.DeserializeJson<List<Channel>>(Helper.SerializeJson(resp.Data), false);
+                        channels = ((JArray)resp.Data).ToObject<List<Channel>>();
                     }
                     return true;
                 }
@@ -764,7 +777,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -791,7 +804,9 @@ namespace BigQ
                     if (response.Data != null)
                     {
                         if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelMembers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        clients = Helper.DeserializeJson<List<Client>>(response.Data, false);
+                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
+                        // clients = Helper.DeserializeJson<List<Client>>(Helper.SerializeJson(resp.Data), false);
+                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
                     }
                     return true;
                 }
@@ -829,7 +844,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -856,7 +871,9 @@ namespace BigQ
                     if (response.Data != null)
                     {
                         if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelSubscribers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        clients = Helper.DeserializeJson<List<Client>>(response.Data, false);
+                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
+                        // clients = Helper.DeserializeJson<List<Client>>(Helper.SerializeJson(resp.Data), false);
+                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
                     }
                     return true;
                 }
@@ -891,7 +908,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -948,7 +965,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -1005,7 +1022,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -1062,7 +1079,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -1121,6 +1138,7 @@ namespace BigQ
                 CurrentChannel.Private = priv;
                 CurrentChannel.Broadcast = 1;
                 CurrentChannel.Multicast = 0;
+                CurrentChannel.Unicast = 0;
 
                 Message request = new Message();
                 request.Email = Email;
@@ -1129,26 +1147,26 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = CurrentChannel.Guid;
                 request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
 
                 if (!SendServerMessageSync(request, out response))
                 {
-                    Log("*** CreateChannel unable to retrieve server response");
+                    Log("*** CreateBroadcastChannel unable to retrieve server response");
                     return false;
                 }
 
                 if (response == null)
                 {
-                    Log("*** CreateChannel null response from server");
+                    Log("*** CreateBroadcastChannel null response from server");
                     return false;
                 }
 
                 if (!Helper.IsTrue(response.Success))
                 {
-                    Log("*** CreateChannel failed with response data " + response.Data.ToString());
+                    Log("*** CreateBroadcastChannel failed with response data " + response.Data.ToString());
                     return false;
                 }
                 else
@@ -1159,7 +1177,75 @@ namespace BigQ
             finally
             {
                 sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateBroadcastChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
+        }
+
+        /// <summary>
+        /// Create a unicast channel on the server.  Messages sent to unicast channels are sent only to one subscriber randomly.
+        /// </summary>
+        /// <param name="name">The name you wish to assign to the new channel.</param>
+        /// <param name="priv">Whether or not the channel is private (1) or public (0).</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool CreateUnicastChannel(string name, int priv, out Message response)
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            try
+            {
+                response = null;
+                if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
+                if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
+
+                Channel CurrentChannel = new Channel();
+                CurrentChannel.ChannelName = name;
+                CurrentChannel.OwnerGuid = ClientGUID;
+                CurrentChannel.Guid = Guid.NewGuid().ToString();
+                CurrentChannel.Private = priv;
+                CurrentChannel.Broadcast = 0;
+                CurrentChannel.Multicast = 0;
+                CurrentChannel.Unicast = 1;
+
+                Message request = new Message();
+                request.Email = Email;
+                request.Password = Password;
+                request.Command = "CreateChannel";
+                request.CreatedUTC = DateTime.Now.ToUniversalTime();
+                request.MessageID = Guid.NewGuid().ToString();
+                request.SenderGUID = ClientGUID;
+                request.RecipientGUID = ServerGUID;
+                request.SyncRequest = true;
+                request.ChannelGUID = CurrentChannel.Guid;
+                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
+
+                if (!SendServerMessageSync(request, out response))
+                {
+                    Log("*** CreateUnicastChannel unable to retrieve server response");
+                    return false;
+                }
+
+                if (response == null)
+                {
+                    Log("*** CreateUnicastChannel null response from server");
+                    return false;
+                }
+
+                if (!Helper.IsTrue(response.Success))
+                {
+                    Log("*** CreateUnicastChannel failed with response data " + response.Data.ToString());
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+            finally
+            {
+                sw.Stop();
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateUnicastChannel " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1188,6 +1274,7 @@ namespace BigQ
                 CurrentChannel.Private = priv;
                 CurrentChannel.Broadcast = 0;
                 CurrentChannel.Multicast = 1;
+                CurrentChannel.Unicast = 0;
 
                 Message request = new Message();
                 request.Email = Email;
@@ -1196,7 +1283,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = CurrentChannel.Guid;
                 request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
@@ -1253,7 +1340,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = guid;
                 request.Data = null;
@@ -1452,7 +1539,7 @@ namespace BigQ
             try
             {
                 if (request == null) throw new ArgumentNullException("request");
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 return SendRawMessage(request);
             }
             finally
@@ -1480,7 +1567,7 @@ namespace BigQ
                 if (request == null) throw new ArgumentNullException("request");
                 if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
                 request.SyncRequest = true;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
 
                 if (!AddSyncRequest(request.MessageID))
                 {
@@ -1527,12 +1614,12 @@ namespace BigQ
         }
 
         /// <summary>
-        /// Send a message to a channel, which is in turn sent to each subscriber of that channel.
+        /// Send an async message to a channel, which is in turn sent to recipients based on channel configuration.
         /// </summary>
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendChannelMessage(string guid, string data)
+        public bool SendChannelMessageAsync(string guid, string data)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -1541,7 +1628,7 @@ namespace BigQ
             {
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-                return SendChannelMessage(guid, Encoding.UTF8.GetBytes(data));
+                return SendChannelMessageAsync(guid, Encoding.UTF8.GetBytes(data));
             }
             finally
             {
@@ -1551,12 +1638,12 @@ namespace BigQ
         }
 
         /// <summary>
-        /// Send a message to a channel, which is in turn sent to each subscriber of that channel.
+        /// Send an async message to a channel, which is in turn sent to recipients based on channel configuration.
         /// </summary>
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendChannelMessage(string guid, byte[] data)
+        public bool SendChannelMessageAsync(string guid, byte[] data)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -1582,6 +1669,99 @@ namespace BigQ
             {
                 sw.Stop();
                 if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMembersMessage (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
+        }
+
+        /// <summary>
+        /// Send a sync message to a channel, which is in turn sent to recipients based on channel configuration. 
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendChannelMessageSync(string guid, string data, out Message response)
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            try
+            {
+                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+                if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
+                return SendChannelMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
+            }
+            finally
+            {
+                sw.Stop();
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMessageSync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
+            }
+        }
+
+        /// <summary>
+        /// Send a sync message to a channel, which is in turn sent to recipients based on channel configuration. 
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
+        /// <param name="response">The full response message received from the server.</param>
+        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
+        public bool SendChannelMessageSync(string guid, byte[] data, out Message response)
+        {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            Message CurrentMessage = new Message();
+
+            try
+            {
+                response = null;
+
+                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+                if (data == null) throw new ArgumentNullException("data");
+
+                CurrentMessage = new Message();
+                CurrentMessage.Email = Email;
+                CurrentMessage.Password = Password;
+                CurrentMessage.Command = null;
+                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                CurrentMessage.MessageID = Guid.NewGuid().ToString();
+                CurrentMessage.SenderGUID = ClientGUID;
+                CurrentMessage.RecipientGUID = null;
+                CurrentMessage.ChannelGUID = guid;
+                CurrentMessage.SyncRequest = true;
+                CurrentMessage.Data = data;
+
+                if (!AddSyncRequest(CurrentMessage.MessageID))
+                {
+                    Log("*** SendChannelMessageSync unable to register sync request GUID " + CurrentMessage.MessageID);
+                    return false;
+                }
+
+                if (!SendRawMessage(CurrentMessage))
+                {
+                    Log("*** SendChannelMessageSync unable to send message GUID " + CurrentMessage.MessageID + " to channel " + CurrentMessage.ChannelGUID);
+                    return false;
+                }
+
+                int timeoutMs = Config.DefaultSyncTimeoutMs;
+                if (CurrentMessage.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(CurrentMessage.SyncTimeoutMs);
+
+                Message ResponseMessage = new Message();
+                if (!GetSyncResponse(CurrentMessage.MessageID, timeoutMs, out ResponseMessage))
+                {
+                    Log("*** SendChannelMessageSync unable to get response for message GUID " + CurrentMessage.MessageID);
+                    return false;
+                }
+
+                if (ResponseMessage != null)
+                {
+                    response = ResponseMessage;
+                }
+                return true;
+            }
+            finally
+            {
+                sw.Stop();
+                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMessageSync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
             }
         }
 
@@ -1633,7 +1813,7 @@ namespace BigQ
                 request.CreatedUTC = DateTime.Now.ToUniversalTime();
                 request.MessageID = Guid.NewGuid().ToString();
                 request.SenderGUID = ClientGUID;
-                request.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+                request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
                 request.ChannelGUID = null;
                 request.Data = Encoding.UTF8.GetBytes(guid);
@@ -2175,7 +2355,7 @@ namespace BigQ
 
                     #region Handle-Message
 
-                    if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                    if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
                         && !String.IsNullOrEmpty(CurrentMessage.Command)
                         && String.Compare(CurrentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
                     {
@@ -2190,7 +2370,7 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                    else if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
                         && !String.IsNullOrEmpty(CurrentMessage.Command)
                         && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
                     {
@@ -2200,10 +2380,10 @@ namespace BigQ
                         {
                             #region Data-Exists
 
-                            Event ev = null;
+                            EventData ev = null;
                             try
                             {
-                                ev = Helper.DeserializeJson<Event>(CurrentMessage.Data, false);
+                                ev = Helper.DeserializeJson<EventData>(CurrentMessage.Data, false);
                             }
                             catch (Exception)
                             {
@@ -2217,29 +2397,29 @@ namespace BigQ
                                 continue;
                             }
 
-                            switch (ev.EventType.ToLower())
+                            switch (ev.EventType)
                             {
-                                case "clientjoinedserver":
+                                case EventTypes.ClientJoinedServer:
                                     if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
                                     continue;
 
-                                case "clientleftserver":
+                                case EventTypes.ClientLeftServer:
                                     if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
                                     continue;
 
-                                case "clientjoinedchannel":
+                                case EventTypes.ClientJoinedChannel:
                                     if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
-                                case "clientleftchannel":
+                                case EventTypes.ClientLeftChannel:
                                     if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
-                                case "subscriberjoinedchannel":
+                                case EventTypes.SubscriberJoinedChannel:
                                     if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
-                                case "subscriberleftchannel":
+                                case EventTypes.SubscriberLeftChannel:
                                     if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
@@ -2513,7 +2693,7 @@ namespace BigQ
 
                     #region Handle-Message
 
-                    if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                    if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
                         && !String.IsNullOrEmpty(CurrentMessage.Command)
                         && String.Compare(CurrentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
                     {
@@ -2529,7 +2709,7 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (String.Compare(CurrentMessage.SenderGUID, "00000000-0000-0000-0000-000000000000") == 0
+                    else if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
                         && !String.IsNullOrEmpty(CurrentMessage.Command)
                         && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
                     {
@@ -2539,10 +2719,10 @@ namespace BigQ
                         {
                             #region Data-Exists
 
-                            Event ev = null;
+                            EventData ev = null;
                             try
                             {
-                                ev = Helper.DeserializeJson<Event>(CurrentMessage.Data, false);
+                                ev = Helper.DeserializeJson<EventData>(CurrentMessage.Data, false);
                             }
                             catch (Exception)
                             {
@@ -2556,29 +2736,29 @@ namespace BigQ
                                 continue;
                             }
 
-                            switch (ev.EventType.ToLower())
+                            switch (ev.EventType)
                             {
-                                case "clientjoinedserver":
+                                case EventTypes.ClientJoinedServer:
                                     if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
                                     continue;
 
-                                case "clientleftserver":
+                                case EventTypes.ClientLeftServer:
                                     if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
                                     continue;
 
-                                case "clientjoinedchannel":
+                                case EventTypes.ClientJoinedChannel:
                                     if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
-                                case "clientleftchannel":
+                                case EventTypes.ClientLeftChannel:
                                     if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
-                                case "subscriberjoinedchannel":
+                                case EventTypes.SubscriberJoinedChannel:
                                     if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
-                                case "subscriberleftchannel":
+                                case EventTypes.SubscriberLeftChannel:
                                     if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
                                     continue;
 
@@ -2863,7 +3043,7 @@ namespace BigQ
         {
             Message ResponseMessage = new Message();
             ResponseMessage.MessageID = Guid.NewGuid().ToString();
-            ResponseMessage.RecipientGUID = "00000000-0000-0000-0000-000000000000";
+            ResponseMessage.RecipientGUID = ServerGUID;
             ResponseMessage.Command = "HeartbeatRequest";
             ResponseMessage.SenderGUID = ClientGUID;
             ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();

@@ -76,3 +76,14 @@ D:\Code\BigQ\BigQ\BigQ\bin\Debug\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.dll
 D:\Code\BigQ\BigQ\BigQ\obj\Debug\BigQ.pdb
+D:\code\bigq\BigQ1.4.12\BigQ\bin\Debug\BigQ.dll
+D:\code\bigq\BigQ1.4.12\BigQ\bin\Debug\BigQ.pdb
+D:\code\bigq\BigQ1.4.12\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache
+D:\code\bigq\BigQ1.4.12\BigQ\obj\Debug\BigQ.dll
+D:\code\bigq\BigQ1.4.12\BigQ\obj\Debug\BigQ.pdb
+D:\Code\BigQ\BigQ150\BigQ\bin\Debug\BigQ.dll
+D:\Code\BigQ\BigQ150\BigQ\bin\Debug\BigQ.pdb
+D:\Code\BigQ\BigQ150\BigQ\bin\Debug\Newtonsoft.Json.dll
+D:\Code\BigQ\BigQ150\BigQ\bin\Debug\Newtonsoft.Json.xml
+D:\Code\BigQ\BigQ150\BigQ\obj\Debug\BigQ.dll
+D:\Code\BigQ\BigQ150\BigQ\obj\Debug\BigQ.pdb

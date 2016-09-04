@@ -23,10 +23,12 @@ Core use cases for bigq:
   - Websockets
   - Websockets with SSL
 - real-time messaging like chat applications
+- synchronous and asynchronous messaging
 - flexible distribution options
   - unicast node to node
-  - multicast channels for publisher-subscriber
-  - broadcast channels
+  - multicast channels for publisher to multiple subscribers
+  - unicast channels for publisher to single subscriber
+  - broadcast channels for publisher to all members
 - cluster management
 - near real-time notifications and events
 
@@ -102,8 +104,8 @@ Message response;
 if (!client.Login(out response)) { // handle failures }
 ```
 
-## unicast messaging: one to one
-unicast messages are sent directly between clients
+## unicast messaging
+unicast messages are sent directly between clients without a channel
 ```
 Message response;
 List<Client> clients;
@@ -121,24 +123,28 @@ if (!client.SendPrivateMessageAsync(guid, msg)) { // handle errors }
 if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle errors }
 ```
 
-## multicast messaging: one to many
-messages sent to a multicast channel are sent to all subscribers
+## channel messaging
+messages sent to a unicast channel are sent to a single random subscriber
+messages sent to a multicast channel are sent to all members that are subscribers
+messages sent to a broadcast channel are sent to all members whether they are subscribers or not
 ```
 Message response;
 List<Channel> channels;
 List<Client> clients;
 
-// publishers: list and join, or create a channel
+// list and join or create a channel
 if (!client.ListChannels(out response, out channels)) { // handle errors }
 if (!client.JoinChannel(guid, out response)) { // handle errors }
-if (!client.CreateChannel(guid, false, out response)) { // handle errors }
+if (!client.CreateUnicastChannel(name, 0, out response)) { // handle errors }
+if (!client.CreateMulticastChannel(name, 0, out response)) { // handle errors }
+if (!client.CreateBroadcastChannel(name, 0, out response)) { // handle errors }
 
-// subscribers subscribe to a channel
+// subscribe to a channel
 if (!client.SubscribeChannel(guid, out response)) { // handle errors }
 
-// publishers send channel message to subscribers
-// received by 'AsyncMessageReceived' on each client that is a member of that channel
-if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
+// send message to a channel
+if (!client.SendChannelMessageSync(guid, "Hello!", out response)) { // handle errors }
+if (!client.SendChannelMessageAsync(guid, "Hello!")) { // handle errors }
 
 // leave a channel, unsubscribe, or delete it if yours
 if (!client.LeaveChannel(guid, out response)) { // handle errors }
@@ -148,30 +154,6 @@ if (!client.DeleteChannel(guid, out response)) { // handle errors }
 // list channel members or subscribers
 if (!client.ListChannelMembers(guid, out response, out clients)) { // handle errors }
 if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
-```
-
-## broadcast messaging: one to all
-messages sent to a broadcast channel are sent to all members (not just subscribers)
-```
-Message response;
-List<Channel> channels;
-List<Client> clients;
-
-// list and join, or create a channel
-if (!client.ListChannels(out response, out channels)) { // handle errors }
-if (!client.JoinChannel(guid, out response)) { // handle errors }
-if (!client.CreateChannel(guid, false, out response)) { // handle errors }
-
-// send channel message to all members
-// received by 'AsyncMessageReceived' on each client that is a member of that channel
-if (!client.SendChannelMessage(guid, "Hello!")) { // handle errors }
-
-// leave a channel, unsubscribe, or delete it if yours
-if (!client.LeaveChannel(guid, out response)) { // handle errors }
-if (!client.DeleteChannel(guid, out response)) { // handle errors }
-
-// list channel members
-if (!client.ListChannelMembers(guid, out response, out clients)) { // handle errors }
 ```
 
 ## connecting using websockets
@@ -242,7 +224,16 @@ multiple servers can be set to enabled at any given time.  Values for servers ca
       "Port":8003,
       "P12CertFile":"server.pfx",
       "P12CertPassword":"password"
-   }
+   },
+   "ServerChannels": [
+      {
+         "Broadcast": 1,
+         "Multicast": 0,
+         "Unicast": 0,
+         "ChannelName": "Default server channel",
+         "Private": 0
+      }
+   ]
 }
 
 ```

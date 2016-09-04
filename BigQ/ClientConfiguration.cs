@@ -46,6 +46,11 @@ namespace BigQ
         public int DefaultSyncTimeoutMs;
 
         /// <summary>
+        /// The GUID associated with the server (optional).
+        /// </summary>
+        public string ServerGUID;
+
+        /// <summary>
         /// Settings related to heartbeat exchanges between client and server.
         /// </summary>
         public HeartbeatSettings Heartbeat;
@@ -245,6 +250,7 @@ namespace BigQ
             ret.Email = ret.GUID;
             ret.Password = ret.GUID;
             ret.DefaultSyncTimeoutMs = 10000;
+            ret.ServerGUID = "00000000-0000-0000-0000-000000000000";
 
             ret.Heartbeat = new HeartbeatSettings();
             ret.Heartbeat.Enable = false;
@@ -267,7 +273,7 @@ namespace BigQ
             ret.TcpSSLServer.Port = 8001;
             ret.TcpSSLServer.PFXCertFile = "server.crt";
             ret.TcpSSLServer.PFXCertPassword = "password";
-            
+
             return ret;
         }
 

@@ -1,48 +1,57 @@
 ﻿{
-	"Version": "1.0.0",
-  "AcceptInvalidSSLCerts": true,
-  "Files": {
-    "UsersFile": "users.json",
-    "PermissionsFile": "permissions.json"
-  },
-	"Heartbeat": {
-		"Enable": false,
-		"IntervalMs": 1000,
-		"MaxFailures": 5
-	},
-	"Notification": {
-		"MsgAcknowledgement": false,
-		"ServerJoinNotification": true,
-		"ChannelJoinNotification": true
-	},
-	"Debug": {
-		"Enable": true,
-		"LockMethodResponseTime": true,
-		"MsgResponseTime": true,
-		"ConsoleLogging": true
-	},
-	"TcpServer": {
-		"Enable": false,
-		"IP": "0.0.0.0",
-		"Port": 8000
-	},
-	"TcpSSLServer": {
-		"Enable": true,
-		"IP": "127.0.0.1",
-		"Port": 8001,
-		"PFXCertFile": "server.pfx",
-		"PFXCertPassword": "password"
-	},
-	"WebsocketServer": {
-		"Enable": false,
-		"IP": "0.0.0.0",
-		"Port": 8002
-	},
-	"WebsocketSSLServer": {
-		"Enable": false,
-		"IP": "0.0.0.0",
-		"Port": 8003,
-		"PFXCertFile": "server.pfx",
-		"PFXCertPassword": "password"
-	}
+   "Version": "1.0.0",
+   "AcceptInvalidSSLCerts": true,
+   "Files": {
+      "UsersFile": "users.json",
+      "PermissionsFile": "permissions.json"
+   },
+   "Heartbeat": {
+      "Enable": false,
+      "IntervalMs": 1000,
+      "MaxFailures": 5
+   },
+   "Notification": {
+      "MsgAcknowledgement": false,
+      "ServerJoinNotification": true,
+      "ChannelJoinNotification": true
+   },
+   "Debug": {
+      "Enable": true,
+      "LockMethodResponseTime": true,
+      "MsgResponseTime": true,
+      "ConsoleLogging": true
+   },
+   "TcpServer": {
+      "Enable": false,
+      "IP": "0.0.0.0",
+      "Port": 8000
+   },
+   "TcpSSLServer": {
+      "Enable": true,
+      "IP": "127.0.0.1",
+      "Port": 8001,
+      "PFXCertFile": "server.pfx",
+      "PFXCertPassword": "password"
+   },
+   "WebsocketServer": {
+      "Enable": false,
+      "IP": "0.0.0.0",
+      "Port": 8002
+   },
+   "WebsocketSSLServer": {
+      "Enable": false,
+      "IP": "0.0.0.0",
+      "Port": 8003,
+      "PFXCertFile": "server.pfx",
+      "PFXCertPassword": "password"
+   },
+   "ServerChannels": [
+      {
+         "Broadcast": 1,
+         "Multicast": 0,
+         "Unicast": 0,
+         "ChannelName": "Default server channel",
+         "Private": 0
+      }
+   ]
 }

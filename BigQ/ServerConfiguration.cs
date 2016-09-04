@@ -26,6 +26,11 @@ namespace BigQ
         public bool AcceptInvalidSSLCerts;
 
         /// <summary>
+        /// Optional, overrides the GUID used by the server.  By default, the server uses 00000000-0000-0000-0000-000000000000.
+        /// </summary>
+        public string GUID;
+
+        /// <summary>
         /// Settings related to files referenced by BigQ.
         /// </summary>
         public FilesSettings Files;
@@ -64,6 +69,11 @@ namespace BigQ
         /// Settings related to the BigQ websocket server (with SSL).
         /// </summary>
         public WebsocketSSLServerSettings WebsocketSSLServer;
+
+        /// <summary>
+        /// Channels to be created by the server on start or restar.
+        /// </summary>
+        public List<Channel> ServerChannels;
 
         #endregion
 
@@ -354,6 +364,7 @@ namespace BigQ
             ServerConfiguration ret = new ServerConfiguration();
             ret.Version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString();
             ret.AcceptInvalidSSLCerts = true;
+            ret.GUID = "00000000-0000-0000-0000-000000000000";
 
             ret.Files = new FilesSettings();
             ret.Files.UsersFile = "";
@@ -398,6 +409,21 @@ namespace BigQ
             ret.WebsocketSSLServer.Port = 8003;
             ret.WebsocketSSLServer.PFXCertFile = "server.crt";
             ret.WebsocketSSLServer.PFXCertPassword = "password";
+
+            DateTime timestamp = DateTime.Now.ToUniversalTime();
+            Channel serverChannel = new Channel();
+            serverChannel.Broadcast = 1;
+            serverChannel.Multicast = 0;
+            serverChannel.Unicast = 0;
+            serverChannel.ChannelName = "Default server channel";
+            serverChannel.CreatedUTC = timestamp;
+            serverChannel.UpdatedUTC = timestamp;
+            serverChannel.Guid = Guid.NewGuid().ToString();
+            serverChannel.OwnerGuid = ret.GUID;
+            serverChannel.Private = 0;
+
+            ret.ServerChannels = new List<Channel>();
+            ret.ServerChannels.Add(serverChannel);
 
             return ret;
         }

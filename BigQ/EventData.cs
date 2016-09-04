@@ -7,10 +7,23 @@ using System.Threading.Tasks;
 namespace BigQ
 {
     /// <summary>
+    /// The available event types.
+    /// </summary>
+    public enum EventTypes
+    {
+        ClientJoinedServer,
+        ClientLeftServer,
+        ClientJoinedChannel,
+        ClientLeftChannel,
+        SubscriberJoinedChannel,
+        SubscriberLeftChannel
+    }
+
+    /// <summary>
     /// Object containing metadata about an event that occurred on BigQ.
     /// </summary>
     [Serializable]
-    public class Event
+    public class EventData
     {
         //
         //
@@ -23,12 +36,12 @@ namespace BigQ
         /// <summary>
         /// The type of event.
         /// </summary>
-        public string EventType;
+        public EventTypes EventType { get; set; }
 
         /// <summary>
         /// Event-related data.
         /// </summary>
-        public object Data;
+        public object Data { get; set; }
 
         #endregion
 
@@ -37,7 +50,7 @@ namespace BigQ
         /// <summary>
         /// Do not use.  Used internally by BigQ libraries.
         /// </summary>
-        public Event()
+        public EventData()
         {
 
         }
@@ -54,7 +67,7 @@ namespace BigQ
         {
             string ret = "";
             ret += Environment.NewLine;
-            ret += " Event: EventType " + EventType + " ";
+            ret += " Event: EventType " + EventType.ToString() + " ";
             
             if (Data != null)
             {
@@ -68,6 +81,24 @@ namespace BigQ
             }
 
             return ret;
+        }
+
+        #endregion
+
+        #region Factory
+
+        /// <summary>
+        /// Create a byte array containing an EventData object.
+        /// </summary>
+        /// <param name="eventType">The type of event.</param>
+        /// <param name="data">The data associated with the event.</param>
+        /// <returns></returns>
+        public static byte[] ToBytes(EventTypes eventType, object data)
+        {
+            EventData e = new EventData();
+            e.EventType = eventType;
+            if (data != null) e.Data = data;
+            return Encoding.UTF8.GetBytes(Helper.SerializeJson(e));
         }
 
         #endregion

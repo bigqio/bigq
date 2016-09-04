@@ -97,6 +97,7 @@ namespace BigQServerTest
                                 else line += "pub ";
                                 if (curr.Broadcast == 1) line += "bcast ";
                                 else if (curr.Multicast == 1) line += "mcast ";
+                                else if (curr.Unicast == 1) line += "ucast ";
                                 else line += "unknown ";
 
                                 Console.WriteLine(line);

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -14,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
+using Newtonsoft.Json;
 
 namespace BigQ
 {
@@ -1928,14 +1930,14 @@ namespace BigQ
             }
 
             // Newtonsoft
-            // Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
-            // settings.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore;
-            // return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
+            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
+            settings.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore;
+            return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
 
             // System.Web.Script.Serialization
-            JavaScriptSerializer ser = new JavaScriptSerializer();
-            ser.MaxJsonLength = Int32.MaxValue;
-            return (T)ser.Deserialize<T>(json);
+            // JavaScriptSerializer ser = new JavaScriptSerializer();
+            // ser.MaxJsonLength = Int32.MaxValue;
+            // return (T)ser.Deserialize<T>(json);
         }
 
         public static T DeserializeJson<T>(byte[] bytes, bool debug)
@@ -1949,27 +1951,27 @@ namespace BigQ
             }
 
             // Newtonsoft
-            // Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
-            // string json = Encoding.UTF8.GetString(bytes);
-            // return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
+            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
+            string json = Encoding.UTF8.GetString(bytes);
+            return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
 
             // System.Web.Script.Serialization
-            JavaScriptSerializer ser = new JavaScriptSerializer();
-            ser.MaxJsonLength = Int32.MaxValue;
-            return (T)ser.Deserialize<T>(Encoding.UTF8.GetString(bytes));
+            // JavaScriptSerializer ser = new JavaScriptSerializer();
+            // ser.MaxJsonLength = Int32.MaxValue;
+            // return (T)ser.Deserialize<T>(Encoding.UTF8.GetString(bytes));
         }
-        
+
         public static string SerializeJson(object obj)
         {
             // Newtonsoft
-            // string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings { });
-            // return json;
+            string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings { });
+            return json;
 
             // System.Web.Script.Serialization
-            JavaScriptSerializer ser = new JavaScriptSerializer();
-            ser.MaxJsonLength = Int32.MaxValue;
-            string json = ser.Serialize(obj);
-            return json;
+            // JavaScriptSerializer ser = new JavaScriptSerializer();
+            // ser.MaxJsonLength = Int32.MaxValue;
+            // string json = ser.Serialize(obj);
+            // return json;
         }
 
         public static T CopyObject<T>(T source)
@@ -2062,6 +2064,26 @@ namespace BigQ
             if (Int32.TryParse(val, out val_int)) if (val_int == 1) return true;
             if (String.Compare(val, "true") == 0) return true;
             return false;
+        }
+        
+        public static bool IsList(object o)
+        {
+            if (o == null) return false;
+            return o is IList &&
+                   o.GetType().IsGenericType &&
+                   o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>));
+        }
+        
+        public static List<object> ObjectToList(object o)
+        {
+            if (o == null) return null;
+            List<object> ret = new List<object>();
+            var enumerator = ((IEnumerable)o).GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                ret.Add(enumerator.Current);
+            }
+            return ret;
         }
     }
 }

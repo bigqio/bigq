@@ -34,6 +34,10 @@
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Web.Extensions" />
@@ -44,12 +48,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SuccessData.cs" />
+    <Compile Include="FailureData.cs" />
     <Compile Include="ClientConfiguration.cs" />
     <Compile Include="ServerConfiguration.cs" />
     <Compile Include="Channel.cs" />
     <Compile Include="Client.cs" />
     <Compile Include="Helper.cs" />
-    <Compile Include="Event.cs" />
+    <Compile Include="EventData.cs" />
     <Compile Include="ConcurrentList.cs" />
     <Compile Include="Permission.cs" />
     <Compile Include="User.cs" />
@@ -58,6 +64,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="Samples\client.json" />
     <None Include="Samples\permissions.json" />
     <None Include="Samples\server.json" />

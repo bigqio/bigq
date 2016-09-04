@@ -56,3 +56,13 @@ D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.exe
 D:\Code\BigQ\BigQ\BigQClientTest\obj\Release\BigQClientTest.pdb
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\BigQClientTest.exe.config
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\BigQClientTest.exe
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\BigQClientTest.pdb
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\BigQ.dll
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\Newtonsoft.Json.dll
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\BigQ.pdb
+D:\Code\BigQ\BigQ150\BigQClientTest\bin\Release\Newtonsoft.Json.xml
+D:\Code\BigQ\BigQ150\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQ150\BigQClientTest\obj\Release\BigQClientTest.exe
+D:\Code\BigQ\BigQ150\BigQClientTest\obj\Release\BigQClientTest.pdb

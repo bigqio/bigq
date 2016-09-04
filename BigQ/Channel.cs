@@ -22,13 +22,10 @@ namespace BigQ
         public int? Private;
         public int? Broadcast;
         public int? Multicast;
+        public int? Unicast;
 
         public List<Client> Members;
         public List<Client> Subscribers;
-
-        #endregion
-
-        #region Delegates
 
         #endregion
     }
