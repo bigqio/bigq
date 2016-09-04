@@ -132,9 +132,9 @@ if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle er
 ```
 
 ## channel messaging
-messages sent to a unicast channel are sent to a single random subscriber
-messages sent to a multicast channel are sent to all members that are subscribers
-messages sent to a broadcast channel are sent to all members whether they are subscribers or not
+- messages sent to a unicast channel are sent to a single random subscriber
+- messages sent to a multicast channel are sent to all members that are subscribers
+- messages sent to a broadcast channel are sent to all members whether they are subscribers or not
 ```
 Message response;
 List<Channel> channels;
