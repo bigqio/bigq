@@ -12,6 +12,14 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 ## help or feedback
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
+## new in v1.5.0
+- synchronous and asynchronous channels (previously only async, APIs have changed)
+- unicast channels (random single recipient)
+- server channels (started on server startup)
+- configurable server GUID (instead of hard-coded zero GUID)
+- structured success, failure, and event messages (instead of string)
+- numerous bugfixes
+
 ## description
 bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.  bigq is tested and compatible with Mono.
 
@@ -280,3 +288,6 @@ BigQ works well in Mono environments to the extent that we have tested it.  It i
 mono --aot=nrgctx-trampolines=8096,nimt-trampolines=8096,ntrampolines=4048 --server myapp.exe
 mono --server myapp.exe
 ```
+
+## version history
+notes from previous versions (starting with v1.5.0) will be moved here.
