@@ -1861,12 +1861,8 @@ namespace BigQ
                 {
                     if (CurrentClient.Client.Poll(0, SelectMode.SelectRead))
                     {
-                        byte[] buff = new byte[1];
-                        if (CurrentClient.Client.Receive(buff, SocketFlags.Peek) == 0) success = false;
-                        else success = true;
+                        success = !(CurrentClient.Client.Poll(1, SelectMode.SelectRead) && CurrentClient.Client.Available == 0);
                     }
-
-                    success = true;
                 }
                 else
                 {
@@ -1930,7 +1926,7 @@ namespace BigQ
             }
 
             // Newtonsoft
-            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
+            JsonSerializerSettings settings = new JsonSerializerSettings();
             settings.NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore;
             return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
 
@@ -1951,7 +1947,7 @@ namespace BigQ
             }
 
             // Newtonsoft
-            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings();
+            JsonSerializerSettings settings = new JsonSerializerSettings();
             string json = Encoding.UTF8.GetString(bytes);
             return (T)Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json, settings);
 
@@ -1964,7 +1960,9 @@ namespace BigQ
         public static string SerializeJson(object obj)
         {
             // Newtonsoft
-            string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, new JsonSerializerSettings { });
+            JsonSerializerSettings settings = new JsonSerializerSettings();
+            settings.NullValueHandling = NullValueHandling.Ignore;
+            string json = JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented, settings);
             return json;
 
             // System.Web.Script.Serialization

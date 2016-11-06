@@ -43,3 +43,6 @@ D:\Code\BigQ\BigQ150\BigQ\bin\Release\Newtonsoft.Json.dll
 D:\Code\BigQ\BigQ150\BigQ\bin\Release\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQ150\BigQ\obj\Release\BigQ.dll
 D:\Code\BigQ\BigQ150\BigQ\obj\Release\BigQ.pdb
+D:\code\BigQ\BigQ\BigQ\bin\Release\Newtonsoft.Json.dll
+D:\code\BigQ\BigQ\BigQ\bin\Release\Newtonsoft.Json.xml
+D:\code\BigQ\BigQ\BigQ\obj\Release\BigQ.csprojResolveAssemblyReference.cache

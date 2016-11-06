@@ -131,3 +131,5 @@ D:\Code\BigQ\BigQ150\BigQServerTest\bin\Debug\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQ150\BigQServerTest\obj\Debug\BigQServerTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ150\BigQServerTest\obj\Debug\BigQServerTest.exe
 D:\Code\BigQ\BigQ150\BigQServerTest\obj\Debug\BigQServerTest.pdb
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\Newtonsoft.Json.dll
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\Newtonsoft.Json.xml

@@ -76,3 +76,5 @@ D:\Code\BigQ\BigQ150\BigQServerTest\bin\Release\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQ150\BigQServerTest\obj\Release\BigQServerTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQ150\BigQServerTest\obj\Release\BigQServerTest.exe
 D:\Code\BigQ\BigQ150\BigQServerTest\obj\Release\BigQServerTest.pdb
+D:\code\BigQ\BigQ\BigQServerTest\bin\Release\Newtonsoft.Json.dll
+D:\code\BigQ\BigQ\BigQServerTest\bin\Release\Newtonsoft.Json.xml
