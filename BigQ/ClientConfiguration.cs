@@ -80,11 +80,6 @@ namespace BigQ
         public class HeartbeatSettings
         {
             /// <summary>
-            /// Enable or disable heartbeats.
-            /// </summary>
-            public bool Enable;
-
-            /// <summary>
             /// The frequency with which heartbeat messages should be sent to the server, in milliseconds.
             /// </summary>
             public int IntervalMs;
@@ -194,12 +189,8 @@ namespace BigQ
             if (Debug == null) throw new ArgumentNullException("Debug");
             if (TcpServer == null) throw new ArgumentNullException("TcpServer");
             if (TcpSSLServer == null) throw new ArgumentNullException("TcpSSLServer");
-
-            if (Heartbeat.Enable)
-            {
-                if (Heartbeat.IntervalMs < 1000) throw new ArgumentOutOfRangeException("Heartbeat.IntervalMs");
-                if (Heartbeat.MaxFailures < 1) throw new ArgumentOutOfRangeException("Heartbeat.MaxFailures");
-            }
+            if (Heartbeat.IntervalMs < 1000) throw new ArgumentOutOfRangeException("Heartbeat.IntervalMs");
+            if (Heartbeat.MaxFailures < 1) throw new ArgumentOutOfRangeException("Heartbeat.MaxFailures");
 
             if (TcpServer.Enable)
             {
@@ -253,7 +244,6 @@ namespace BigQ
             ret.ServerGUID = "00000000-0000-0000-0000-000000000000";
 
             ret.Heartbeat = new HeartbeatSettings();
-            ret.Heartbeat.Enable = true;
             ret.Heartbeat.IntervalMs = 1000;
             ret.Heartbeat.MaxFailures = 5;
             

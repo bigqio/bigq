@@ -2904,22 +2904,6 @@ namespace BigQ
         {
             try
             {
-                #region Check-for-Disable
-
-                if (!Config.Heartbeat.Enable)
-                {
-                    Log("HeartbeatManager disabled");
-                    return;
-                }
-
-                if (Config.Heartbeat.IntervalMs == 0)
-                {
-                    Log("HeartbeatManager disabled");
-                    return;
-                }
-
-                #endregion
-
                 #region Check-for-Null-Values
 
                 if (Config.TcpServer.Enable)

@@ -1185,23 +1185,13 @@ namespace BigQ
 
             try
             {
-                #region Check-for-Disable
-
-                if (!Config.Heartbeat.Enable)
-                {
-                    Log("TCPHeartbeatManager disabled");
-                    return;
-                }
-
-                if (Config.Heartbeat.IntervalMs == 0)
-                {
-                    Log("TCPHeartbeatManager disabled");
-                    return;
-                }
-
-                #endregion
-
                 #region Check-for-Null-Values
+
+                if (Config.Heartbeat.IntervalMs <= 0)
+                {
+                    Log("*** TCPHeartbeatManager invalid heartbeat interval, using 1000ms");
+                    Config.Heartbeat.IntervalMs = 1000;
+                }
 
                 if (CurrentClient == null)
                 {
@@ -1679,23 +1669,13 @@ namespace BigQ
 
             try
             {
-                #region Check-for-Disable
-
-                if (!Config.Heartbeat.Enable)
-                {
-                    Log("TCPSSLHeartbeatManager disabled");
-                    return;
-                }
-
-                if (Config.Heartbeat.IntervalMs == 0)
-                {
-                    Log("TCPSSLHeartbeatManager disabled");
-                    return;
-                }
-
-                #endregion
-
                 #region Check-for-Null-Values
+
+                if (Config.Heartbeat.IntervalMs <= 0)
+                {
+                    Log("*** TCPSSLHeartbeatManager invalid heartbeat interval, using 1000ms");
+                    Config.Heartbeat.IntervalMs = 1000;
+                }
 
                 if (CurrentClient == null)
                 {
@@ -2157,23 +2137,13 @@ namespace BigQ
 
             try
             {
-                #region Check-for-Disable
-
-                if (!Config.Heartbeat.Enable)
-                {
-                    Log("WSHeartbeatManager disabled");
-                    return;
-                }
-
-                if (Config.Heartbeat.IntervalMs == 0)
-                {
-                    Log("WSHeartbeatManager disabled");
-                    return;
-                }
-
-                #endregion
-
                 #region Check-for-Null-Values
+
+                if (Config.Heartbeat.IntervalMs <= 0)
+                {
+                    Log("*** WSHeartbeatManager invalid heartbeat interval, using 1000ms");
+                    Config.Heartbeat.IntervalMs = 1000;
+                }
 
                 if (CurrentClient == null)
                 {
@@ -2640,23 +2610,13 @@ namespace BigQ
 
             try
             {
-                #region Check-for-Disable
-
-                if (!Config.Heartbeat.Enable)
-                {
-                    Log("WSSSLHeartbeatManager disabled");
-                    return;
-                }
-
-                if (Config.Heartbeat.IntervalMs == 0)
-                {
-                    Log("WSSSLHeartbeatManager disabled");
-                    return;
-                }
-
-                #endregion
-
                 #region Check-for-Null-Values
+
+                if (Config.Heartbeat.IntervalMs <= 0)
+                {
+                    Log("*** WSSSLHeartbeatManager invalid heartbeat interval, using 1000ms");
+                    Config.Heartbeat.IntervalMs = 1000;
+                }
 
                 if (CurrentClient == null)
                 {
