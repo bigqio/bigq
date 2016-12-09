@@ -49,7 +49,7 @@ namespace BigQ
                     Log("** TCPMessageWrite null message supplied");
                     return false;
                 }
-
+                
                 #endregion
 
                 #region Add-Values-if-Needed
@@ -114,12 +114,12 @@ namespace BigQ
             }
         }
 
-        public static Message TCPMessageRead(TcpClient CurrentClient, bool ConsoleLogResponseTime)
+        public static bool TCPMessageRead(TcpClient CurrentClient, bool ConsoleLogResponseTime, out Message CurrentMessage)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            Message Message = new Message();
+            CurrentMessage = null;
             bool DataAvailable = false;
             string SourceIp = "";
             int SourcePort = 0;
@@ -131,13 +131,13 @@ namespace BigQ
                 if (CurrentClient == null)
                 {
                     Log("*** TCPMessageRead null client supplied");
-                    return null;
+                    return false;
                 }
 
                 if (!CurrentClient.Connected)
                 {
                     Log("*** TCPMessageRead supplied client is not connected");
-                    return null;
+                    return false;
                 }
 
                 #endregion
@@ -161,7 +161,7 @@ namespace BigQ
                 catch (Exception e)
                 {
                     Log("*** TCPMessageRead disconnected while attaching to stream for " + SourceIp + ":" + SourcePort + ": " + e.Message);
-                    return null;
+                    return false;
                 }
 
                 byte[] headerBytes;
@@ -170,25 +170,19 @@ namespace BigQ
                 #endregion
 
                 #region Read-Headers-from-Stream
-
-                if (!IsTCPPeerConnected(CurrentClient))
-                {
-                    Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected while attempting to read headers");
-                    return null;
-                }
                 
                 if (!ClientStream.CanRead)
                 {
                     // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
                     // Thread.Sleep(25);
-                    return null;
+                    return false;
                 }
 
                 if (!ClientStream.DataAvailable)
                 {
                     // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream has no data available");
                     // Thread.Sleep(25);
-                    return null;
+                    return true;
                 }
 
                 DataAvailable = true;
@@ -277,14 +271,14 @@ namespace BigQ
                     if (timeout)
                     {
                         Log("*** TCPMessageRead timeout " + currentTimeout + "ms/" + maxTimeout + "ms exceeded while reading headers after reading " + BytesRead + " bytes");
-                        return null;
+                        return false;
                     }
 
                     headerBytes = headerMs.ToArray();
                     if (headerBytes == null || headerBytes.Length < 1)
                     {
                         // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " no byte data read from peer");
-                        return null;
+                        return true;
                     }
 
                     #endregion
@@ -293,26 +287,26 @@ namespace BigQ
 
                     try
                     {
-                        Message = new Message(headerBytes);
+                        CurrentMessage = new Message(headerBytes);
                     }
                     catch (Exception e)
                     {
                         Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " exception while reading message headers: " + e.Message);
-                        return null;
+                        return false;
                     }
 
-                    if (Message == null || Message == default(Message))
+                    if (CurrentMessage == null || CurrentMessage == default(Message))
                     {
                         Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " null or default message after reading headers");
-                        return null;
+                        return false;
                     }
 
                     #endregion
 
                     #region Check-for-Empty-ContentLength
 
-                    if (Message.ContentLength == null) return Message;
-                    if (Message.ContentLength <= 0) return Message;
+                    if (CurrentMessage.ContentLength == null) return true;
+                    if (CurrentMessage.ContentLength <= 0) return true;
 
                     #endregion
                 }
@@ -325,7 +319,7 @@ namespace BigQ
 
                 using (MemoryStream dataMs = new MemoryStream())
                 {
-                    long bytesRemaining = Convert.ToInt64(Message.ContentLength);
+                    long bytesRemaining = Convert.ToInt64(CurrentMessage.ContentLength);
                     timeout = false;
                     currentTimeout = 0;
 
@@ -361,7 +355,7 @@ namespace BigQ
                         // check if read fully
                         //
                         if (bytesRemaining == 0) break;
-                        if (BytesRead == Message.ContentLength) break;
+                        if (BytesRead == CurrentMessage.ContentLength) break;
 
                         if (!ClientStream.DataAvailable)
                         {
@@ -386,7 +380,7 @@ namespace BigQ
                     if (timeout)
                     {
                         Log("*** TCPMessageRead timeout " + currentTimeout + "ms/" + maxTimeout + "ms exceeded while reading content after reading " + BytesRead + " bytes");
-                        return null;
+                        return false;
                     }
 
                     if (ConsoleLogResponseTime) Log("TCPMessageRead read data " + sw.Elapsed.TotalMilliseconds + "ms");
@@ -403,17 +397,17 @@ namespace BigQ
                 if (contentBytes == null || contentBytes.Length < 1)
                 {
                     Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " no content read");
-                    return null;
+                    return true;
                 }
 
-                if (contentBytes.Length != Message.ContentLength)
+                if (contentBytes.Length != CurrentMessage.ContentLength)
                 {
-                    Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " content length " + contentBytes.Length + " bytes does not match header value of " + Message.ContentLength);
-                    return null;
+                    Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " content length " + contentBytes.Length + " bytes does not match header value of " + CurrentMessage.ContentLength);
+                    return true;
                 }
 
-                Message.Data = new byte[contentBytes.Length];
-                Buffer.BlockCopy(contentBytes, 0, Message.Data, 0, contentBytes.Length);
+                CurrentMessage.Data = new byte[contentBytes.Length];
+                Buffer.BlockCopy(contentBytes, 0, CurrentMessage.Data, 0, contentBytes.Length);
 
                 #endregion
 
@@ -425,38 +419,38 @@ namespace BigQ
                 // Log(Message.ToString());
                 //
                 
-                return Message;
+                return true;
             }
             catch (ObjectDisposedException ObjDispInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (obj disposed exception): " + ObjDispInner.Message);
-                return null;
+                return false;
             }
             catch (SocketException SockInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (socket exception): " + SockInner.Message);
-                return null;
+                return false;
             }
             catch (InvalidOperationException InvOpInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (invalid operation exception): " + InvOpInner.Message);
-                return null;
+                return false;
             }
             catch (AggregateException AEInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (aggregate exception): " + AEInner.Message);
-                return null;
+                return false;
             }
             catch (IOException IOInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (IO exception): " + IOInner.Message);
-                return null;
+                return false;
             }
             catch (Exception EInner)
             {
                 Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " disconnected (general exception): " + EInner.Message);
                 LogException("TCPMessageRead " + SourceIp + ":" + SourcePort, EInner);
-                return null;
+                return false;
             }
             finally
             {
@@ -580,49 +574,7 @@ namespace BigQ
                 #endregion
 
                 #region Read-from-Stream
-
-                if (!IsTCPPeerConnected(CurrentClient))
-                {
-                    Log("*** TCPSocketRead " + SourceIp + ":" + SourcePort + " disconnected");
-                    return false;
-                }
-
-                //
-                //
-                // original
-                //
-                //
-                /*
-                byte[] buffer = new byte[2048];
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    int read;
-
-                    while ((read = ClientStream.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        // Log("Read " + read + " bytes from stream from peer " + SourceIp + ":" + SourcePort);
-                        ms.Write(buffer, 0, read);
-                        BytesRead += read;
-
-                        // if (read < buffer.Length) break;
-                        if (!ClientStream.DataAvailable) break;
-                    }
-
-                    Data = ms.ToArray();
-                }
-
-                if (Data == null || Data.Length < 1)
-                {
-                    // Log("No data read from " + SourceIp + ":" + SourcePort);
-                    return false;
-                }
-                */
-
-                //
-                //
-                // new
-                //
-                //
+                
                 if (ClientStream.CanRead)
                 {
                     using (MemoryStream ms = new MemoryStream())
@@ -841,13 +793,7 @@ namespace BigQ
                 #endregion
 
                 #region Read-Headers-from-Stream
-
-                if (!IsTCPPeerConnected(CurrentClient))
-                {
-                    Log("*** TCPSSLMessageRead " + SourceIp + ":" + SourcePort + " disconnected while attempting to read headers");
-                    return null;
-                }
-
+                
                 if (!CurrentSSLStream.CanRead)
                 {
                     // Log("*** TCPSSLMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
@@ -1212,13 +1158,7 @@ namespace BigQ
                 #endregion
 
                 #region Read-Headers-from-Stream
-
-                if (!IsWSPeerConnected(CurrentWSClient))
-                {
-                    Log("*** WSMessageRead " + SourceIp + ":" + SourcePort + " disconnected while attempting to read headers");
-                    return null;
-                }
-
+                
                 using (MemoryStream headerMs = new MemoryStream())
                 {
                     #region Read-Header-Bytes
@@ -1577,13 +1517,7 @@ namespace BigQ
                 #endregion
 
                 #region Read-Headers-from-Stream
-
-                if (!IsWSPeerConnected(CurrentWSClient))
-                {
-                    Log("*** WSSSLMessageRead " + SourceIp + ":" + SourcePort + " disconnected while attempting to read headers");
-                    return null;
-                }
-
+                
                 using (MemoryStream headerMs = new MemoryStream())
                 {
                     #region Read-Header-Bytes
@@ -1826,92 +1760,6 @@ namespace BigQ
             {
                 bf.Serialize(ms, obj);
                 return ms.ToArray();
-            }
-        }
-
-        public static bool IsTCPPeerConnected(TcpClient CurrentClient)
-        {
-            // see http://stackoverflow.com/questions/6993295/how-to-determine-if-the-tcp-is-connected-or-not
-
-            bool success = false;
-            string SourceIp = "";
-            int SourcePort = 0;
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (CurrentClient == null)
-                {
-                    Log("*** IsTCPPeerConnected null client supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Check-if-Client-Connected
-
-                success = false;
-                SourceIp = ((IPEndPoint)CurrentClient.Client.RemoteEndPoint).Address.ToString();
-                SourcePort = ((IPEndPoint)CurrentClient.Client.RemoteEndPoint).Port;
-
-                if (CurrentClient != null
-                    && CurrentClient.Client != null
-                    && CurrentClient.Client.Connected)
-                {
-                    if (CurrentClient.Client.Poll(0, SelectMode.SelectRead))
-                    {
-                        success = !(CurrentClient.Client.Poll(1, SelectMode.SelectRead) && CurrentClient.Client.Available == 0);
-                    }
-                }
-                else
-                {
-                    success = false;
-                }
-
-                return success;
-
-                #endregion
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public static bool IsWSPeerConnected(WebSocket CurrentWSClient)
-        {
-            //
-            //
-            // Unsure if there are other means of doing this
-            //
-            //
-
-            bool success = false;
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (CurrentWSClient == null)
-                {
-                    Log("*** IsWSPeerConnected null client supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Check-if-Client-Connected
-
-                if (CurrentWSClient.State == WebSocketState.Open) success = true;
-                else success = false;
-                return success;
-
-                #endregion
-            }
-            catch
-            {
-                return false;
             }
         }
 

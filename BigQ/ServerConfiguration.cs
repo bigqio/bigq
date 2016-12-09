@@ -371,7 +371,7 @@ namespace BigQ
             ret.Files.PermissionsFile = "";
 
             ret.Heartbeat = new HeartbeatSettings();
-            ret.Heartbeat.Enable = false;
+            ret.Heartbeat.Enable = true;
             ret.Heartbeat.IntervalMs = 1000;
             ret.Heartbeat.MaxFailures = 5;
 

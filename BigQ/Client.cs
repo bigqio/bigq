@@ -510,14 +510,32 @@ namespace BigQ
 
             try
             {
-                if (message == null) throw new ArgumentNullException("message");
-                if (Config.TcpServer.Enable) return TCPDataSender(message);
-                else if (Config.TcpSSLServer.Enable) return TCPSSLDataSender(message);
+                if (message == null)
+                {
+                    Log("SendRawMessage null message supplied");
+                    return false;
+                }
+
+                if (Config.TcpServer.Enable)
+                {
+                    Log("SendRawMessage sending message using TCP");
+                    return TCPDataSender(message);
+                }
+                else if (Config.TcpSSLServer.Enable)
+                {
+                    Log("SendRawMessage sending message using TCP/SSL");
+                    return TCPSSLDataSender(message);
+                }
                 else
                 {
                     Log("*** SendRawMessage no server enabled");
                     return false;
                 }
+            }
+            catch (Exception e)
+            {
+                LogException("SendRawMessage", e);
+                return false;
             }
             finally
             {
@@ -566,6 +584,7 @@ namespace BigQ
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
+            response = null;
 
             try
             {
@@ -615,6 +634,11 @@ namespace BigQ
                     if (ServerConnected != null) Task.Run(() => ServerConnected());
                     return true;
                 }
+            }
+            catch (Exception e)
+            {
+                LogException("Login", e);
+                return false;
             }
             finally
             {
@@ -1559,6 +1583,7 @@ namespace BigQ
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
+            response = null;
             
             try
             {
@@ -1576,9 +1601,9 @@ namespace BigQ
                 }
                 else
                 {
-                    // Log("SendServerMessageSync registered sync request GUID " + request.MessageId);
+                    Log("SendServerMessageSync registered sync request GUID " + request.MessageID);
                 }
-
+                
                 if (!SendRawMessage(request))
                 {
                     Log("*** SendServerMessageSync unable to send message GUID " + request.MessageID + " to server");
@@ -1586,7 +1611,7 @@ namespace BigQ
                 }
                 else
                 {
-                    // Log("SendServerMessageSync sent message GUID " + request.MessageId + " to server");
+                    Log("SendServerMessageSync sent message GUID " + request.MessageID + " to server");
                 }
 
                 int timeoutMs = Config.DefaultSyncTimeoutMs;
@@ -1600,11 +1625,16 @@ namespace BigQ
                 }
                 else
                 {
-                    // Log("SendServerMessageSync received response for message GUID " + request.MessageId);
+                    Log("SendServerMessageSync received response for message GUID " + request.MessageID);
                 }
                 
                 if (ResponseMessage != null) response = ResponseMessage;
                 return true;
+            }
+            catch (Exception e)
+            {
+                LogException("SendServerMessageSync", e);
+                return false;
             }
             finally
             {
@@ -2243,27 +2273,9 @@ namespace BigQ
                     Log("*** TCPDataSender null message supplied");
                     return false;
                 }
-
+                
                 #endregion
-
-                #region Check-if-Client-Connected
-
-                if (!Helper.IsTCPPeerConnected(ClientTCPInterface))
-                {
-                    Log("TCPDataSender server " + ServerIP + ":" + ServerPort + " not connected");
-                    Connected = false;
-
-                    // 
-                    //
-                    // Do not fire event here; allow TCPDataReceiver to do it
-                    //
-                    //
-                    // if (ServerDisconnected != null) ServerDisconnected();
-                    return false;
-                }
-
-                #endregion
-
+                
                 #region Send-Message
 
                 if (!Helper.TCPMessageWrite(ClientTCPInterface, Message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
@@ -2279,6 +2291,11 @@ namespace BigQ
                 #endregion
 
                 return true;
+            }
+            catch (Exception e)
+            {
+                LogException("TCPDataSender", e);
+                return false;
             }
             finally
             {
@@ -2319,7 +2336,7 @@ namespace BigQ
                         break;
                     }
 
-                    if (!ClientTCPInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPInterface))
+                    if (!ClientTCPInterface.Connected)
                     {
                         Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
                         Connected = false;
@@ -2334,21 +2351,22 @@ namespace BigQ
                     #endregion
 
                     #region Read-Message
-                    
-                    Message CurrentMessage = Helper.TCPMessageRead(ClientTCPInterface, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
+
+                    Message CurrentMessage = null;
+                    if (!Helper.TCPMessageRead(
+                        ClientTCPInterface, 
+                        (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)),
+                        out CurrentMessage))
+                    {
+                        Log("*** TCPDataReceiver disconnect detected for server " + ServerIP + ":" + ServerPort);
+                        return;
+                    }
+
                     if (CurrentMessage == null)
                     {
                         // Log("TCPDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
                         Thread.Sleep(30);
                         continue;
-                    }
-                    else
-                    {
-                        /*
-                        Console.WriteLine("");
-                        Console.WriteLine(CurrentMessage.ToString());
-                        Console.WriteLine("");
-                        */
                     }
 
                     #endregion
@@ -2586,25 +2604,7 @@ namespace BigQ
                 }
 
                 #endregion
-
-                #region Check-if-Client-Connected
-
-                if (!Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
-                {
-                    Log("TCPSSLDataSender server " + ServerIP + ":" + ServerPort + " not connected");
-                    Connected = false;
-
-                    // 
-                    //
-                    // Do not fire event here; allow TCPDataReceiver to do it
-                    //
-                    //
-                    // if (ServerDisconnected != null) ServerDisconnected();
-                    return false;
-                }
-
-                #endregion
-
+                
                 #region Send-Message
 
                 if (!Helper.TCPSSLMessageWrite(ClientTCPSSLInterface, ClientSSLStream, Message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
@@ -2657,7 +2657,7 @@ namespace BigQ
                         disconnectDetected = true;
                     }
 
-                    if (!ClientTCPSSLInterface.Connected || !Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
+                    if (!ClientTCPSSLInterface.Connected)
                     {
                         Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
                         Connected = false;
@@ -2679,14 +2679,6 @@ namespace BigQ
                         // Log("TCPSSLDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
                         Thread.Sleep(30);
                         continue;
-                    }
-                    else
-                    {
-                        /*
-                        Console.WriteLine("");
-                        Console.WriteLine(CurrentMessage.ToString());
-                        Console.WriteLine("");
-                        */
                     }
 
                     #endregion
@@ -2976,30 +2968,7 @@ namespace BigQ
                     }
 
                     #endregion
-
-                    #region Check-if-Client-Connected
-
-                    if (Config.TcpServer.Enable)
-                    {
-                        if (!Helper.IsTCPPeerConnected(ClientTCPInterface))
-                        {
-                            Log("HeartbeatManager TCP client disconnected from server " + ServerIP + ":" + ServerPort);
-                            Connected = false;
-                            return;
-                        }
-                    }
-                    else if (Config.TcpServer.Enable)
-                    {
-                        if (!Helper.IsTCPPeerConnected(ClientTCPSSLInterface))
-                        {
-                            Log("HeartbeatManager TCP SSL client disconnected from server " + ServerIP + ":" + ServerPort);
-                            Connected = false;
-                            return;
-                        }
-                    }
-
-                    #endregion
-
+                    
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;

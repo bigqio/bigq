@@ -88,3 +88,4 @@ D:\Code\BigQ\BigQ150\BigQ\obj\Debug\BigQ.dll
 D:\Code\BigQ\BigQ150\BigQ\obj\Debug\BigQ.pdb
 D:\Code\BigQ\BigQ\BigQ\bin\Debug\Newtonsoft.Json.dll
 D:\Code\BigQ\BigQ\BigQ\bin\Debug\Newtonsoft.Json.xml
+D:\code\bigq\BigQ\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache

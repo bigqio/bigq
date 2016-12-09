@@ -2,7 +2,7 @@
 IF [%1] == [] GOTO Usage
 cd BigQServerTest\bin\debug
 start BigQServerTest.exe
-TIMEOUT 5 > NUL
+TIMEOUT 3 > NUL
 cd ..\..\..
 
 cd BigQClientTest\bin\debug

@@ -966,37 +966,20 @@ namespace BigQ
 
                 while (true)
                 {
-                    #region Check-if-Client-Connected
-
-                    if (!CurrentClient.ClientTCPInterface.Connected || !Helper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
-                    {
-                        Log("TCPDataReceiver client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** TCPDataReceiver unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** TCPDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        break;
-                    }
-                    else
-                    {
-                        // Log("TCPDataReceiver client " + CurrentClient.IpPort() + " is still connected");
-                    }
-
-                    #endregion
-
                     #region Retrieve-Message
 
-                    Message CurrentMessage = Helper.TCPMessageRead(CurrentClient.ClientTCPInterface, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
+                    Message CurrentMessage = null;
+                    if (!Helper.TCPMessageRead(
+                        CurrentClient.ClientTCPInterface, 
+                        (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)),
+                        out CurrentMessage))
+                    {
+                        Log("*** TCPDataReceiver disconnect detected for client " + CurrentClient.IpPort());
+                        return;
+                    }
+
                     if (CurrentMessage == null)
                     {
-                        // Log("*** TCPDataReceiver unable to read from client " + CurrentClient.IpPort());
                         Thread.Sleep(30);
                         continue;
                     }
@@ -1049,17 +1032,7 @@ namespace BigQ
             {
                 TCPActiveConnectionThreads--;
                 Log("TCPDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                if (CurrentClient != null)
-                {
-                    try
-                    {
-                        CurrentClient.Close();
-                    }
-                    catch (Exception EClose)
-                    {
-                        LogException("TCPDataReceiver", EClose);
-                    }
-                }               
+                CurrentClient.Close();
             }
         }
 
@@ -1102,17 +1075,7 @@ namespace BigQ
                 }
 
                 #endregion
-
-                #region Check-if-Client-Connected
-
-                if (!Helper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
-                {
-                    Log("TCPDataSender client " + CurrentClient.IpPort() + " not connected");
-                    return false;
-                }
-
-                #endregion
-
+                
                 #region Wait-for-Client-Active-Send-Lock
 
                 int addLoopCount = 0;
@@ -1287,28 +1250,7 @@ namespace BigQ
                     }
 
                     #endregion
-
-                    #region Check-if-Client-Connected
-
-                    if (!Helper.IsTCPPeerConnected(CurrentClient.ClientTCPInterface))
-                    {
-                        Log("TCPHeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** TCPHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** TCPHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        return;
-                    }
-
-                    #endregion
-
+                    
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
@@ -1323,20 +1265,7 @@ namespace BigQ
 
                         if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
-                            Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
-
-                            if (!RemoveClient(CurrentClient))
-                            {
-                                Log("*** TCPHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                            }
-
-                            if (!RemoveClientChannels(CurrentClient))
-                            {
-                                Log("*** TCPHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                            }
-
-                            if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-
+                            Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + CurrentClient.IpPort());
                             return;
                         }
                     }
@@ -1361,6 +1290,12 @@ namespace BigQ
                 {
                     LogException("TCPHeartbeatManager (null)", EOuter);
                 }
+            }
+            finally
+            {
+                RemoveClient(CurrentClient);
+                RemoveClientChannels(CurrentClient);
+                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
             }
         }
 
@@ -1532,31 +1467,6 @@ namespace BigQ
 
                 while (true)
                 {
-                    #region Check-if-Client-Connected
-
-                    if (!CurrentClient.ClientTCPSSLInterface.Connected || !Helper.IsTCPPeerConnected(CurrentClient.ClientTCPSSLInterface))
-                    {
-                        Log("TCPSSLDataReceiver client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** TCPSSLDataReceiver unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** TCPSSLDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        break;
-                    }
-                    else
-                    {
-                        // Log("TCPSSLDataReceiver client " + CurrentClient.IpPort() + " is still connected");
-                    }
-
-                    #endregion
-
                     #region Retrieve-Message
 
                     Message CurrentMessage = Helper.TCPSSLMessageRead(CurrentClient.ClientTCPSSLInterface, CurrentClient.ClientSSLStream, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
@@ -1615,6 +1525,7 @@ namespace BigQ
             {
                 TCPSSLActiveConnectionThreads--;
                 Log("TCPSSLDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + TCPSSLActiveConnectionThreads + " connections active)");
+
                 CurrentClient.Close();
             }
         }
@@ -1658,17 +1569,7 @@ namespace BigQ
                 }
 
                 #endregion
-
-                #region Check-if-Client-Connected
-
-                if (!Helper.IsTCPPeerConnected(CurrentClient.ClientTCPSSLInterface))
-                {
-                    Log("TCPSSLDataSender client " + CurrentClient.IpPort() + " not connected");
-                    return false;
-                }
-
-                #endregion
-
+                
                 #region Wait-for-Client-Active-Send-Lock
 
                 int addLoopCount = 0;
@@ -1843,28 +1744,7 @@ namespace BigQ
                     }
 
                     #endregion
-
-                    #region Check-if-Client-Connected
-
-                    if (!Helper.IsTCPPeerConnected(CurrentClient.ClientTCPSSLInterface))
-                    {
-                        Log("TCPSSLHeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** TCPSSLHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** TCPSSLHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        return;
-                    }
-
-                    #endregion
-
+                    
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
@@ -1879,20 +1759,7 @@ namespace BigQ
 
                         if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
-                            Log("*** TCPSSLHeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
-
-                            if (!RemoveClient(CurrentClient))
-                            {
-                                Log("*** TCPSSLHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                            }
-
-                            if (!RemoveClientChannels(CurrentClient))
-                            {
-                                Log("*** TCPSSLHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                            }
-
-                            if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-
+                            Log("*** TCPSSLHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + CurrentClient.IpPort());
                             return;
                         }
                     }
@@ -1917,6 +1784,12 @@ namespace BigQ
                 {
                     LogException("TCPSSLHeartbeatManager (null)", EOuter);
                 }
+            }
+            finally
+            {
+                RemoveClient(CurrentClient);
+                RemoveClientChannels(CurrentClient);
+                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
             }
         }
 
@@ -2071,31 +1944,6 @@ namespace BigQ
 
                 while (true)
                 {
-                    #region Check-if-Client-Connected
-
-                    if (!Helper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
-                    {
-                        Log("WSDataReceiver client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** WSDataReceiver unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** WSDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        break;
-                    }
-                    else
-                    {
-                        // Log("TCPDataReceiver client " + CurrentClient.IpPort() + " is still connected");
-                    }
-
-                    #endregion
-
                     #region Retrieve-Message
 
                     Message CurrentMessage = Helper.WSMessageRead(CurrentClient.ClientHTTPContext, CurrentClient.ClientWSInterface, Config.Debug.MsgResponseTime).Result;
@@ -2154,6 +2002,7 @@ namespace BigQ
             {
                 WSActiveConnectionThreads--;
                 Log("WSDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
+
                 CurrentClient.Close();
             }
         }
@@ -2197,17 +2046,7 @@ namespace BigQ
                 }
 
                 #endregion
-
-                #region Check-if-Client-Connected
-
-                if (!Helper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
-                {
-                    Log("WSDataSender client " + CurrentClient.IpPort() + " not connected");
-                    return false;
-                }
-
-                #endregion
-
+                
                 #region Wait-for-Client-Active-Send-Lock
 
                 int addLoopCount = 0;
@@ -2383,28 +2222,7 @@ namespace BigQ
                     }
 
                     #endregion
-
-                    #region Check-if-Client-Connected
-
-                    if (!Helper.IsWSPeerConnected(CurrentClient.ClientWSInterface))
-                    {
-                        Log("WSHeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** WSHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** WSHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        return;
-                    }
-
-                    #endregion
-
+                    
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
@@ -2420,20 +2238,7 @@ namespace BigQ
 
                         if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
-                            Log("*** WSHeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
-
-                            if (!RemoveClient(CurrentClient))
-                            {
-                                Log("*** WSHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                            }
-
-                            if (!RemoveClientChannels(CurrentClient))
-                            {
-                                Log("*** WSHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                            }
-
-                            if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-
+                            Log("*** WSHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + CurrentClient.IpPort());
                             return;
                         }
                     }
@@ -2458,6 +2263,12 @@ namespace BigQ
                 {
                     LogException("WSHeartbeatManager (null)", EOuter);
                 }
+            }
+            finally
+            {
+                RemoveClient(CurrentClient);
+                RemoveClientChannels(CurrentClient);
+                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
             }
         }
 
@@ -2616,31 +2427,6 @@ namespace BigQ
 
                 while (true)
                 {
-                    #region Check-if-Client-Connected
-
-                    if (!Helper.IsWSPeerConnected(CurrentClient.ClientWSSSLInterface))
-                    {
-                        Log("WSSSLDataReceiver client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** WSSSLDataReceiver unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** WSSSLDataReceiver unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        break;
-                    }
-                    else
-                    {
-                        // Log("WSSSLDataReceiver client " + CurrentClient.IpPort() + " is still connected");
-                    }
-
-                    #endregion
-
                     #region Retrieve-Message
 
                     Message CurrentMessage = Helper.WSMessageRead(CurrentClient.ClientHTTPSSLContext, CurrentClient.ClientWSSSLInterface, Config.Debug.MsgResponseTime).Result;
@@ -2699,6 +2485,7 @@ namespace BigQ
             {
                 WSSSLActiveConnectionThreads--;
                 Log("WSSSLDataReceiver closed data receiver for " + CurrentClient.IpPort() + " (now " + WSSSLActiveConnectionThreads + " connections active)");
+
                 CurrentClient.Close();
             }
         }
@@ -2742,17 +2529,7 @@ namespace BigQ
                 }
 
                 #endregion
-
-                #region Check-if-Client-Connected
-
-                if (!Helper.IsWSPeerConnected(CurrentClient.ClientWSSSLInterface))
-                {
-                    Log("WSSSLDataSender client " + CurrentClient.IpPort() + " not connected");
-                    return false;
-                }
-
-                #endregion
-
+                
                 #region Wait-for-Client-Active-Send-Lock
 
                 int addLoopCount = 0;
@@ -2928,28 +2705,7 @@ namespace BigQ
                     }
 
                     #endregion
-
-                    #region Check-if-Client-Connected
-
-                    if (!Helper.IsWSPeerConnected(CurrentClient.ClientWSSSLInterface))
-                    {
-                        Log("WSSSLHeartbeatManager client " + CurrentClient.IpPort() + " disconnected");
-                        if (!RemoveClient(CurrentClient))
-                        {
-                            Log("*** WSSSLHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                        }
-
-                        if (!RemoveClientChannels(CurrentClient))
-                        {
-                            Log("*** WSSSLHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                        }
-
-                        if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-                        return;
-                    }
-
-                    #endregion
-
+                    
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
@@ -2965,20 +2721,7 @@ namespace BigQ
 
                         if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
-                            Log("*** WSSSLHeartbeatManager maximum number of failed heartbeats reached, removing client " + CurrentClient.IpPort());
-
-                            if (!RemoveClient(CurrentClient))
-                            {
-                                Log("*** WSSSLHeartbeatManager unable to remove client " + CurrentClient.IpPort());
-                            }
-
-                            if (!RemoveClientChannels(CurrentClient))
-                            {
-                                Log("*** WSSSLHeartbeatManager unable to remove channels associated with client " + CurrentClient.IpPort());
-                            }
-
-                            if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
-
+                            Log("*** WSSSLHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + CurrentClient.IpPort());
                             return;
                         }
                     }
@@ -3003,6 +2746,12 @@ namespace BigQ
                 {
                     LogException("WSSSLHeartbeatManager (null)", EOuter);
                 }
+            }
+            finally
+            {
+                RemoveClient(CurrentClient);
+                RemoveClientChannels(CurrentClient);
+                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(CurrentClient));
             }
         }
 
@@ -4070,12 +3819,6 @@ namespace BigQ
                 {
                     if (!String.IsNullOrEmpty(curr.Value.ClientGUID))
                     {
-                        /*
-                        if (curr.Value.IsTCP) aConsole.WriteLine("GetAllClients adding TCP client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
-                        else if (curr.Value.IsWebsocket) aConsole.WriteLine("GetAllClients adding websocket client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
-                        else aConsole.WriteLine("GetAllClients adding unknown client " + curr.Value.IpPort() + " GUID " + curr.Value.ClientGUID + " to list");
-                         */
-
                         ret.Add(curr.Value);
                     }
                 }

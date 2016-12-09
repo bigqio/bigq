@@ -253,7 +253,7 @@ namespace BigQ
             ret.ServerGUID = "00000000-0000-0000-0000-000000000000";
 
             ret.Heartbeat = new HeartbeatSettings();
-            ret.Heartbeat.Enable = false;
+            ret.Heartbeat.Enable = true;
             ret.Heartbeat.IntervalMs = 1000;
             ret.Heartbeat.MaxFailures = 5;
             

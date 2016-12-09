@@ -459,6 +459,12 @@ namespace BigQClientTest
                 client = null;
                 client = new Client(null);
 
+                /*
+                client.Config.Debug.Enable = true;
+                client.Config.Debug.ConsoleLogging = true;
+                client.Config.Debug.MsgResponseTime = true;
+                */
+
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;
                 // client.ServerDisconnected = ServerDisconnected;

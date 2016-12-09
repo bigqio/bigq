@@ -296,6 +296,13 @@ namespace BigQServerTest
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
             server.LogMessage = LogMessage;
+
+            /*
+            server.Config.Debug.Enable = true;
+            server.Config.Debug.ConsoleLogging = true;
+            server.Config.Debug.MsgResponseTime = true;
+            */
+
             server.LogMessage = null;
 
             return true;
