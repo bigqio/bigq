@@ -12,8 +12,11 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 ## help or feedback
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
-## new in v1.5.1
-- bugfix for disconnect detect
+## new in v1.6.0
+- forced use of heartbeats, moved disconnect detect into heartbeat manager
+- major refactor (connection manager, channel manager, variable naming consistency) 
+- new events for public channel creation and destroy operations 
+- many bugfixes
 
 ## description
 bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.  bigq is tested and compatible with Mono.
@@ -36,7 +39,7 @@ Core use cases for bigq:
 - near real-time notifications and events
 
 ## performance
-bigq is still early in development.  While we have high aspirations on performance, it's not there yet.  The software has excellent stability in lower throughput environments with lower rates of network change (adds, removes).  Performance will be a focus area in the coming releases.
+Performance in bigq is good, however, connection and channel management both have high overhead.  If you have a use case with lots of client joins/exits, bigq may not be suitable for your environment.  We'd love your help in making bigq more efficient!
 
 ## components
 Two main components to bigq: client and server.  The server can be run independently or instantiated within your own application.  Clients initiate connections to the server and maintain them to avoid issues with intermediary firewalls.  
@@ -286,6 +289,9 @@ mono --server myapp.exe
 
 ## version history
 notes from previous versions (starting with v1.5.0) will be moved here.
+v1.5.1
+- bugfix for disconnect detect
+
 v1.5.0
 - synchronous and asynchronous channels (previously only async, APIs have changed)
 - unicast channels (random single recipient)
