@@ -23,7 +23,7 @@ namespace BigQ
     [Serializable]
     public class Client
     {
-        #region Public-Class-Members
+        #region Public-Members
 
         /// <summary>
         /// Contains configuration-related variables for the client.  
@@ -180,14 +180,22 @@ namespace BigQ
         /// </summary>
         public CancellationToken DataReceiverToken;
 
+        /// <summary>
+        /// Managed by the server to destroy the thread sending heartbeats to the client when the client is shutting down.
+        /// </summary>
+        public CancellationTokenSource HeartbeatTokenSource = null;
+
+        /// <summary>
+        /// Managed by the server to destroy the thread sending heartbeats to the client when the client is shutting down.
+        /// </summary>
+        public CancellationToken HeartbeatToken;
+
         #endregion
 
-        #region Private-Class-Members
+        #region Private-Members
 
         private CancellationTokenSource CleanupSyncTokenSource = null;
         private CancellationToken CleanupSyncToken;
-        private CancellationTokenSource HeartbeatTokenSource = null;
-        private CancellationToken HeartbeatToken;
         private ConcurrentDictionary<string, DateTime> SyncRequests;
         private ConcurrentDictionary<string, Message> SyncResponses;
         private X509Certificate2 TCPSSLCertificate;
@@ -248,13 +256,23 @@ namespace BigQ
         public Func<string, string, bool> SubscriberLeftChannel;
 
         /// <summary>
+        /// Delegate method called when a public channel is created.
+        /// </summary>
+        public Func<string, bool> ChannelCreated;
+
+        /// <summary>
+        /// Delegate method called when a public channel is destroyed.
+        /// </summary>
+        public Func<string, bool> ChannelDestroyed;
+
+        /// <summary>
         /// Delegate method called when the client desires to send a log message.
         /// </summary>
         public Func<string, bool> LogMessage;
 
         #endregion
 
-        #region Public-Constructors
+        #region Constructors
 
         /// <summary>
         /// This constructor is used by BigQServer.  Do not use it in client applications!
@@ -321,6 +339,8 @@ namespace BigQ
             ClientLeftServer = null;
             ClientJoinedChannel = null;
             ClientLeftChannel = null;
+            ChannelCreated = null;
+            ChannelDestroyed = null;
             LogMessage = null;
 
             #endregion
@@ -829,9 +849,16 @@ namespace BigQ
                     {
                         if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelMembers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
                         SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
-                        // clients = Helper.DeserializeJson<List<Client>>(Helper.SerializeJson(resp.Data), false);
-                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
+                        if (resp != null && resp.Data != null)
+                        {
+                            clients = ((JArray)resp.Data).ToObject<List<Client>>();
+                        }
+                        else
+                        {
+                            clients = new List<Client>();
+                        }
                     }
+
                     return true;
                 }
             }
@@ -1155,14 +1182,14 @@ namespace BigQ
                 if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
                 if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-                Channel CurrentChannel = new Channel();
-                CurrentChannel.ChannelName = name;
-                CurrentChannel.OwnerGuid = ClientGUID;
-                CurrentChannel.Guid = Guid.NewGuid().ToString();
-                CurrentChannel.Private = priv;
-                CurrentChannel.Broadcast = 1;
-                CurrentChannel.Multicast = 0;
-                CurrentChannel.Unicast = 0;
+                Channel currentChannel = new Channel();
+                currentChannel.ChannelName = name;
+                currentChannel.OwnerGUID = ClientGUID;
+                currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+                currentChannel.Private = priv;
+                currentChannel.Broadcast = 1;
+                currentChannel.Multicast = 0;
+                currentChannel.Unicast = 0;
 
                 Message request = new Message();
                 request.Email = Email;
@@ -1173,8 +1200,8 @@ namespace BigQ
                 request.SenderGUID = ClientGUID;
                 request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
-                request.ChannelGUID = CurrentChannel.Guid;
-                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
+                request.ChannelGUID = currentChannel.ChannelGUID;
+                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
 
                 if (!SendServerMessageSync(request, out response))
                 {
@@ -1223,14 +1250,14 @@ namespace BigQ
                 if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
                 if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-                Channel CurrentChannel = new Channel();
-                CurrentChannel.ChannelName = name;
-                CurrentChannel.OwnerGuid = ClientGUID;
-                CurrentChannel.Guid = Guid.NewGuid().ToString();
-                CurrentChannel.Private = priv;
-                CurrentChannel.Broadcast = 0;
-                CurrentChannel.Multicast = 0;
-                CurrentChannel.Unicast = 1;
+                Channel currentChannel = new Channel();
+                currentChannel.ChannelName = name;
+                currentChannel.OwnerGUID = ClientGUID;
+                currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+                currentChannel.Private = priv;
+                currentChannel.Broadcast = 0;
+                currentChannel.Multicast = 0;
+                currentChannel.Unicast = 1;
 
                 Message request = new Message();
                 request.Email = Email;
@@ -1241,8 +1268,8 @@ namespace BigQ
                 request.SenderGUID = ClientGUID;
                 request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
-                request.ChannelGUID = CurrentChannel.Guid;
-                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
+                request.ChannelGUID = currentChannel.ChannelGUID;
+                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
 
                 if (!SendServerMessageSync(request, out response))
                 {
@@ -1291,14 +1318,14 @@ namespace BigQ
                 if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
                 if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-                Channel CurrentChannel = new Channel();
-                CurrentChannel.ChannelName = name;
-                CurrentChannel.OwnerGuid = ClientGUID;
-                CurrentChannel.Guid = Guid.NewGuid().ToString();
-                CurrentChannel.Private = priv;
-                CurrentChannel.Broadcast = 0;
-                CurrentChannel.Multicast = 1;
-                CurrentChannel.Unicast = 0;
+                Channel currentChannel = new Channel();
+                currentChannel.ChannelName = name;
+                currentChannel.OwnerGUID = ClientGUID;
+                currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+                currentChannel.Private = priv;
+                currentChannel.Broadcast = 0;
+                currentChannel.Multicast = 1;
+                currentChannel.Unicast = 0;
 
                 Message request = new Message();
                 request.Email = Email;
@@ -1309,8 +1336,8 @@ namespace BigQ
                 request.SenderGUID = ClientGUID;
                 request.RecipientGUID = ServerGUID;
                 request.SyncRequest = true;
-                request.ChannelGUID = CurrentChannel.Guid;
-                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(CurrentChannel));
+                request.ChannelGUID = currentChannel.ChannelGUID;
+                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
 
                 if (!SendServerMessageSync(request, out response))
                 {
@@ -1438,17 +1465,17 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                Message CurrentMessage = new Message();
-                CurrentMessage.Email = Email;
-                CurrentMessage.Password = Password;
-                CurrentMessage.Command = null;
-                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                CurrentMessage.MessageID = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGUID = ClientGUID;
-                CurrentMessage.RecipientGUID = guid;
-                CurrentMessage.ChannelGUID = null;
-                CurrentMessage.Data = data;
-                return SendRawMessage(CurrentMessage);
+                Message request = new Message();
+                request.Email = Email;
+                request.Password = Password;
+                request.Command = null;
+                request.CreatedUTC = DateTime.Now.ToUniversalTime();
+                request.MessageID = Guid.NewGuid().ToString();
+                request.SenderGUID = ClientGUID;
+                request.RecipientGUID = guid;
+                request.ChannelGUID = null;
+                request.Data = data;
+                return SendRawMessage(request);
             }
             finally
             {
@@ -1494,7 +1521,7 @@ namespace BigQ
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            Message CurrentMessage = new Message();
+            Message message = new Message();
             
             try
             {
@@ -1503,44 +1530,39 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                CurrentMessage = new Message();
-                CurrentMessage.Email = Email;
-                CurrentMessage.Password = Password;
-                CurrentMessage.Command = null;
-                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                CurrentMessage.MessageID = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGUID = ClientGUID;
-                CurrentMessage.RecipientGUID = guid;
-                CurrentMessage.ChannelGUID = null;
-                CurrentMessage.SyncRequest = true;
-                CurrentMessage.Data = data;
+                message = new Message();
+                message.Email = Email;
+                message.Password = Password;
+                message.Command = null;
+                message.CreatedUTC = DateTime.Now.ToUniversalTime();
+                message.MessageID = Guid.NewGuid().ToString();
+                message.SenderGUID = ClientGUID;
+                message.RecipientGUID = guid;
+                message.ChannelGUID = null;
+                message.SyncRequest = true;
+                message.Data = data;
 
-                if (!AddSyncRequest(CurrentMessage.MessageID))
+                if (!AddSyncRequest(message.MessageID))
                 {
-                    Log("*** SendPrivateMessageSync unable to register sync request GUID " + CurrentMessage.MessageID);
+                    Log("*** SendPrivateMessageSync unable to register sync request GUID " + message.MessageID);
                     return false;
                 }
 
-                if (!SendRawMessage(CurrentMessage))
+                if (!SendRawMessage(message))
                 {
-                    Log("*** SendPrivateMessage unable to send message GUID " + CurrentMessage.MessageID + " to recipient " + CurrentMessage.RecipientGUID);
+                    Log("*** SendPrivateMessage unable to send message GUID " + message.MessageID + " to recipient " + message.RecipientGUID);
                     return false;
                 }
 
                 int timeoutMs = Config.DefaultSyncTimeoutMs;
-                if (CurrentMessage.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(CurrentMessage.SyncTimeoutMs);
+                if (message.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(message.SyncTimeoutMs);
 
-                Message ResponseMessage = new Message();
-                if (!GetSyncResponse(CurrentMessage.MessageID, timeoutMs, out ResponseMessage))
+                if (!GetSyncResponse(message.MessageID, timeoutMs, out response))
                 {
-                    Log("*** SendPrivateMessage unable to get response for message GUID " + CurrentMessage.MessageID);
+                    Log("*** SendPrivateMessage unable to get response for message GUID " + message.MessageID);
                     return false;
                 }
-
-                if (ResponseMessage != null)
-                {
-                    response = ResponseMessage;
-                }
+                
                 return true;
             }
             finally
@@ -1617,8 +1639,7 @@ namespace BigQ
                 int timeoutMs = Config.DefaultSyncTimeoutMs;
                 if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
 
-                Message ResponseMessage = new Message();
-                if (!GetSyncResponse(request.MessageID, timeoutMs, out ResponseMessage))
+                if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
                 {
                     Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageID);
                     return false;
@@ -1628,7 +1649,6 @@ namespace BigQ
                     Log("SendServerMessageSync received response for message GUID " + request.MessageID);
                 }
                 
-                if (ResponseMessage != null) response = ResponseMessage;
                 return true;
             }
             catch (Exception e)
@@ -1683,17 +1703,17 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                Message CurrentMessage = new Message();
-                CurrentMessage.Email = Email;
-                CurrentMessage.Password = Password;
-                CurrentMessage.Command = null;
-                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                CurrentMessage.MessageID = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGUID = ClientGUID;
-                CurrentMessage.RecipientGUID = null;
-                CurrentMessage.ChannelGUID = guid;
-                CurrentMessage.Data = data;
-                return SendRawMessage(CurrentMessage);
+                Message request = new Message();
+                request.Email = Email;
+                request.Password = Password;
+                request.Command = null;
+                request.CreatedUTC = DateTime.Now.ToUniversalTime();
+                request.MessageID = Guid.NewGuid().ToString();
+                request.SenderGUID = ClientGUID;
+                request.RecipientGUID = null;
+                request.ChannelGUID = guid;
+                request.Data = data;
+                return SendRawMessage(request);
             }
             finally
             {
@@ -1739,7 +1759,7 @@ namespace BigQ
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
-            Message CurrentMessage = new Message();
+            Message request = new Message();
 
             try
             {
@@ -1748,44 +1768,39 @@ namespace BigQ
                 if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
                 if (data == null) throw new ArgumentNullException("data");
 
-                CurrentMessage = new Message();
-                CurrentMessage.Email = Email;
-                CurrentMessage.Password = Password;
-                CurrentMessage.Command = null;
-                CurrentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                CurrentMessage.MessageID = Guid.NewGuid().ToString();
-                CurrentMessage.SenderGUID = ClientGUID;
-                CurrentMessage.RecipientGUID = null;
-                CurrentMessage.ChannelGUID = guid;
-                CurrentMessage.SyncRequest = true;
-                CurrentMessage.Data = data;
+                request = new Message();
+                request.Email = Email;
+                request.Password = Password;
+                request.Command = null;
+                request.CreatedUTC = DateTime.Now.ToUniversalTime();
+                request.MessageID = Guid.NewGuid().ToString();
+                request.SenderGUID = ClientGUID;
+                request.RecipientGUID = null;
+                request.ChannelGUID = guid;
+                request.SyncRequest = true;
+                request.Data = data;
 
-                if (!AddSyncRequest(CurrentMessage.MessageID))
+                if (!AddSyncRequest(request.MessageID))
                 {
-                    Log("*** SendChannelMessageSync unable to register sync request GUID " + CurrentMessage.MessageID);
+                    Log("*** SendChannelMessageSync unable to register sync request GUID " + request.MessageID);
                     return false;
                 }
 
-                if (!SendRawMessage(CurrentMessage))
+                if (!SendRawMessage(request))
                 {
-                    Log("*** SendChannelMessageSync unable to send message GUID " + CurrentMessage.MessageID + " to channel " + CurrentMessage.ChannelGUID);
+                    Log("*** SendChannelMessageSync unable to send message GUID " + request.MessageID + " to channel " + request.ChannelGUID);
                     return false;
                 }
 
                 int timeoutMs = Config.DefaultSyncTimeoutMs;
-                if (CurrentMessage.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(CurrentMessage.SyncTimeoutMs);
+                if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
 
-                Message ResponseMessage = new Message();
-                if (!GetSyncResponse(CurrentMessage.MessageID, timeoutMs, out ResponseMessage))
+                if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
                 {
-                    Log("*** SendChannelMessageSync unable to get response for message GUID " + CurrentMessage.MessageID);
+                    Log("*** SendChannelMessageSync unable to get response for message GUID " + request.MessageID);
                     return false;
                 }
-
-                if (ResponseMessage != null)
-                {
-                    response = ResponseMessage;
-                }
+                
                 return true;
             }
             finally
@@ -1869,8 +1884,10 @@ namespace BigQ
                 {
                     if (response.Data != null)
                     {
-                        return Helper.IsTrue(Encoding.UTF8.GetString(response.Data));
+                        SuccessData ret = Helper.DeserializeJson<SuccessData>(Encoding.UTF8.GetString(response.Data), false);
+                        return (ret.Success && Convert.ToBoolean(ret.Data));
                     }
+
                     return false;
                 }
             }
@@ -1951,9 +1968,9 @@ namespace BigQ
 
                 return;
             }
-            catch (Exception EOuter)
+            catch (Exception e)
             {
-                LogException("Close", EOuter);
+                LogException("Close", e);
             }
             finally
             {
@@ -2206,41 +2223,41 @@ namespace BigQ
             while (true)
             {
                 Thread.Sleep(Config.DefaultSyncTimeoutMs);
-                List<string> ExpiredMessageIDs = new List<string>();
-                DateTime TempDateTime;
-                Message TempMessage;
+                List<string> expiredIds = new List<string>();
+                DateTime tempTimestamp;
+                Message tempMessage;
 
-                foreach (KeyValuePair<string, DateTime> CurrentRequest in SyncRequests)
+                foreach (KeyValuePair<string, DateTime> currRequest in SyncRequests)
                 {
-                    DateTime ExpirationDateTime = CurrentRequest.Value.AddMilliseconds(Config.DefaultSyncTimeoutMs);
+                    DateTime expiryTimestamp = currRequest.Value.AddMilliseconds(Config.DefaultSyncTimeoutMs);
 
-                    if (DateTime.Compare(ExpirationDateTime, DateTime.Now) < 0)
+                    if (DateTime.Compare(expiryTimestamp, DateTime.Now) < 0)
                     {
                         #region Expiration-Earlier-Than-Current-Time
 
-                        Log("*** CleanupSyncRequests adding MessageId " + CurrentRequest.Key + " (added " + CurrentRequest.Value.ToString("MM/dd/yyyy hh:mm:ss") + ") to cleanup list (past expiration time " + ExpirationDateTime.ToString("MM/dd/yyyy hh:mm:ss") + ")");
-                        ExpiredMessageIDs.Add(CurrentRequest.Key);
+                        Log("*** CleanupSyncRequests adding MessageId " + currRequest.Key + " (added " + currRequest.Value.ToString("MM/dd/yyyy hh:mm:ss") + ") to cleanup list (past expiration time " + expiryTimestamp.ToString("MM/dd/yyyy hh:mm:ss") + ")");
+                        expiredIds.Add(currRequest.Key);
 
                         #endregion
                     }
                 }
 
-                foreach (string CurrentRequestGuid in ExpiredMessageIDs)
+                foreach (string CurrentRequestGuid in expiredIds)
                 {
                     // 
                     // remove from sync requests
                     //
-                    SyncRequests.TryRemove(CurrentRequestGuid, out TempDateTime);
+                    SyncRequests.TryRemove(CurrentRequestGuid, out tempTimestamp);
                 }
                
-                foreach (string CurrentRequestGuid in ExpiredMessageIDs)
+                foreach (string CurrentRequestGuid in expiredIds)
                 {
                     if (SyncResponses.ContainsKey(CurrentRequestGuid))
                     {
                         //
                         // remove from sync responses
                         //
-                        SyncResponses.TryRemove(CurrentRequestGuid, out TempMessage);
+                        SyncResponses.TryRemove(CurrentRequestGuid, out tempMessage);
                     }
                 }
               
@@ -2259,16 +2276,16 @@ namespace BigQ
 
         #region TCP-Server
 
-        private bool TCPDataSender(Message Message)
+        private bool TCPDataSender(Message message)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-
+            
             try
             {
                 #region Check-for-Null-Values
 
-                if (Message == null)
+                if (message == null)
                 {
                     Log("*** TCPDataSender null message supplied");
                     return false;
@@ -2278,7 +2295,7 @@ namespace BigQ
                 
                 #region Send-Message
 
-                if (!Helper.TCPMessageWrite(ClientTCPInterface, Message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
+                if (!Helper.TCPMessageWrite(ClientTCPInterface, message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
                 {
                     Log("TCPDataSender unable to send data to server " + ServerIP + ":" + ServerPort);
                     return false;
@@ -2315,10 +2332,11 @@ namespace BigQ
                 if (!ClientTCPInterface.Connected)
                 {
                     Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " is no longer connected");
+                    disconnectDetected = true;
                     return;
                 }
 
-                NetworkStream ClientStream = ClientTCPInterface.GetStream();
+                NetworkStream clientStream = ClientTCPInterface.GetStream();
 
                 #endregion
 
@@ -2352,17 +2370,18 @@ namespace BigQ
 
                     #region Read-Message
 
-                    Message CurrentMessage = null;
+                    Message currentMessage = null;
                     if (!Helper.TCPMessageRead(
                         ClientTCPInterface, 
                         (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)),
-                        out CurrentMessage))
+                        out currentMessage))
                     {
                         Log("*** TCPDataReceiver disconnect detected for server " + ServerIP + ":" + ServerPort);
+                        disconnectDetected = true;
                         return;
                     }
 
-                    if (CurrentMessage == null)
+                    if (currentMessage == null)
                     {
                         // Log("TCPDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
                         Thread.Sleep(30);
@@ -2373,9 +2392,9 @@ namespace BigQ
 
                     #region Handle-Message
 
-                    if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(CurrentMessage.Command)
-                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
+                    if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
+                        && !String.IsNullOrEmpty(currentMessage.Command)
+                        && String.Compare(currentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
                     {
                         #region Handle-Incoming-Server-Heartbeat
 
@@ -2388,20 +2407,20 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(CurrentMessage.Command)
-                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
+                    else if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
+                        && !String.IsNullOrEmpty(currentMessage.Command)
+                        && String.Compare(currentMessage.Command.ToLower().Trim(), "event") == 0)
                     {
                         #region Server-Event-Message
 
-                        if (CurrentMessage.Data != null)
+                        if (currentMessage.Data != null)
                         {
                             #region Data-Exists
 
                             EventData ev = null;
                             try
                             {
-                                ev = Helper.DeserializeJson<EventData>(CurrentMessage.Data, false);
+                                ev = Helper.DeserializeJson<EventData>(currentMessage.Data, false);
                             }
                             catch (Exception)
                             {
@@ -2426,19 +2445,27 @@ namespace BigQ
                                     continue;
 
                                 case EventTypes.ClientJoinedChannel:
-                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 case EventTypes.ClientLeftChannel:
-                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 case EventTypes.SubscriberJoinedChannel:
-                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 case EventTypes.SubscriberLeftChannel:
-                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                                    continue;
+
+                                case EventTypes.ChannelCreated:
+                                    if (ChannelCreated != null) Task.Run(() => ChannelCreated(ev.Data.ToString()));
+                                    continue;
+
+                                case EventTypes.ChannelDestroyed:
+                                    if (ChannelDestroyed != null) Task.Run(() => ChannelDestroyed(ev.Data.ToString()));
                                     continue;
 
                                 default:
@@ -2461,33 +2488,33 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (Helper.IsTrue(CurrentMessage.SyncRequest))
+                    else if (Helper.IsTrue(currentMessage.SyncRequest))
                     {
                         #region Handle-Incoming-Sync-Request
 
-                        Log("TCPDataReceiver sync request detected for message GUID " + CurrentMessage.MessageID);
+                        Log("TCPDataReceiver sync request detected for message GUID " + currentMessage.MessageID);
 
                         if (SyncMessageReceived != null)
                         {
-                            byte[] ResponseData = SyncMessageReceived(CurrentMessage);
+                            byte[] ResponseData = SyncMessageReceived(currentMessage);
 
-                            CurrentMessage.Success = true;
-                            CurrentMessage.SyncRequest = false;
-                            CurrentMessage.SyncResponse = true;
-                            CurrentMessage.Data = ResponseData;
-                            string TempGuid = String.Copy(CurrentMessage.SenderGUID);
-                            CurrentMessage.SenderGUID = ClientGUID;
-                            CurrentMessage.RecipientGUID = TempGuid;
+                            currentMessage.Success = true;
+                            currentMessage.SyncRequest = false;
+                            currentMessage.SyncResponse = true;
+                            currentMessage.Data = ResponseData;
+                            string tempGuid = String.Copy(currentMessage.SenderGUID);
+                            currentMessage.SenderGUID = ClientGUID;
+                            currentMessage.RecipientGUID = tempGuid;
 
-                            TCPDataSender(CurrentMessage);
-                            Log("TCPDataReceiver sent response message for message GUID " + CurrentMessage.MessageID);
+                            TCPDataSender(currentMessage);
+                            Log("TCPDataReceiver sent response message for message GUID " + currentMessage.MessageID);
                         }
                         else
                         {
-                            Log("*** TCPDataReceiver sync request received for MessageId " + CurrentMessage.MessageID + " but no handler specified, sending async");
+                            Log("*** TCPDataReceiver sync request received for MessageId " + currentMessage.MessageID + " but no handler specified, sending async");
                             if (AsyncMessageReceived != null)
                             {
-                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                Task.Run(() => AsyncMessageReceived(currentMessage));
                             }
                             else
                             {
@@ -2497,26 +2524,26 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (Helper.IsTrue(CurrentMessage.SyncResponse))
+                    else if (Helper.IsTrue(currentMessage.SyncResponse))
                     {
                         #region Handle-Incoming-Sync-Response
 
-                        Log("TCPDataReceiver sync response detected for message GUID " + CurrentMessage.MessageID);
+                        Log("TCPDataReceiver sync response detected for message GUID " + currentMessage.MessageID);
 
-                        if (SyncRequestExists(CurrentMessage.MessageID))
+                        if (SyncRequestExists(currentMessage.MessageID))
                         {
-                            Log("TCPDataReceiver sync request exists for message GUID " + CurrentMessage.MessageID);
+                            Log("TCPDataReceiver sync request exists for message GUID " + currentMessage.MessageID);
 
-                            if (AddSyncResponse(CurrentMessage))
+                            if (AddSyncResponse(currentMessage))
                             {
-                                Log("TCPDataReceiver added sync response for message GUID " + CurrentMessage.MessageID);
+                                Log("TCPDataReceiver added sync response for message GUID " + currentMessage.MessageID);
                             }
                             else
                             {
-                                Log("*** TCPDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageID + ", sending async");
+                                Log("*** TCPDataReceiver unable to add sync response for MessageId " + currentMessage.MessageID + ", sending async");
                                 if (AsyncMessageReceived != null)
                                 {
-                                    Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                    Task.Run(() => AsyncMessageReceived(currentMessage));
                                 }
                                 else
                                 {
@@ -2527,10 +2554,10 @@ namespace BigQ
                         }
                         else
                         {
-                            Log("*** TCPDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageID + ", sending async");
+                            Log("*** TCPDataReceiver message marked as sync response but no sync request found for MessageId " + currentMessage.MessageID + ", sending async");
                             if (AsyncMessageReceived != null)
                             {
-                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                Task.Run(() => AsyncMessageReceived(currentMessage));
                             }
                             else
                             {
@@ -2544,11 +2571,11 @@ namespace BigQ
                     {
                         #region Handle-Async
 
-                        Log("TCPDataReceiver async message GUID " + CurrentMessage.MessageID);
+                        Log("TCPDataReceiver async message GUID " + currentMessage.MessageID);
 
                         if (AsyncMessageReceived != null)
                         {
-                            Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                            Task.Run(() => AsyncMessageReceived(currentMessage));
                         }
                         else
                         {
@@ -2566,11 +2593,13 @@ namespace BigQ
             catch (ObjectDisposedException)
             {
                 Log("*** TCPDataReceiver no longer connected (object disposed exception)");
+                disconnectDetected = true;
             }
-            catch (Exception EOuter)
+            catch (Exception e)
             {
                 Log("*** TCPDataReceiver outer exception detected");
-                LogException("TCPDataReceiver", EOuter);
+                LogException("TCPDataReceiver", e);
+                disconnectDetected = true;
             }
             finally
             {
@@ -2588,7 +2617,7 @@ namespace BigQ
 
         #region TCP-SSL-Server
 
-        private bool TCPSSLDataSender(Message Message)
+        private bool TCPSSLDataSender(Message message)
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
@@ -2597,7 +2626,7 @@ namespace BigQ
             {
                 #region Check-for-Null-Values
 
-                if (Message == null)
+                if (message == null)
                 {
                     Log("*** TCPSSLDataSender null message supplied");
                     return false;
@@ -2607,7 +2636,7 @@ namespace BigQ
                 
                 #region Send-Message
 
-                if (!Helper.TCPSSLMessageWrite(ClientTCPSSLInterface, ClientSSLStream, Message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
+                if (!Helper.TCPSSLMessageWrite(ClientTCPSSLInterface, ClientSSLStream, message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
                 {
                     Log("TCPSSLDataSender unable to send data to server " + ServerIP + ":" + ServerPort);
                     return false;
@@ -2639,6 +2668,7 @@ namespace BigQ
                 if (!ClientTCPSSLInterface.Connected)
                 {
                     Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " is no longer connected");
+                    disconnectDetected = true;
                     return;
                 }
                 
@@ -2673,8 +2703,8 @@ namespace BigQ
 
                     #region Read-Message
 
-                    Message CurrentMessage = Helper.TCPSSLMessageRead(ClientTCPSSLInterface, ClientSSLStream, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
-                    if (CurrentMessage == null)
+                    Message currentMessage = Helper.TCPSSLMessageRead(ClientTCPSSLInterface, ClientSSLStream, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
+                    if (currentMessage == null)
                     {
                         // Log("TCPSSLDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
                         Thread.Sleep(30);
@@ -2685,9 +2715,9 @@ namespace BigQ
 
                     #region Handle-Message
 
-                    if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(CurrentMessage.Command)
-                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
+                    if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
+                        && !String.IsNullOrEmpty(currentMessage.Command)
+                        && String.Compare(currentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
                     {
                         #region Handle-Incoming-Server-Heartbeat
 
@@ -2701,20 +2731,20 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (String.Compare(CurrentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(CurrentMessage.Command)
-                        && String.Compare(CurrentMessage.Command.ToLower().Trim(), "event") == 0)
+                    else if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
+                        && !String.IsNullOrEmpty(currentMessage.Command)
+                        && String.Compare(currentMessage.Command.ToLower().Trim(), "event") == 0)
                     {
                         #region Server-Event-Message
 
-                        if (CurrentMessage.Data != null)
+                        if (currentMessage.Data != null)
                         {
                             #region Data-Exists
 
                             EventData ev = null;
                             try
                             {
-                                ev = Helper.DeserializeJson<EventData>(CurrentMessage.Data, false);
+                                ev = Helper.DeserializeJson<EventData>(currentMessage.Data, false);
                             }
                             catch (Exception)
                             {
@@ -2739,19 +2769,19 @@ namespace BigQ
                                     continue;
 
                                 case EventTypes.ClientJoinedChannel:
-                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 case EventTypes.ClientLeftChannel:
-                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 case EventTypes.SubscriberJoinedChannel:
-                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 case EventTypes.SubscriberLeftChannel:
-                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), CurrentMessage.ChannelGUID));
+                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                                     continue;
 
                                 default:
@@ -2774,34 +2804,34 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (Helper.IsTrue(CurrentMessage.SyncRequest))
+                    else if (Helper.IsTrue(currentMessage.SyncRequest))
                     {
                         #region Handle-Incoming-Sync-Request
 
-                        Log("TCPSSLDataReceiver sync request detected for message GUID " + CurrentMessage.MessageID);
+                        Log("TCPSSLDataReceiver sync request detected for message GUID " + currentMessage.MessageID);
 
                         if (SyncMessageReceived != null)
                         {
-                            byte[] ResponseData = SyncMessageReceived(CurrentMessage);
+                            byte[] responseData = SyncMessageReceived(currentMessage);
 
-                            CurrentMessage.Success = true;
-                            CurrentMessage.SyncRequest = false;
-                            CurrentMessage.SyncResponse = true;
-                            CurrentMessage.Data = ResponseData;
+                            currentMessage.Success = true;
+                            currentMessage.SyncRequest = false;
+                            currentMessage.SyncResponse = true;
+                            currentMessage.Data = responseData;
 
-                            string TempGuid = String.Copy(CurrentMessage.SenderGUID);
-                            CurrentMessage.SenderGUID = ClientGUID;
-                            CurrentMessage.RecipientGUID = TempGuid;
+                            string tempGuid = String.Copy(currentMessage.SenderGUID);
+                            currentMessage.SenderGUID = ClientGUID;
+                            currentMessage.RecipientGUID = tempGuid;
 
-                            TCPSSLDataSender(CurrentMessage);
-                            Log("TCPSSLDataReceiver sent response message for message GUID " + CurrentMessage.MessageID);
+                            TCPSSLDataSender(currentMessage);
+                            Log("TCPSSLDataReceiver sent response message for message GUID " + currentMessage.MessageID);
                         }
                         else
                         {
-                            Log("*** TCPSSLDataReceiver sync request received for MessageId " + CurrentMessage.MessageID + " but no handler specified, sending async");
+                            Log("*** TCPSSLDataReceiver sync request received for MessageId " + currentMessage.MessageID + " but no handler specified, sending async");
                             if (AsyncMessageReceived != null)
                             {
-                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                Task.Run(() => AsyncMessageReceived(currentMessage));
                             }
                             else
                             {
@@ -2811,26 +2841,26 @@ namespace BigQ
 
                         #endregion
                     }
-                    else if (Helper.IsTrue(CurrentMessage.SyncResponse))
+                    else if (Helper.IsTrue(currentMessage.SyncResponse))
                     {
                         #region Handle-Incoming-Sync-Response
 
-                        Log("TCPSSLDataReceiver sync response detected for message GUID " + CurrentMessage.MessageID);
+                        Log("TCPSSLDataReceiver sync response detected for message GUID " + currentMessage.MessageID);
 
-                        if (SyncRequestExists(CurrentMessage.MessageID))
+                        if (SyncRequestExists(currentMessage.MessageID))
                         {
-                            Log("TCPSSLDataReceiver sync request exists for message GUID " + CurrentMessage.MessageID);
+                            Log("TCPSSLDataReceiver sync request exists for message GUID " + currentMessage.MessageID);
 
-                            if (AddSyncResponse(CurrentMessage))
+                            if (AddSyncResponse(currentMessage))
                             {
-                                Log("TCPSSLDataReceiver added sync response for message GUID " + CurrentMessage.MessageID);
+                                Log("TCPSSLDataReceiver added sync response for message GUID " + currentMessage.MessageID);
                             }
                             else
                             {
-                                Log("*** TCPSSLDataReceiver unable to add sync response for MessageId " + CurrentMessage.MessageID + ", sending async");
+                                Log("*** TCPSSLDataReceiver unable to add sync response for MessageId " + currentMessage.MessageID + ", sending async");
                                 if (AsyncMessageReceived != null)
                                 {
-                                    Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                    Task.Run(() => AsyncMessageReceived(currentMessage));
                                 }
                                 else
                                 {
@@ -2841,10 +2871,10 @@ namespace BigQ
                         }
                         else
                         {
-                            Log("*** TCPSSLDataReceiver message marked as sync response but no sync request found for MessageId " + CurrentMessage.MessageID + ", sending async");
+                            Log("*** TCPSSLDataReceiver message marked as sync response but no sync request found for MessageId " + currentMessage.MessageID + ", sending async");
                             if (AsyncMessageReceived != null)
                             {
-                                Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                                Task.Run(() => AsyncMessageReceived(currentMessage));
                             }
                             else
                             {
@@ -2858,11 +2888,11 @@ namespace BigQ
                     {
                         #region Handle-Async
 
-                        Log("TCPSSLDataReceiver async message GUID " + CurrentMessage.MessageID);
+                        Log("TCPSSLDataReceiver async message GUID " + currentMessage.MessageID);
 
                         if (AsyncMessageReceived != null)
                         {
-                            Task.Run(() => AsyncMessageReceived(CurrentMessage));
+                            Task.Run(() => AsyncMessageReceived(currentMessage));
                         }
                         else
                         {
@@ -2880,11 +2910,13 @@ namespace BigQ
             catch (ObjectDisposedException)
             {
                 Log("*** TCPSSLDataReceiver no longer connected (object disposed exception)");
+                disconnectDetected = true;
             }
-            catch (Exception EOuter)
+            catch (Exception e)
             {
                 Log("*** TCPSSLDataReceiver outer exception detected");
-                LogException("TCPSSLDataReceiver", EOuter);
+                LogException("TCPSSLDataReceiver", e);
+                disconnectDetected = true;
             }
             finally
             {
@@ -2983,9 +3015,9 @@ namespace BigQ
 
                 #endregion
             }
-            catch (Exception EOuter)
+            catch (Exception e)
             {
-                LogException("HeartbeatManager", EOuter);
+                LogException("HeartbeatManager", e);
             }
             finally
             {
@@ -2994,14 +3026,14 @@ namespace BigQ
 
         private Message HeartbeatRequestMessage()
         {
-            Message ResponseMessage = new Message();
-            ResponseMessage.MessageID = Guid.NewGuid().ToString();
-            ResponseMessage.RecipientGUID = ServerGUID;
-            ResponseMessage.Command = "HeartbeatRequest";
-            ResponseMessage.SenderGUID = ClientGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ResponseMessage.Data = null;
-            return ResponseMessage;
+            Message request = new Message();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.RecipientGUID = ServerGUID;
+            request.Command = "HeartbeatRequest";
+            request.SenderGUID = ClientGUID;
+            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.Data = null;
+            return request;
         }
 
         #endregion

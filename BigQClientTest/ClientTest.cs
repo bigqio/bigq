@@ -25,19 +25,6 @@ namespace BigQClientTest
             Message response = new Message();
             Dictionary<string, DateTime> pendingRequests;
             
-            Console.WriteLine("");
-            Console.WriteLine(@" $$\       $$\                      ");
-            Console.WriteLine(@" $$ |      \__|                     ");
-            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
-            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
-            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
-            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
-            Console.WriteLine(@"               $$\   $$ |      $$ | ");
-            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
-            Console.WriteLine(@"                \______/       \__| ");
-            Console.WriteLine("");
             Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
             Console.WriteLine("Starting BigQ client at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss"));
             Console.WriteLine("");
@@ -145,7 +132,7 @@ namespace BigQClientTest
                         }
                         else
                         {
-                            Console.WriteLine("Client  " + guid + " is not connected");
+                            Console.WriteLine("Client " + guid + " is not connected");
                         }
                         break;
                          
@@ -159,7 +146,7 @@ namespace BigQClientTest
                             {
                                 foreach (Channel curr in channels)
                                 {
-                                    string line = "  " + curr.Guid + ": " + curr.ChannelName + " owner " + curr.OwnerGuid + " ";
+                                    string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
                                     if (curr.Private == 1) line += "priv ";
                                     else line += "pub ";
                                     if (curr.Broadcast == 1) line += "bcast ";
@@ -459,11 +446,10 @@ namespace BigQClientTest
                 client = null;
                 client = new Client(null);
 
-                /*
-                client.Config.Debug.Enable = true;
-                client.Config.Debug.ConsoleLogging = true;
-                client.Config.Debug.MsgResponseTime = true;
-                */
+                client.Config.Debug.Enable = false;
+                client.Config.Debug.ConsoleLogging = false;
+                client.Config.Debug.MsgResponseTime = false;
+                client.Config.Heartbeat.IntervalMs = 1000;
 
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;
@@ -476,7 +462,9 @@ namespace BigQClientTest
                 client.ClientLeftChannel = ClientLeftChannel;
                 client.SubscriberJoinedChannel = SubscriberJoinedChannel;
                 client.SubscriberLeftChannel = SubscriberLeftChannel;
-                // client.LogMessage = LogMessage;
+                client.ChannelCreated = ChannelCreated;
+                client.ChannelDestroyed = ChannelDestroyed;
+                client.LogMessage = LogMessage;
                 client.LogMessage = null;
 
                 Message response;
@@ -576,6 +564,18 @@ namespace BigQClientTest
         static bool SubscriberLeftChannel(string subscriberGuid, string channelGuid)
         {
             Console.WriteLine("Subscriber " + subscriberGuid + " left channel " + channelGuid);
+            return true;
+        }
+
+        static bool ChannelCreated(string channelGuid)
+        {
+            Console.WriteLine("Channel " + channelGuid + " created");
+            return true;
+        }
+
+        static bool ChannelDestroyed(string channelGuid)
+        {
+            Console.WriteLine("Channel " + channelGuid + " destroyed");
             return true;
         }
 

@@ -24,19 +24,6 @@ namespace BigQServerTest
             List<User> users = new List<User>();
             List<Permission> perms = new List<Permission>();
 
-            Console.WriteLine("");
-            Console.WriteLine(@" $$\       $$\                      ");
-            Console.WriteLine(@" $$ |      \__|                     ");
-            Console.WriteLine(@" $$$$$$$\  $$\  $$$$$$\   $$$$$$\   ");
-            Console.WriteLine(@" $$  __$$\ $$ |$$  __$$\ $$  __$$\  ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ /  $$ |$$ /  $$ | ");
-            Console.WriteLine(@" $$ |  $$ |$$ |$$ |  $$ |$$ |  $$ | ");
-            Console.WriteLine(@" $$$$$$$  |$$ |\$$$$$$$ |\$$$$$$$ | ");
-            Console.WriteLine(@" \_______/ \__| \____$$ | \____$$ | ");
-            Console.WriteLine(@"               $$\   $$ |      $$ | ");
-            Console.WriteLine(@"               \$$$$$$  |      $$ | ");
-            Console.WriteLine(@"                \______/       \__| ");
-            Console.WriteLine("");
             Console.WriteLine("BigQ Server Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
             Console.WriteLine("Starting BigQ server at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss") + " UTC");
             Console.WriteLine("");
@@ -75,14 +62,12 @@ namespace BigQServerTest
                     case "debugon":
                         server.Config.Debug.Enable = true;
                         server.Config.Debug.ConsoleLogging = true;
-                        server.Config.Debug.LockMethodResponseTime = true;
                         server.Config.Debug.MsgResponseTime = true;
                         break;
 
                     case "debugoff":
                         server.Config.Debug.Enable = false;
                         server.Config.Debug.ConsoleLogging = false;
-                        server.Config.Debug.LockMethodResponseTime = false;
                         server.Config.Debug.MsgResponseTime = false;
                         break;
 
@@ -92,7 +77,7 @@ namespace BigQServerTest
                         {
                             foreach (Channel curr in channels)
                             {
-                                string line = "  " + curr.Guid + ": " + curr.ChannelName + " owner " + curr.OwnerGuid + " ";
+                                string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
                                 if (curr.Private == 1) line += "priv ";
                                 else line += "pub ";
                                 if (curr.Broadcast == 1) line += "bcast ";
@@ -290,19 +275,21 @@ namespace BigQServerTest
             // initialize with default configuration
             //
             server = new Server(null);
+
+            server.Config.Debug.Enable = true;
+            server.Config.Debug.ConsoleLogging = true;
+            server.Config.Debug.MsgResponseTime = false;
+            server.Config.Debug.ConnectionMgmt = false;
+            server.Config.Debug.ChannelMgmt = false;
+            server.Config.Debug.SendHeartbeat = true;
+            server.Config.Heartbeat.IntervalMs = 1000;
+
             server.MessageReceived = MessageReceived;
             server.ServerStopped = StartServer;
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
             server.LogMessage = LogMessage;
-
-            /*
-            server.Config.Debug.Enable = true;
-            server.Config.Debug.ConsoleLogging = true;
-            server.Config.Debug.MsgResponseTime = true;
-            */
-
             server.LogMessage = null;
 
             return true;

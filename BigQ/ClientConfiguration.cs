@@ -13,7 +13,7 @@ namespace BigQ
     [Serializable]
     public class ClientConfiguration
     {
-        #region Public-Class-Members
+        #region Public-Members
 
         /// <summary>
         /// The version number of the BigQ binary.
@@ -250,7 +250,7 @@ namespace BigQ
             ret.Debug = new DebugSettings();
             ret.Debug.Enable = false;
             ret.Debug.MsgResponseTime = false;
-            ret.Debug.ConsoleLogging = true;
+            ret.Debug.ConsoleLogging = false;
 
             ret.TcpServer = new TcpServerSettings();
             ret.TcpServer.Enable = true;

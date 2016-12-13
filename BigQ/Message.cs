@@ -651,6 +651,17 @@ namespace BigQ
 
             return messageAsBytes;
         }
+        
+        /// <summary>
+        /// Redacts credentials from a message.
+        /// </summary>
+        /// <param name="msg">Message object.</param>
+        public Message Redact()
+        {
+            Email = null;
+            Password = null;
+            return this;
+        }
 
         #endregion
 

@@ -48,6 +48,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ChannelManager.cs" />
+    <Compile Include="ConnectionManager.cs" />
+    <Compile Include="MessageBuilder.cs" />
     <Compile Include="SuccessData.cs" />
     <Compile Include="FailureData.cs" />
     <Compile Include="ClientConfiguration.cs" />

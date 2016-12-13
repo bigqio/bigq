@@ -16,7 +16,9 @@ namespace BigQ
         ClientJoinedChannel,
         ClientLeftChannel,
         SubscriberJoinedChannel,
-        SubscriberLeftChannel
+        SubscriberLeftChannel,
+        ChannelCreated,
+        ChannelDestroyed
     }
 
     /// <summary>

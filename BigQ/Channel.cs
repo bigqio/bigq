@@ -14,9 +14,9 @@ namespace BigQ
     {
         #region Class-Members
 
-        public string Guid;
+        public string ChannelGUID;
         public string ChannelName;
-        public string OwnerGuid;
+        public string OwnerGUID;
         public DateTime? CreatedUTC;
         public DateTime? UpdatedUTC;
         public int? Private;
@@ -26,6 +26,19 @@ namespace BigQ
 
         public List<Client> Members;
         public List<Client> Subscribers;
+
+        #endregion
+
+        #region Constructor
+
+        public Channel()
+        {
+            DateTime ts = DateTime.Now.ToUniversalTime();
+            CreatedUTC = ts;
+            UpdatedUTC = ts;
+            Members = new List<Client>();
+            Subscribers = new List<Client>();
+        }
 
         #endregion
     }

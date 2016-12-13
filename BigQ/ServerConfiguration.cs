@@ -13,7 +13,7 @@ namespace BigQ
     [Serializable]
     public class ServerConfiguration
     {
-        #region Public-Class-Members
+        #region Public-Members
 
         /// <summary>
         /// The version number of the BigQ binary.
@@ -141,16 +141,26 @@ namespace BigQ
             /// Enable or disable debugging.
             /// </summary>
             public bool Enable;
-
-            /// <summary>
-            /// Enable or disable log messages for critical methods involving thread-shared resources.
-            /// </summary>
-            public bool LockMethodResponseTime;
-
+            
             /// <summary>
             /// Enable or disable log messages with response time information for messages sent.
             /// </summary>
             public bool MsgResponseTime;
+
+            /// <summary>
+            /// Enable or disable log messages related to connection management.
+            /// </summary>
+            public bool ConnectionMgmt;
+
+            /// <summary>
+            /// Enable or disable log messages related to channel management.
+            /// </summary>
+            public bool ChannelMgmt;
+
+            /// <summary>
+            /// Enable or disable log messages related to sending heartbeat messages.
+            /// </summary>
+            public bool SendHeartbeat;
 
             /// <summary>
             /// Enable or disabling logging to the console.
@@ -372,9 +382,11 @@ namespace BigQ
 
             ret.Debug = new DebugSettings();
             ret.Debug.Enable = false;
-            ret.Debug.LockMethodResponseTime = false;
             ret.Debug.MsgResponseTime = false;
-            ret.Debug.ConsoleLogging = true;
+            ret.Debug.ConsoleLogging = false;
+            ret.Debug.ConnectionMgmt = false;
+            ret.Debug.ChannelMgmt = false;
+            ret.Debug.SendHeartbeat = false;
 
             ret.TcpServer = new TcpServerSettings();
             ret.TcpServer.Enable = true;
@@ -408,8 +420,8 @@ namespace BigQ
             serverChannel.ChannelName = "Default server channel";
             serverChannel.CreatedUTC = timestamp;
             serverChannel.UpdatedUTC = timestamp;
-            serverChannel.Guid = Guid.NewGuid().ToString();
-            serverChannel.OwnerGuid = ret.GUID;
+            serverChannel.ChannelGUID = Guid.NewGuid().ToString();
+            serverChannel.OwnerGUID = ret.GUID;
             serverChannel.Private = 0;
 
             ret.ServerChannels = new List<Channel>();
