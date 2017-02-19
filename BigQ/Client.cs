@@ -2222,7 +2222,7 @@ namespace BigQ
         {
             while (true)
             {
-                Thread.Sleep(Config.DefaultSyncTimeoutMs);
+                Task.Delay(Config.DefaultSyncTimeoutMs).Wait();
                 List<string> expiredIds = new List<string>();
                 DateTime tempTimestamp;
                 Message tempMessage;
@@ -2384,7 +2384,7 @@ namespace BigQ
                     if (currentMessage == null)
                     {
                         // Log("TCPDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
-                        Thread.Sleep(30);
+                        Task.Delay(30).Wait();
                         continue;
                     }
 
@@ -2707,7 +2707,7 @@ namespace BigQ
                     if (currentMessage == null)
                     {
                         // Log("TCPSSLDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
-                        Thread.Sleep(30);
+                        Task.Delay(30).Wait();
                         continue;
                     }
 
@@ -2980,7 +2980,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Thread.Sleep(Config.Heartbeat.IntervalMs);
+                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
                     }
 
                     #endregion

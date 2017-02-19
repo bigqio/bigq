@@ -174,14 +174,14 @@ namespace BigQ
                 if (!ClientStream.CanRead)
                 {
                     // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
-                    // Thread.Sleep(25);
+                    // Task.Delaay(25);
                     return false;
                 }
 
                 if (!ClientStream.DataAvailable)
                 {
                     // Log("*** TCPMessageRead " + SourceIp + ":" + SourcePort + " stream has no data available");
-                    // Thread.Sleep(25);
+                    // Task.Delaay(25);
                     return true;
                 }
 
@@ -260,7 +260,7 @@ namespace BigQ
                                 else
                                 {
                                     currentTimeout += sleepInterval;
-                                    Thread.Sleep(sleepInterval);
+                                    Task.Delay(sleepInterval).Wait();
                                 }
                             }
 
@@ -369,7 +369,7 @@ namespace BigQ
                                 else
                                 {
                                     currentTimeout += sleepInterval;
-                                    Thread.Sleep(sleepInterval);
+                                    Task.Delay(sleepInterval).Wait();
                                 }
                             }
 
@@ -601,7 +601,7 @@ namespace BigQ
                                     else
                                     {
                                         currentSleep += sleepInterval;
-                                        Thread.Sleep(sleepInterval);
+                                        Task.Delay(sleepInterval).Wait();
                                     }
                                 }
                             }
@@ -797,7 +797,7 @@ namespace BigQ
                 if (!CurrentSSLStream.CanRead)
                 {
                     // Log("*** TCPSSLMessageRead " + SourceIp + ":" + SourcePort + " stream marked as unreadble while attempting to read headers");
-                    // Thread.Sleep(25);
+                    // Task.Delaay(25);
                     return null;
                 }
                 

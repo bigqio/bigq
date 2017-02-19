@@ -377,7 +377,7 @@ namespace BigQ
 
             #endregion
         }
-        
+
         #endregion
 
         #region Public-Methods
@@ -975,7 +975,7 @@ namespace BigQ
 
                     if (currMessage == null)
                     {
-                        Thread.Sleep(30);
+                        Task.Delay(30).Wait();
                         continue;
                     }
                     else
@@ -1080,7 +1080,7 @@ namespace BigQ
                     // wait
                     //
 
-                    Thread.Sleep(25);
+                    Task.Delay(25).Wait();
                     addLoopCount += 25;
 
                     if (addLoopCount % 250 == 0)
@@ -1150,7 +1150,7 @@ namespace BigQ
                         // wait
                         //
 
-                        Thread.Sleep(25);
+                        Task.Delay(25).Wait();
                         removeLoopCount += 25;
 
                         if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
@@ -1231,7 +1231,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Thread.Sleep(Config.Heartbeat.IntervalMs);
+                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
                     }
 
                     #endregion
@@ -1458,7 +1458,7 @@ namespace BigQ
                     if (message == null)
                     {
                         // Log("*** TCPSSLDataReceiver unable to read from client " + CurrentClient.IpPort());
-                        Thread.Sleep(30);
+                        Task.Delay(30).Wait();
                         continue;
                     }
                     else
@@ -1564,7 +1564,7 @@ namespace BigQ
                     // wait
                     //
 
-                    Thread.Sleep(25);
+                    Task.Delay(25).Wait();
                     addLoopCount += 25;
 
                     if (addLoopCount % 250 == 0)
@@ -1634,7 +1634,7 @@ namespace BigQ
                         // wait
                         //
 
-                        Thread.Sleep(25);
+                        Task.Delay(25).Wait();
                         removeLoopCount += 25;
 
                         if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
@@ -1715,7 +1715,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Thread.Sleep(Config.Heartbeat.IntervalMs);
+                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
                     }
 
                     #endregion
@@ -2030,7 +2030,7 @@ namespace BigQ
                     // wait
                     //
 
-                    Thread.Sleep(25);
+                    Task.Delay(25).Wait();
                     addLoopCount += 25;
 
                     if (addLoopCount % 250 == 0)
@@ -2101,7 +2101,7 @@ namespace BigQ
                         // wait
                         //
 
-                        Thread.Sleep(25);
+                        Task.Delay(25).Wait();
                         removeLoopCount += 25;
 
                         if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
@@ -2182,7 +2182,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Thread.Sleep(Config.Heartbeat.IntervalMs);
+                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
                     }
 
                     #endregion
@@ -2502,7 +2502,7 @@ namespace BigQ
                     // wait
                     //
 
-                    Thread.Sleep(25);
+                    Task.Delay(25).Wait();
                     addLoopCount += 25;
 
                     if (addLoopCount % 250 == 0)
@@ -2573,7 +2573,7 @@ namespace BigQ
                         // wait
                         //
 
-                        Thread.Sleep(25);
+                        Task.Delay(25).Wait();
                         removeLoopCount += 25;
 
                         if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
@@ -2654,7 +2654,7 @@ namespace BigQ
                     }
                     else
                     {
-                        Thread.Sleep(Config.Heartbeat.IntervalMs);
+                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
                     }
 
                     #endregion
@@ -3210,7 +3210,7 @@ namespace BigQ
 
                     if (!firstRun)
                     {
-                        Thread.Sleep(5000);
+                        Task.Delay(5000).Wait();
                     }
                     else
                     {
@@ -3336,7 +3336,7 @@ namespace BigQ
 
                     if (!firstRun)
                     {
-                        Thread.Sleep(5000);
+                        Task.Delay(5000).Wait();
                     }
                     else
                     {
@@ -3824,7 +3824,7 @@ namespace BigQ
 
                     if (!firstRun)
                     {
-                        Thread.Sleep(5000);
+                        Task.Delay(5000).Wait();
                     }
                     else
                     {
@@ -3859,7 +3859,7 @@ namespace BigQ
                                             Log("CleanupTask key " + curr.Key + " removed by cleanup task, exiting");
                                             break;
                                         }
-                                        Thread.Sleep(1000);
+                                        Task.Delay(1000).Wait();
                                         elapsed += 1000;
                                     }
                                 }
