@@ -19,12 +19,7 @@ namespace BigQ
         /// The version number of the BigQ binary.
         /// </summary>
         public string Version;
-
-        /// <summary>
-        /// Whether or not the BigQ server should accept SSL certificates that are self-signed or unable to be verified.
-        /// </summary>
-        public bool AcceptInvalidSSLCerts;
-
+         
         /// <summary>
         /// Optional, overrides the GUID used by the server.  By default, the server uses 00000000-0000-0000-0000-000000000000.
         /// </summary>
@@ -39,6 +34,11 @@ namespace BigQ
         /// Settings related to heartbeat exchanges between client and server.
         /// </summary>
         public HeartbeatSettings Heartbeat;
+
+        /// <summary>
+        /// Settings related to logging.
+        /// </summary>
+        public LoggingSettings Logging;
 
         /// <summary>
         /// Settings related to notifications sent by the server.
@@ -58,7 +58,7 @@ namespace BigQ
         /// <summary>
         /// Settings related to the BigQ TCP server (with SSL).
         /// </summary>
-        public TcpSSLServerSettings TcpSSLServer;
+        public TcpSslServerSettings TcpSslServer;
 
         /// <summary>
         /// Settings related to the BigQ websocket server (no SSL).
@@ -68,7 +68,7 @@ namespace BigQ
         /// <summary>
         /// Settings related to the BigQ websocket server (with SSL).
         /// </summary>
-        public WebsocketSSLServerSettings WebsocketSSLServer;
+        public WebsocketSslServerSettings WebsocketSslServer;
 
         /// <summary>
         /// Channels to be created by the server on start or restar.
@@ -112,6 +112,37 @@ namespace BigQ
         }
 
         /// <summary>
+        /// Settings related to logging.
+        /// </summary>
+        public class LoggingSettings
+        {
+            /// <summary>
+            /// Enable or disable console logging.
+            /// </summary>
+            public bool ConsoleLogging;
+
+            /// <summary>
+            /// Enable or disable syslog logging.
+            /// </summary>
+            public bool SyslogLogging;
+
+            /// <summary>
+            /// IP address of the syslog server.
+            /// </summary>
+            public string SyslogServerIp;
+
+            /// <summary>
+            /// UDP port of the syslog server.
+            /// </summary>
+            public int SyslogServerPort;
+
+            /// <summary>
+            /// Minimum severity required to send log messages.
+            /// </summary>
+            public int MinimumSeverity;
+        }
+
+        /// <summary>
         /// Settings related to notifications sent by the server.
         /// </summary>
         public class NotificationSettings
@@ -141,12 +172,7 @@ namespace BigQ
             /// Enable or disable debugging.
             /// </summary>
             public bool Enable;
-            
-            /// <summary>
-            /// Enable or disable log messages with response time information for messages sent.
-            /// </summary>
-            public bool MsgResponseTime;
-
+             
             /// <summary>
             /// Enable or disable log messages related to connection management.
             /// </summary>
@@ -160,12 +186,7 @@ namespace BigQ
             /// <summary>
             /// Enable or disable log messages related to sending heartbeat messages.
             /// </summary>
-            public bool SendHeartbeat;
-
-            /// <summary>
-            /// Enable or disabling logging to the console.
-            /// </summary>
-            public bool ConsoleLogging;
+            public bool SendHeartbeat; 
         }
 
         /// <summary>
@@ -181,18 +202,23 @@ namespace BigQ
             /// <summary>
             /// IP address on which the server should listen.
             /// </summary>
-            public string IP;
+            public string Ip;
 
             /// <summary>
             /// The port number on which the server should listen.
             /// </summary>
             public int Port;
+
+            /// <summary>
+            /// Enable or disable debugging.
+            /// </summary>
+            public bool Debug;
         }
 
         /// <summary>
         /// Settings related to the BigQ TCP server (with SSL).
         /// </summary>
-        public class TcpSSLServerSettings
+        public class TcpSslServerSettings
         {
             /// <summary>
             /// Enable or disable the TCP SSL server.
@@ -202,7 +228,7 @@ namespace BigQ
             /// <summary>
             /// IP address on which the server should listen.
             /// </summary>
-            public string IP;
+            public string Ip;
 
             /// <summary>
             /// The port number on which the server should listen.
@@ -212,12 +238,22 @@ namespace BigQ
             /// <summary>
             /// The server certificate (PFX file) the server should use to authenticate itself in SSL connections.
             /// </summary>
-            public string PFXCertFile;
+            public string PfxCertFile;
 
             /// <summary>
             /// The password for the server certificate (PFX file).
             /// </summary>
-            public string PFXCertPassword;
+            public string PfxCertPassword;
+
+            /// <summary>
+            /// Indicate whether or not invalid certificates should be accepted.
+            /// </summary>
+            public bool AcceptInvalidCerts;
+
+            /// <summary>
+            /// Enable or disable debugging.
+            /// </summary>
+            public bool Debug;
         }
 
         /// <summary>
@@ -233,18 +269,23 @@ namespace BigQ
             /// <summary>
             /// The IP address on which the server should listen.
             /// </summary>
-            public string IP;
+            public string Ip;
 
             /// <summary>
             /// The port number on which the server should listen.
             /// </summary>
             public int Port;
+
+            /// <summary>
+            /// Enable or disable debugging.
+            /// </summary>
+            public bool Debug;
         }
 
         /// <summary>
         /// Settings related to the BigQ websocket server (with SSL).
         /// </summary>
-        public class WebsocketSSLServerSettings
+        public class WebsocketSslServerSettings
         {
             /// <summary>
             /// Enable or disable the websocket SSL server.
@@ -254,7 +295,7 @@ namespace BigQ
             /// <summary>
             /// The IP address on which the server should listen.
             /// </summary>
-            public string IP;
+            public string Ip;
 
             /// <summary>
             /// The port number on which the server should listen.
@@ -264,12 +305,22 @@ namespace BigQ
             /// <summary>
             /// The server certificate (PFX file) the server should use to authenticate itself in SSL connections.
             /// </summary>
-            public string PFXCertFile;
+            public string PfxCertFile;
 
             /// <summary>
             /// The password for the server certificate (PFX file).
             /// </summary>
-            public string PFXCertPassword;
+            public string PfxCertPassword;
+
+            /// <summary>
+            /// Indicate whether or not invalid certificates should be accepted.
+            /// </summary>
+            public bool AcceptInvalidCerts;
+
+            /// <summary>
+            /// Enable or disable debugging.
+            /// </summary>
+            public bool Debug;
         }
 
         #endregion
@@ -292,51 +343,52 @@ namespace BigQ
         /// </summary>
         public void ValidateConfig()
         {
-            if (String.IsNullOrEmpty(Version)) throw new ArgumentNullException("Version");
-            if (Files == null) throw new ArgumentNullException("Files");
-            if (Heartbeat == null) throw new ArgumentNullException("Heartbeat");
-            if (Notification == null) throw new ArgumentNullException("Notification");
-            if (Debug == null) throw new ArgumentNullException("Debug");
-            if (TcpServer == null) throw new ArgumentNullException("TcpServer");
-            if (TcpSSLServer == null) throw new ArgumentNullException("TcpSSLServer");
-            if (WebsocketServer == null) throw new ArgumentNullException("WebsocketServer");
-            if (WebsocketSSLServer == null) throw new ArgumentNullException("WebsocketSSLServer");
-            if (Heartbeat.IntervalMs < 1000) throw new ArgumentOutOfRangeException("Heartbeat.IntervalMs");
-            if (Heartbeat.MaxFailures < 1) throw new ArgumentOutOfRangeException("Heartbeat.MaxFailures");
+            if (String.IsNullOrEmpty(Version)) throw new ArgumentException("Version section must not be null.");
+            if (Files == null) throw new ArgumentException("Files section must not be null.");
+            if (Heartbeat == null) throw new ArgumentException("Heartbeat section must not be null.");
+            if (Logging == null) throw new ArgumentException("Logging section must not be null.");
+            if (Notification == null) throw new ArgumentException("Notification section must not be null.");
+            if (Debug == null) throw new ArgumentException("Debug section must not be null.");
+            if (TcpServer == null) throw new ArgumentException("TcpServer section must not be null.");
+            if (TcpSslServer == null) throw new ArgumentException("TcpSslServer section must not be null.");
+            if (WebsocketServer == null) throw new ArgumentException("WebsocketServer section must not be null.");
+            if (WebsocketSslServer == null) throw new ArgumentException("WebsocketSslServer section must not be null.");
+            if (Heartbeat.IntervalMs < 1000) throw new ArgumentOutOfRangeException("Heartbeat.IntervalMs must be at least 1000.");
+            if (Heartbeat.MaxFailures < 1) throw new ArgumentOutOfRangeException("Heartbeat.MaxFailures must be greater than or equal to one.");
 
             if (TcpServer.Enable)
             {
-                if (String.IsNullOrEmpty(TcpServer.IP)) throw new ArgumentNullException("TcpServer.IP");
-                if (TcpServer.Port < 1) throw new ArgumentOutOfRangeException("TcpServer.Port");
+                if (String.IsNullOrEmpty(TcpServer.Ip)) throw new ArgumentException("TcpServer.IP must not be null.");
+                if (TcpServer.Port < 1) throw new ArgumentOutOfRangeException("TcpServer.Port must be greater than or equal to one.");
             }
 
-            if (TcpSSLServer.Enable)
+            if (TcpSslServer.Enable)
             {
-                if (String.IsNullOrEmpty(TcpSSLServer.IP)) throw new ArgumentNullException("TcpSSLServer.IP");
-                if (TcpSSLServer.Port < 1) throw new ArgumentOutOfRangeException("TcpSSLServer.Port");
-                if (String.IsNullOrEmpty(TcpSSLServer.PFXCertFile)) throw new ArgumentNullException("TcpSSLServer.PFXCertFile");
+                if (String.IsNullOrEmpty(TcpSslServer.Ip)) throw new ArgumentException("TcpSslServer.IP must not be null.");
+                if (TcpSslServer.Port < 1) throw new ArgumentOutOfRangeException("TcpSslServer.Port must be greater than or equal to one.");
+                if (String.IsNullOrEmpty(TcpSslServer.PfxCertFile)) throw new ArgumentException("TcpSslServer.PfxCertFile must not be null.");
             }
 
             if (WebsocketServer.Enable)
             {
-                if (String.IsNullOrEmpty(WebsocketServer.IP)) throw new ArgumentNullException("WebsocketServer.IP");
-                if (WebsocketServer.Port < 1) throw new ArgumentOutOfRangeException("WebsocketServer.Port");
+                if (String.IsNullOrEmpty(WebsocketServer.Ip)) throw new ArgumentException("WebsocketServer.IP must not be null.");
+                if (WebsocketServer.Port < 1) throw new ArgumentException("WebsocketServer.Port must be greater than or equal to one.");
             }
 
-            if (WebsocketSSLServer.Enable)
+            if (WebsocketSslServer.Enable)
             {
-                if (String.IsNullOrEmpty(WebsocketSSLServer.IP)) throw new ArgumentNullException("WebsocketSSLServer.IP");
-                if (WebsocketSSLServer.Port < 1) throw new ArgumentOutOfRangeException("WebsocketSSLServer.Port");
-                if (String.IsNullOrEmpty(TcpSSLServer.PFXCertFile)) throw new ArgumentNullException("WebsocketSSLServer.PFXCertFile");
+                if (String.IsNullOrEmpty(WebsocketSslServer.Ip)) throw new ArgumentException("WebsocketSslServer.IP must not be null.");
+                if (WebsocketSslServer.Port < 1) throw new ArgumentOutOfRangeException("WebsocketSslServer.Port must be greater than or equal to one.");
+                if (String.IsNullOrEmpty(TcpSslServer.PfxCertFile)) throw new ArgumentException("WebsocketSslServer.PfxCertFile must not be null.");
             }
 
             if ((TcpServer.Enable ? 1 : 0) +
-                (TcpSSLServer.Enable ? 1 : 0) +
+                (TcpSslServer.Enable ? 1 : 0) +
                 (WebsocketServer.Enable ? 1 : 0) +
-                (WebsocketSSLServer.Enable ? 1 : 0)
+                (WebsocketSslServer.Enable ? 1 : 0)
                 < 1)
             {
-                throw new Exception("One or more servers must be enabled in the configuration file.");
+                throw new ArgumentException("One or more servers must be enabled in the configuration file.");
             }
         }
 
@@ -352,7 +404,7 @@ namespace BigQ
         public static ServerConfiguration LoadConfig(string file)
         {
             byte[] fileBytes = File.ReadAllBytes(file);
-            ServerConfiguration ret = Helper.DeserializeJson<ServerConfiguration>(fileBytes, false);
+            ServerConfiguration ret = Helper.DeserializeJson<ServerConfiguration>(fileBytes);
             return ret;
         }
 
@@ -364,7 +416,6 @@ namespace BigQ
         {
             ServerConfiguration ret = new ServerConfiguration();
             ret.Version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString();
-            ret.AcceptInvalidSSLCerts = true;
             ret.GUID = "00000000-0000-0000-0000-000000000000";
 
             ret.Files = new FilesSettings();
@@ -375,6 +426,13 @@ namespace BigQ
             ret.Heartbeat.IntervalMs = 1000;
             ret.Heartbeat.MaxFailures = 5;
 
+            ret.Logging = new LoggingSettings();
+            ret.Logging.ConsoleLogging = true;
+            ret.Logging.SyslogLogging = true;
+            ret.Logging.SyslogServerIp = "127.0.0.1";
+            ret.Logging.SyslogServerPort = 514;
+            ret.Logging.MinimumSeverity = 1;
+
             ret.Notification = new NotificationSettings();
             ret.Notification.MsgAcknowledgement = false;
             ret.Notification.ServerJoinNotification = true;
@@ -382,35 +440,39 @@ namespace BigQ
 
             ret.Debug = new DebugSettings();
             ret.Debug.Enable = false;
-            ret.Debug.MsgResponseTime = false;
-            ret.Debug.ConsoleLogging = false;
             ret.Debug.ConnectionMgmt = false;
             ret.Debug.ChannelMgmt = false;
             ret.Debug.SendHeartbeat = false;
 
             ret.TcpServer = new TcpServerSettings();
             ret.TcpServer.Enable = true;
-            ret.TcpServer.IP = "127.0.0.1";
+            ret.TcpServer.Ip = "127.0.0.1";
             ret.TcpServer.Port = 8000;
+            ret.TcpServer.Debug = false;
 
-            ret.TcpSSLServer = new TcpSSLServerSettings();
-            ret.TcpSSLServer.Enable = false;
-            ret.TcpSSLServer.IP = "127.0.0.1";
-            ret.TcpSSLServer.Port = 8001;
-            ret.TcpSSLServer.PFXCertFile = "server.crt";
-            ret.TcpSSLServer.PFXCertPassword = "password";
+            ret.TcpSslServer = new TcpSslServerSettings();
+            ret.TcpSslServer.Enable = false;
+            ret.TcpSslServer.Ip = "127.0.0.1";
+            ret.TcpSslServer.Port = 8001;
+            ret.TcpSslServer.PfxCertFile = "test.pfx";
+            ret.TcpSslServer.PfxCertPassword = "password";
+            ret.TcpSslServer.AcceptInvalidCerts = true;
+            ret.TcpSslServer.Debug = false;
 
             ret.WebsocketServer = new WebsocketServerSettings();
-            ret.WebsocketServer.Enable = true;
-            ret.WebsocketServer.IP = "127.0.0.1";
+            ret.WebsocketServer.Enable = false;
+            ret.WebsocketServer.Ip = "127.0.0.1";
             ret.WebsocketServer.Port = 8002;
+            ret.WebsocketServer.Debug = false;
 
-            ret.WebsocketSSLServer = new WebsocketSSLServerSettings();
-            ret.WebsocketSSLServer.Enable = false;
-            ret.WebsocketSSLServer.IP = "127.0.0.1";
-            ret.WebsocketSSLServer.Port = 8003;
-            ret.WebsocketSSLServer.PFXCertFile = "server.crt";
-            ret.WebsocketSSLServer.PFXCertPassword = "password";
+            ret.WebsocketSslServer = new WebsocketSslServerSettings();
+            ret.WebsocketSslServer.Enable = false;
+            ret.WebsocketSslServer.Ip = "127.0.0.1";
+            ret.WebsocketSslServer.Port = 8003;
+            ret.WebsocketSslServer.PfxCertFile = "test.pfx";
+            ret.WebsocketSslServer.PfxCertPassword = "password";
+            ret.WebsocketSslServer.AcceptInvalidCerts = true;
+            ret.WebsocketSslServer.Debug = false;
 
             DateTime timestamp = DateTime.Now.ToUniversalTime();
             Channel serverChannel = new Channel();
@@ -418,8 +480,8 @@ namespace BigQ
             serverChannel.Multicast = 0;
             serverChannel.Unicast = 0;
             serverChannel.ChannelName = "Default server channel";
-            serverChannel.CreatedUTC = timestamp;
-            serverChannel.UpdatedUTC = timestamp;
+            serverChannel.CreatedUtc = timestamp;
+            serverChannel.UpdatedUtc = timestamp;
             serverChannel.ChannelGUID = Guid.NewGuid().ToString();
             serverChannel.OwnerGUID = ret.GUID;
             serverChannel.Private = 0;

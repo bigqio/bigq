@@ -43,16 +43,19 @@ namespace BigQClientTest
                 {
                     case "?":
                         // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
-                        Console.WriteLine("Available Commands:");
-                        Console.WriteLine("  q  cls  echo  debugon  debugoff");
-                        Console.WriteLine("  login  listchannels  listchannelmembers  listchannelsubscribers");
+                        Console.WriteLine("General Commands:");
+                        Console.WriteLine("  q  cls  echo  login  whoami");
+                        Console.WriteLine("");
+                        Console.WriteLine("Channel Commands:");
+                        Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
                         Console.WriteLine("  createbroadcastchannel  createmulticastchannel  createunicastchannel");
-                        Console.WriteLine("  deletechannel"); 
-                        Console.WriteLine("  joinchannel  leavechannel");
-                        Console.WriteLine("  subscribechannel unsubscribechannel");
-                        Console.WriteLine("  sendprivasync  sendprivsync");
+                        Console.WriteLine("  deletechannel  joinchannel  leavechannel");
+                        Console.WriteLine("  subscribechannel  unsubscribechannel");
                         Console.WriteLine("  sendchannelasync  sendchannelsync");
-                        Console.WriteLine("  listclients  isclientconnected  whoami  pendingsyncrequests");
+                        Console.WriteLine("");
+                        Console.WriteLine("Messaging Commands:");
+                        Console.WriteLine("  sendprivasync  sendprivsync");
+                        Console.WriteLine("  listclients  isclientconnected  pendingsyncrequests");
                         Console.WriteLine("");
                         break;
 
@@ -70,19 +73,7 @@ namespace BigQClientTest
                         if (client == null) break;
                         client.Echo();
                         break;
-
-                    case "debugon":
-                        client.Config.Debug.Enable = true;
-                        client.Config.Debug.ConsoleLogging = true;
-                        client.Config.Debug.MsgResponseTime = true;
-                        break;
-
-                    case "debugoff":
-                        client.Config.Debug.Enable = false;
-                        client.Config.Debug.ConsoleLogging = false;
-                        client.Config.Debug.MsgResponseTime = false;
-                        break;
-
+                         
                     case "login":
                         if (client == null) break;
                         if (client.Login(out response))
@@ -105,13 +96,11 @@ namespace BigQClientTest
                             {
                                 foreach (Client curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                    if (curr.IsTCP) line += "TCP ";
-                                    else if (curr.IsTCPSSL) line += "TCPSSL ";
-                                    else if (curr.IsWebsocket) line += "WS ";
-                                    else if (curr.IsWebsocketSSL) line += "WSSSL ";
-                                    else line += "unknown ";
-
+                                    string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    if (curr.IsTcp) line += "TCP ";
+                                    if (curr.IsWebsocket) line += "WS ";
+                                    if (curr.IsSsl) line += "SSL ";
+                                    
                                     Console.WriteLine(line);
                                 }
                             }
@@ -176,13 +165,11 @@ namespace BigQClientTest
                             {
                                 foreach (Client curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                    if (curr.IsTCP) line += "TCP ";
-                                    else if (curr.IsTCPSSL) line += "TCPSSL ";
-                                    else if (curr.IsWebsocket) line += "WS ";
-                                    else if (curr.IsWebsocketSSL) line += "WSSSL ";
-                                    else line += "unknown ";
-
+                                    string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    if (curr.IsTcp) line += "TCP ";
+                                    if (curr.IsWebsocket) line += "WS ";
+                                    if (curr.IsSsl) line += "SSL "; 
+                                    
                                     Console.WriteLine(line);
                                 }
                             }
@@ -205,13 +192,11 @@ namespace BigQClientTest
                             {
                                 foreach (Client curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                    if (curr.IsTCP) line += "TCP ";
-                                    else if (curr.IsTCPSSL) line += "TCPSSL ";
-                                    else if (curr.IsWebsocket) line += "WS ";
-                                    else if (curr.IsWebsocketSSL) line += "WSSSL ";
-                                    else line += "unknown ";
-
+                                    string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    if (curr.IsTcp) line += "TCP ";
+                                    if (curr.IsWebsocket) line += "WS ";
+                                    if (curr.IsSsl) line += "SSL ";
+                                    
                                     Console.WriteLine(line);
                                 }
                             }
@@ -400,7 +385,7 @@ namespace BigQClientTest
 
                     case "whoami":
                         if (client == null) break;
-                        Console.Write(client.IpPort());
+                        Console.Write(client.IpPort);
                         if (!String.IsNullOrEmpty(client.ClientGUID)) Console.WriteLine("  GUID " + client.ClientGUID);
                         else Console.WriteLine("[not logged in]");
                         break;
@@ -442,15 +427,10 @@ namespace BigQClientTest
             try
             {
                 Console.WriteLine("Attempting to connect to server");
-                if (client != null) client.Close();
+                if (client != null) client.Dispose();
                 client = null;
                 client = new Client(null);
-
-                client.Config.Debug.Enable = false;
-                client.Config.Debug.ConsoleLogging = false;
-                client.Config.Debug.MsgResponseTime = false;
                 client.Config.Heartbeat.IntervalMs = 1000;
-
                 client.AsyncMessageReceived = AsyncMessageReceived;
                 client.SyncMessageReceived = SyncMessageReceived;
                 // client.ServerDisconnected = ServerDisconnected;
@@ -467,6 +447,7 @@ namespace BigQClientTest
                 client.LogMessage = LogMessage;
                 client.LogMessage = null;
 
+                Console.WriteLine("Client connected, logging in");
                 Message response;
                 if (!client.Login(out response))
                 {
@@ -475,7 +456,7 @@ namespace BigQClientTest
                     return ConnectToServer();
                 }
 
-                Console.WriteLine("Successfully connected to server");
+                Console.WriteLine("Successfully logged into server");
                 return true;
             }
             catch (SocketException)

@@ -17,8 +17,8 @@ namespace BigQ
         public string ChannelGUID;
         public string ChannelName;
         public string OwnerGUID;
-        public DateTime? CreatedUTC;
-        public DateTime? UpdatedUTC;
+        public DateTime? CreatedUtc;
+        public DateTime? UpdatedUtc;
         public int? Private;
         public int? Broadcast;
         public int? Multicast;
@@ -34,8 +34,8 @@ namespace BigQ
         public Channel()
         {
             DateTime ts = DateTime.Now.ToUniversalTime();
-            CreatedUTC = ts;
-            UpdatedUTC = ts;
+            CreatedUtc = ts;
+            UpdatedUtc = ts;
             Members = new List<Client>();
             Subscribers = new List<Client>();
         }

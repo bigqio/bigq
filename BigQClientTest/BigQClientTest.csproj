@@ -51,12 +51,23 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="BigQClientTest.ruleset" />
+    <None Include="client.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="test.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BigQ\BigQ.csproj">
       <Project>{2f8fb0a4-0cde-44ed-aef2-7bb91417f71f}</Project>
       <Name>BigQ</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="test-certificate.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

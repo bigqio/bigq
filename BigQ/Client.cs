@@ -12,16 +12,20 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SyslogLogging;
+using WatsonTcp;
+using WatsonWebsocket;
 
 namespace BigQ
 {    
     /// <summary>
-    /// Object containing metadata about a client on BigQ.
+    /// BigQ client object.
     /// </summary>
     [Serializable]
-    public class Client
+    public class Client : IDisposable
     {
         #region Public-Members
 
@@ -48,47 +52,27 @@ namespace BigQ
         /// <summary>
         /// The GUID associated with the server.  
         /// </summary>
-        public string ServerGUID;
+        public string ServerGuid;
 
         /// <summary>
-        /// The client's source IP address.  Do not modify directly; used by the server.  
+        /// The client's source IP address and port (i.e. 10.1.1.1:5033).  Do not modify directly; used by the server.  
         /// </summary>
-        public string SourceIP;
-
-        /// <summary>
-        /// The source TCP port number used by the client.  Do not modify directly; used by the server.  
-        /// </summary>
-        public int SourcePort;
-
-        /// <summary>
-        /// The server IP address or hostname to which this client connects.  Do not modify directly; used by the server.  
-        /// </summary>
-        public string ServerIP;
-
-        /// <summary>
-        /// The server TCP port to which this client connects.  Do not modify directly; used by the server.  
-        /// </summary>
-        public int ServerPort;
-
+        public string IpPort;
+         
         /// <summary>
         /// The UTC timestamp of when this client object was created.
         /// </summary>
-        public DateTime CreatedUTC;
+        public DateTime CreatedUtc;
 
         /// <summary>
         /// The UTC timestamp of when this client object was last updated.
         /// </summary>
-        public DateTime? UpdatedUTC;
+        public DateTime? UpdatedUtc;
 
         /// <summary>
-        /// Indicates whether or not the client is using raw TCP sockets for messaging.  Do not modify this field.
+        /// Indicates whether or not the client is using TCP sockets for messaging.  Do not modify this field.
         /// </summary>
-        public bool IsTCP;
-
-        /// <summary>
-        /// Indicates whether or not the client is using raw TCP sockets with SSL for messaging.  Do not modify this field.
-        /// </summary>
-        public bool IsTCPSSL;
+        public bool IsTcp;
 
         /// <summary>
         /// Indicates whether or not the client is using websockets for messaging.  Do not modify this field.
@@ -96,55 +80,10 @@ namespace BigQ
         public bool IsWebsocket;
 
         /// <summary>
-        /// Indicates whether or not the client is using websockets with SSL for messaging.  Do not modify this field.
+        /// Indicates whether or not the client is using SSL.  Do not modify this field.
         /// </summary>
-        public bool IsWebsocketSSL;
-
-        /// <summary>
-        /// The TcpClient for this client, without SSL.  Provides direct access to the underlying socket.
-        /// </summary>
-        public TcpClient ClientTCPInterface;
-
-        /// <summary>
-        /// The TcpClient for this client, with SSL.  Provides direct access to the underlying socket.
-        /// </summary>
-        public TcpClient ClientTCPSSLInterface;
-
-        /// <summary>
-        /// The SslStream for this client (used only for TCP SSL connections).  Provides direct access to the underlying stream.
-        /// </summary>
-        public SslStream ClientSSLStream;
-
-        /// <summary>
-        /// The HttpListenerContext for this client, without SSL.  Provides direct access to the underlying HTTP listener context object.
-        /// </summary>
-        public HttpListenerContext ClientHTTPContext;
-
-        /// <summary>
-        /// The WebSocketContext for this client, without SSL.  Provides direct access to the underlying WebSocket context.
-        /// </summary>
-        public WebSocketContext ClientWSContext;
-
-        /// <summary>
-        /// The WebSocket for this client, without SSL.  Provides direct access to the underlying WebSocket object.
-        /// </summary>
-        public WebSocket ClientWSInterface;
-
-        /// <summary>
-        /// The HttpListenerContext for this client, with SSL.  Provides direct access to the underlying HTTP listener context object.
-        /// </summary>
-        public HttpListenerContext ClientHTTPSSLContext;
-
-        /// <summary>
-        /// The WebSocketContext for this client, with SSL.  Provides direct access to the underlying WebSocket context.
-        /// </summary>
-        public WebSocketContext ClientWSSSLContext;
-
-        /// <summary>
-        /// The WebSocket for this client, with SSL.  Provides direct access to the underlying WebSocket object.
-        /// </summary>
-        public WebSocket ClientWSSSLInterface;
-
+        public bool IsSsl;
+        
         /// <summary>
         /// Indicates whether or not the client is connected to the server.  Do not modify this field.
         /// </summary>
@@ -171,35 +110,29 @@ namespace BigQ
         public CancellationToken ProcessClientQueueToken;
 
         /// <summary>
-        /// Managed by the server to destroy the thread receiving data from the client when the client is shutting down.
-        /// </summary>
-        public CancellationTokenSource DataReceiverTokenSource = null;
-
-        /// <summary>
-        /// Managed by the server to destroy the thread receiving data from the client when the client is shutting down.
-        /// </summary>
-        public CancellationToken DataReceiverToken;
-
-        /// <summary>
         /// Managed by the server to destroy the thread sending heartbeats to the client when the client is shutting down.
         /// </summary>
         public CancellationTokenSource HeartbeatTokenSource = null;
 
         /// <summary>
         /// Managed by the server to destroy the thread sending heartbeats to the client when the client is shutting down.
-        /// </summary>
+        /// </summary> 
         public CancellationToken HeartbeatToken;
 
         #endregion
 
         #region Private-Members
 
+        private LoggingModule Logging;
         private CancellationTokenSource CleanupSyncTokenSource = null;
         private CancellationToken CleanupSyncToken;
         private ConcurrentDictionary<string, DateTime> SyncRequests;
         private ConcurrentDictionary<string, Message> SyncResponses;
-        private X509Certificate2 TCPSSLCertificate;
-        private X509Certificate2Collection TCPSSLCertificateCollection = null;
+
+        private WatsonTcpClient WTcpClient;
+        private WatsonTcpSslClient WTcpSslClient;
+        private WatsonWsClient WWsClient;
+        private WatsonWsClient WWsSslClient;
 
         #endregion
 
@@ -287,9 +220,9 @@ namespace BigQ
         /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
         public Client(string configFile)
         {
-            #region Load-and-Validate-Config
+            #region Load-Config
 
-            CreatedUTC = DateTime.Now.ToUniversalTime();
+            CreatedUtc = DateTime.Now.ToUniversalTime();
             Config = null;
 
             if (String.IsNullOrEmpty(configFile))
@@ -302,8 +235,24 @@ namespace BigQ
             }
 
             if (Config == null) throw new Exception("Unable to initialize configuration.");
-
+             
             Config.ValidateConfig();
+
+            #endregion
+
+            #region Initialize-Logging
+
+            Logging = new LoggingModule(
+                Config.Logging.SyslogServerIp,
+                Config.Logging.SyslogServerPort,
+                Config.Logging.ConsoleLogging,
+                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true);
 
             #endregion
 
@@ -316,12 +265,8 @@ namespace BigQ
 
             Email = Config.Email;
             ClientGUID = Config.GUID;
-            ServerGUID = Config.ServerGUID;
-            Password = Config.Password;
-            SourceIP = "";
-            SourcePort = 0;
-            ServerIP = "";
-            ServerPort = 0;
+            ServerGuid = Config.ServerGUID;
+            Password = Config.Password; 
 
             SyncRequests = new ConcurrentDictionary<string, DateTime>();
             SyncResponses = new ConcurrentDictionary<string, Message>();
@@ -344,121 +289,76 @@ namespace BigQ
             LogMessage = null;
 
             #endregion
-
-            #region Accept-SSL-Certificates
-
-            if (Config.AcceptInvalidSSLCerts) ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-
-            #endregion
-
+             
             #region Start-Client
 
             if (Config.TcpServer.Enable)
             {
-                #region Start-TCP-Server
+                #region Start-TCP-Client
 
-                //
-                // see https://social.msdn.microsoft.com/Forums/vstudio/en-US/2281199d-cd28-4b5c-95dc-5a888a6da30d/tcpclientconnect-timeout?forum=csharpgeneral
-                // removed using statement since resources are managed by the caller
-                //
-                ServerIP = Config.TcpServer.IP;
-                ServerPort = Config.TcpServer.Port;
-
-                ClientTCPInterface = new TcpClient();
-                IAsyncResult ar = ClientTCPInterface.BeginConnect(Config.TcpServer.IP, Config.TcpServer.Port, null, null);
-                WaitHandle wh = ar.AsyncWaitHandle;
-
-                try
-                {
-                    if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
-                    {
-                        ClientTCPInterface.Close();
-                        throw new TimeoutException("Timeout connecting to " + Config.TcpServer.IP + ":" + Config.TcpServer.Port);
-                    }
-
-                    ClientTCPInterface.EndConnect(ar);
-
-                    SourceIP = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Address.ToString();
-                    SourcePort = ((IPEndPoint)ClientTCPInterface.Client.LocalEndPoint).Port;
-                }
-                catch (Exception e)
-                {
-                    throw e;
-                }
-                finally
-                {
-                    wh.Close();
-                }
+                WTcpClient = new WatsonTcpClient(
+                    Config.TcpServer.Ip,
+                    Config.TcpServer.Port,
+                    WTcpServerConnected,
+                    WTcpServerDisconnected,
+                    WTcpMessageReceived,
+                    Config.TcpServer.Debug);
 
                 Connected = true;
 
                 #endregion
             }
-            else if (Config.TcpSSLServer.Enable)
+            else if (Config.TcpSslServer.Enable)
             {
-                #region Start-TCP-SSL-Server
+                #region Start-TCP-SSL-Client
 
-                //
-                // Setup the SSL certificate and certificate collection
-                //
-                TCPSSLCertificate = null;
-                TCPSSLCertificateCollection = new X509Certificate2Collection();
-                if (String.IsNullOrEmpty(Config.TcpSSLServer.PFXCertPassword))
-                {
-                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile);
-                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.PFXCertFile));
-                }
-                else
-                {
-                    TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile, Config.TcpSSLServer.PFXCertPassword);
-                    TCPSSLCertificateCollection.Add(new X509Certificate2(Config.TcpSSLServer.PFXCertFile, Config.TcpSSLServer.PFXCertPassword));
-                }
+                WTcpSslClient = new WatsonTcpSslClient(
+                    Config.TcpSslServer.Ip,
+                    Config.TcpSslServer.Port,
+                    Config.TcpSslServer.PfxCertFile,
+                    Config.TcpSslServer.PfxCertPassword,
+                    Config.TcpSslServer.AcceptInvalidCerts,
+                    WTcpSslServerConnected,
+                    WTcpSslServerDisconnected,
+                    WTcpSslMessageReceived,
+                    Config.TcpSslServer.Debug);
 
-                ServerIP = Config.TcpSSLServer.IP;
-                ServerPort = Config.TcpSSLServer.Port;
-                
-                ClientTCPSSLInterface = new TcpClient();
-                IAsyncResult ar = ClientTCPSSLInterface.BeginConnect(Config.TcpSSLServer.IP, Config.TcpSSLServer.Port, null, null);
-                WaitHandle wh = ar.AsyncWaitHandle;
+                Connected = true;
 
-                try
-                {
-                    if (!ar.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5), false))
-                    {
-                        ClientTCPSSLInterface.Close();
-                        throw new TimeoutException("Timeout connecting to " + Config.TcpSSLServer.IP + ":" + Config.TcpSSLServer.Port);
-                    }
+                #endregion
+            }
+            else if (Config.WebsocketServer.Enable)
+            {
+                #region Start-Websocket-Client
 
-                    ClientTCPSSLInterface.EndConnect(ar);
-                    SourceIP = ((IPEndPoint)ClientTCPSSLInterface.Client.LocalEndPoint).Address.ToString();
-                    SourcePort = ((IPEndPoint)ClientTCPSSLInterface.Client.LocalEndPoint).Port;
+                WWsClient = new WatsonWsClient(
+                    Config.WebsocketServer.Ip,
+                    Config.WebsocketServer.Port,
+                    false,
+                    false,
+                    WWsServerConnected,
+                    WWsServerDisconnected,
+                    WWsMessageReceived,
+                    Config.WebsocketServer.Debug);
+                 
+                Connected = true;
 
-                    //
-                    // Setup SSL and authenticate
-                    //
-                    if (Config.AcceptInvalidSSLCerts)
-                    {
-                        ClientSSLStream = new SslStream(ClientTCPSSLInterface.GetStream(), false, new RemoteCertificateValidationCallback(ValidateCert));
-                    }
-                    else
-                    {
-                        //
-                        // do not accept invalid SSL certificates
-                        //
-                        ClientSSLStream = new SslStream(ClientTCPSSLInterface.GetStream(), false);
-                    }
-                    
-                    ClientSSLStream.AuthenticateAsClient(Config.TcpSSLServer.IP, TCPSSLCertificateCollection, SslProtocols.Default, true);
-                }
-                catch (Exception e)
-                {
-                    throw e;
-                }
-                finally
-                {
-                    wh.Close();
-                }
+                #endregion
+            }
+            else if (Config.WebsocketSslServer.Enable)
+            {
+                #region Start-Websocket-SSL-Client
 
+                WWsSslClient = new WatsonWsClient(
+                    Config.WebsocketSslServer.Ip,
+                    Config.WebsocketSslServer.Port,
+                    true,
+                    Config.WebsocketSslServer.AcceptInvalidCerts,
+                    WWsSslServerConnected,
+                    WWsSslServerDisconnected,
+                    WWsSslMessageReceived,
+                    Config.WebsocketSslServer.Debug);
+                 
                 Connected = true;
 
                 #endregion
@@ -467,45 +367,23 @@ namespace BigQ
             {
                 #region Unknown-Server
 
-                throw new Exception("Exactly one server must be enabled in the configuration file.");
+                throw new ArgumentException("Exactly one server must be enabled in the configuration file.");
 
                 #endregion
             }
 
             #endregion
-
-            #region Stop-Existing-Tasks
-
-            if (DataReceiverTokenSource != null) DataReceiverTokenSource.Cancel();
-            if (CleanupSyncTokenSource != null) CleanupSyncTokenSource.Cancel();
-            if (HeartbeatTokenSource != null) HeartbeatTokenSource.Cancel();
-
-            #endregion
-
+             
             #region Start-Tasks
-
-            DataReceiverTokenSource = new CancellationTokenSource();
-            DataReceiverToken = DataReceiverTokenSource.Token;
-
-            if (Config.TcpServer.Enable) Task.Run(() => TCPDataReceiver(), DataReceiverToken);
-            else if (Config.TcpSSLServer.Enable) Task.Run(() => TCPSSLDataReceiver(), DataReceiverToken);
-            else
-            {
-                throw new Exception("Exactly one server must be enabled in the configuration file.");
-            }
-
+             
             CleanupSyncTokenSource = new CancellationTokenSource();
             CleanupSyncToken = CleanupSyncTokenSource.Token;
             Task.Run(() => CleanupSyncRequests(), CleanupSyncToken);
-
-            //
-            //
-            //
+             
             // do not start heartbeat until successful login
             // design goal: server needs to free up connections fast
             // client just needs to keep socket open
-            //
-            //
+            
             //
             // HeartbeatTokenSource = new CancellationTokenSource();
             // HeartbeatToken = HeartbeatTokenSource.Token;
@@ -513,86 +391,86 @@ namespace BigQ
 
             #endregion
         }
-        
+
+        /// <summary>
+        /// Used by the server, do not use!
+        /// </summary>
+        /// <param name="ipPort">The IP:port of the client.</param>
+        /// <param name="isTcp">Indicates if the connection is a TCP connection.</param>
+        /// <param name="isWebsocket">Indicates if the connection is a websocket connection.</param>
+        /// <param name="isSsl">Indicates if the connection uses SSL.</param>
+        public Client(string ipPort, bool isTcp, bool isWebsocket, bool isSsl)
+        {
+            if (String.IsNullOrEmpty(ipPort)) throw new ArgumentNullException(nameof(ipPort));
+
+            IpPort = ipPort;
+            IsTcp = isTcp;
+            IsWebsocket = isWebsocket;
+            IsSsl = isSsl;
+
+            MessageQueue = new BlockingCollection<Message>();
+
+            DateTime ts = DateTime.Now.ToUniversalTime();
+            CreatedUtc = ts;
+            UpdatedUtc = ts;
+        }
+
         #endregion
 
         #region Public-Methods
 
         /// <summary>
+        /// Tear down the client and dispose of background workers.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        /// <summary>
         /// Sends a message; makes the assumption that you have populated the object fully and correctly.  In general, this method should not be used.
         /// </summary>
         /// <param name="message">The populated message object to send.</param>
-        /// <returns></returns>
-        public bool SendRawMessage(Message message)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
+        /// <returns>Boolean indicating success.</returns>
+        public bool SendMessage(Message message)
+        { 
+            if (message == null)
             {
-                if (message == null)
-                {
-                    Log("SendRawMessage null message supplied");
-                    return false;
-                }
-
-                if (Config.TcpServer.Enable)
-                {
-                    Log("SendRawMessage sending message using TCP");
-                    return TCPDataSender(message);
-                }
-                else if (Config.TcpSSLServer.Enable)
-                {
-                    Log("SendRawMessage sending message using TCP/SSL");
-                    return TCPSSLDataSender(message);
-                }
-                else
-                {
-                    Log("*** SendRawMessage no server enabled");
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogException("SendRawMessage", e);
+                Logging.Log(LoggingModule.Severity.Debug, "SendRawMessage null message supplied");
                 return false;
             }
-            finally
+
+            byte[] data = message.ToBytes();
+
+            if (Config.TcpServer.Enable) return WTcpClient.SendAsync(data).Result;
+            else if (Config.TcpSslServer.Enable) return WTcpSslClient.SendAsync(data).Result;
+            else if (Config.WebsocketServer.Enable) return WWsClient.SendAsync(data).Result;
+            else if (Config.WebsocketSslServer.Enable) return WWsSslClient.SendAsync(data).Result;
+            else
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendRawMessage " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+                Logging.Log(LoggingModule.Severity.Warn, "SendRawMessage no server enabled");
+                return false;
+            } 
         }
 
         /// <summary>
         /// Generates an echo request to the server, which should result in an asynchronous echo response.  Typically used to validate connectivity.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Boolean indicating success.</returns>
         public bool Echo()
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "Echo";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = null;
-                request.Data = null;
-                return SendRawMessage(request);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Echo " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        {  
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "Echo";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = null;
+            request.Data = null;
+            return SendMessage(request); 
         }
 
         /// <summary>
@@ -601,70 +479,53 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating if the login was successful.</returns>
         public bool Login(out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
             response = null;
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "Login";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = null;
+            request.Data = null;
 
-            try
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "Login";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = null;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** Login unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** Login null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** Login failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    LoggedIn = true;
-
-                    // stop existing heartbeat thread
-                    if (HeartbeatTokenSource != null) HeartbeatTokenSource.Cancel();
-
-                    // start new heartbeat thread
-                    HeartbeatTokenSource = new CancellationTokenSource();
-                    HeartbeatToken = HeartbeatTokenSource.Token;
-                    Task.Run(() => HeartbeatManager(), HeartbeatToken);
-
-                    // call server connected delegate
-                    if (ServerConnected != null) Task.Run(() => ServerConnected());
-                    return true;
-                }
-            }
-            catch (Exception e)
-            {
-                LogException("Login", e);
+                Logging.Log(LoggingModule.Severity.Warn, "Login unable to retrieve server response");
                 return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Login " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "Login null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "Login failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                LoggedIn = true;
+
+                // stop existing heartbeat thread
+                if (HeartbeatTokenSource != null) HeartbeatTokenSource.Cancel();
+
+                // start new heartbeat thread
+                HeartbeatTokenSource = new CancellationTokenSource();
+                HeartbeatToken = HeartbeatTokenSource.Token;
+                Task.Run(() => HeartbeatManager(), HeartbeatToken);
+
+                // call server connected delegate
+                if (ServerConnected != null) Task.Run(() => ServerConnected());
+                return true;
+            } 
         }
 
         /// <summary>
@@ -675,59 +536,46 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool ListClients(out Message response, out List<Client> clients)
         {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+            response = null;
+            clients = null;
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListClients";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = null;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                clients = null;
+                Logging.Log(LoggingModule.Severity.Warn, "ListClients unable to retrieve server response");
+                return false;
+            } 
 
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "ListClients";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = null;
-                request.Data = null;
+            if (response == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListClients null response from server");
+                return false;
+            } 
 
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** ListClients unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** ListClients null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** ListClients failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    if (response.Data != null)
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListClients deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
-                        // clients = Helper.DeserializeJson<List<Client>>(Helper.SerializeJson(resp.Data), false);
-                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
-                    }
-                    return true;
-                }
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListClients failed with response data " + response.Data.ToString());
+                return false;
             }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListClients " + sw.Elapsed.TotalMilliseconds + "ms");
+            else
+            { 
+                if (response.Data != null)
+                {
+                    SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data);
+                    clients = ((JArray)resp.Data).ToObject<List<Client>>();
+                }
+                return true;
             }
         }
 
@@ -739,59 +587,46 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool ListChannels(out Message response, out List<Channel> channels)
         {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+            response = null;
+            channels = null;
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListChannels";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = null;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                channels = null;
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "ListChannels";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = null;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** ListChannels unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** ListChannels null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** ListChannels failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    if (response.Data != null)
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannels deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
-                        // channels = Helper.DeserializeJson<List<Channel>>(Helper.SerializeJson(resp.Data), false);
-                        channels = ((JArray)resp.Data).ToObject<List<Channel>>();
-                    }
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannels unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannels " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannels null response from server");
+                return false;
+            }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannels failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data);
+                    channels = ((JArray)resp.Data).ToObject<List<Channel>>();
+                }
+                return true;
             }
         }
 
@@ -803,70 +638,58 @@ namespace BigQ
         /// <param name="clients">The list of clients that are members in the specified channel on the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool ListChannelMembers(string guid, out Message response, out List<Client> clients)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            clients = null;
 
-            try
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListChannelMembers";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                clients = null;
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannelMembers unable to retrieve server response");
+                return false;
+            }
 
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
+            if (response == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannelMembers null response from server");
+                return false;
+            }
 
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "ListChannelMembers";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannelMembers failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
                 {
-                    Log("*** ListChannelMembers unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** ListChannelMembers null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** ListChannelMembers failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    if (response.Data != null)
+                    SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data);
+                    if (resp != null && resp.Data != null)
                     {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelMembers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
-                        if (resp != null && resp.Data != null)
-                        {
-                            clients = ((JArray)resp.Data).ToObject<List<Client>>();
-                        }
-                        else
-                        {
-                            clients = new List<Client>();
-                        }
+                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
                     }
-
-                    return true;
+                    else
+                    {
+                        clients = new List<Client>();
+                    }
                 }
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelMembers " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+
+                return true;
+            } 
         }
 
         /// <summary>
@@ -878,61 +701,48 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool ListChannelSubscribers(string guid, out Message response, out List<Client> clients)
         {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+            response = null;
+            clients = null;
 
-            try
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "ListChannelSubscribers";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                clients = null;
-
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "ListChannelSubscribers";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** ListChannelSubscribers unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** ListChannelSubscribers null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** ListChannelSubscribers failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    if (response.Data != null)
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelSubscribers deserialize start " + sw.Elapsed.TotalMilliseconds + "ms");
-                        SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data, false);
-                        // clients = Helper.DeserializeJson<List<Client>>(Helper.SerializeJson(resp.Data), false);
-                        clients = ((JArray)resp.Data).ToObject<List<Client>>();
-                    }
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannelSubscribers unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ListChannelSubscribers " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannelSubscribers null response from server");
+                return false;
+            }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListChannelSubscribers failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    SuccessData resp = Helper.DeserializeJson<SuccessData>(response.Data);
+                    clients = ((JArray)resp.Data).ToObject<List<Client>>();
+                }
+                return true;
             }
         }
 
@@ -943,54 +753,43 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool JoinChannel(string guid, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "JoinChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "JoinChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** JoinChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** JoinChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** JoinChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "JoinChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("JoinChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "JoinChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "JoinChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1000,54 +799,43 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SubscribeChannel(string guid, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "SubscribeChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "SubscribeChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** SubscribeChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** SubscribeChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** SubscribeChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "SubscribeChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SubscribeChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscribeChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SubscribeChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1057,54 +845,43 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool LeaveChannel(string guid, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "LeaveChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "LeaveChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** LeaveChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** LeaveChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** LeaveChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "LeaveChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("LeaveChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "LeaveChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "LeaveChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1114,54 +891,43 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool UnsubscribeChannel(string guid, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "UnsubscribeChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "UnsubscribeChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** UnsubscribeChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** UnsubscribeChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** UnsubscribeChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "UnsubscribeChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("UnsubscribeChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "UnsubscribeChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "UnsubscribeChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1172,64 +938,53 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool CreateBroadcastChannel(string name, int priv, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+            if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-            try
+            Channel currentChannel = new Channel();
+            currentChannel.ChannelName = name;
+            currentChannel.OwnerGUID = ClientGUID;
+            currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+            currentChannel.Private = priv;
+            currentChannel.Broadcast = 1;
+            currentChannel.Multicast = 0;
+            currentChannel.Unicast = 0;
+
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "CreateChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = currentChannel.ChannelGUID;
+            request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
-                if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
-
-                Channel currentChannel = new Channel();
-                currentChannel.ChannelName = name;
-                currentChannel.OwnerGUID = ClientGUID;
-                currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-                currentChannel.Private = priv;
-                currentChannel.Broadcast = 1;
-                currentChannel.Multicast = 0;
-                currentChannel.Unicast = 0;
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "CreateChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = currentChannel.ChannelGUID;
-                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** CreateBroadcastChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** CreateBroadcastChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** CreateBroadcastChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "CreateBroadcastChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateBroadcastChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "CreateBroadcastChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "CreateBroadcastChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1240,64 +995,53 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool CreateUnicastChannel(string name, int priv, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+            if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-            try
+            Channel currentChannel = new Channel();
+            currentChannel.ChannelName = name;
+            currentChannel.OwnerGUID = ClientGUID;
+            currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+            currentChannel.Private = priv;
+            currentChannel.Broadcast = 0;
+            currentChannel.Multicast = 0;
+            currentChannel.Unicast = 1;
+
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "CreateChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = currentChannel.ChannelGUID;
+            request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
-                if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
-
-                Channel currentChannel = new Channel();
-                currentChannel.ChannelName = name;
-                currentChannel.OwnerGUID = ClientGUID;
-                currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-                currentChannel.Private = priv;
-                currentChannel.Broadcast = 0;
-                currentChannel.Multicast = 0;
-                currentChannel.Unicast = 1;
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "CreateChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = currentChannel.ChannelGUID;
-                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** CreateUnicastChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** CreateUnicastChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** CreateUnicastChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "CreateUnicastChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateUnicastChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "CreateUnicastChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "CreateUnicastChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1308,64 +1052,53 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool CreateMulticastChannel(string name, int priv, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+            if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
 
-            try
+            Channel currentChannel = new Channel();
+            currentChannel.ChannelName = name;
+            currentChannel.OwnerGUID = ClientGUID;
+            currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+            currentChannel.Private = priv;
+            currentChannel.Broadcast = 0;
+            currentChannel.Multicast = 1;
+            currentChannel.Unicast = 0;
+
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "CreateChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = currentChannel.ChannelGUID;
+            request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
-                if (priv != 0 && priv != 1) throw new ArgumentOutOfRangeException("Value for priv must be 0 or 1");
-
-                Channel currentChannel = new Channel();
-                currentChannel.ChannelName = name;
-                currentChannel.OwnerGUID = ClientGUID;
-                currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-                currentChannel.Private = priv;
-                currentChannel.Broadcast = 0;
-                currentChannel.Multicast = 1;
-                currentChannel.Unicast = 0;
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "CreateChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = currentChannel.ChannelGUID;
-                request.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(currentChannel));
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** CreateChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** CreateChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** CreateChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "CreateChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("CreateChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "CreateChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "CreateChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1375,54 +1108,43 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool DeleteChannel(string guid, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "DeleteChannel";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = guid;
+            request.Data = null;
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "DeleteChannel";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = guid;
-                request.Data = null;
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** DeleteChannel unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** DeleteChannel null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** DeleteChannel failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    return true;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("DeleteChannel " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                return true;
+            } 
         }
 
         /// <summary>
@@ -1432,21 +1154,10 @@ namespace BigQ
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendPrivateMessageAsync(string guid, string data)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-                return SendPrivateMessageAsync(guid, Encoding.UTF8.GetBytes(data));
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageAsync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        { 
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
+            return SendPrivateMessageAsync(guid, Encoding.UTF8.GetBytes(data)); 
         }
 
         /// <summary>
@@ -1457,31 +1168,20 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendPrivateMessageAsync(string guid, byte[] data)
         {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (data == null) throw new ArgumentNullException(nameof(data));
 
-            try
-            {
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (data == null) throw new ArgumentNullException("data");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = null;
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = guid;
-                request.ChannelGUID = null;
-                request.Data = data;
-                return SendRawMessage(request);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageAsync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = null;
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = guid;
+            request.ChannelGUID = null;
+            request.Data = data;
+            return SendMessage(request); 
         }
 
         /// <summary>
@@ -1492,21 +1192,10 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendPrivateMessageSync(string guid, string data, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-                return SendPrivateMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageSync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        { 
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
+            return SendPrivateMessageSync(guid, Encoding.UTF8.GetBytes(data), out response); 
         }
 
         /// <summary>
@@ -1517,59 +1206,46 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendPrivateMessageSync(string guid, byte[] data, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (data == null) throw new ArgumentNullException(nameof(data));
 
             Message message = new Message();
-            
-            try
+            message.Email = Email;
+            message.Password = Password;
+            message.Command = null;
+            message.CreatedUtc = DateTime.Now.ToUniversalTime();
+            message.MessageID = Guid.NewGuid().ToString();
+            message.SenderGUID = ClientGUID;
+            message.RecipientGUID = guid;
+            message.ChannelGUID = null;
+            message.SyncRequest = true;
+            message.Data = data;
+
+            if (!AddSyncRequest(message.MessageID))
             {
-                response = null;
+                Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessageSync unable to register sync request GUID " + message.MessageID);
+                return false;
+            }
 
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (data == null) throw new ArgumentNullException("data");
+            if (!SendMessage(message))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage unable to send message GUID " + message.MessageID + " to recipient " + message.RecipientGUID);
+                return false;
+            }
 
-                message = new Message();
-                message.Email = Email;
-                message.Password = Password;
-                message.Command = null;
-                message.CreatedUTC = DateTime.Now.ToUniversalTime();
-                message.MessageID = Guid.NewGuid().ToString();
-                message.SenderGUID = ClientGUID;
-                message.RecipientGUID = guid;
-                message.ChannelGUID = null;
-                message.SyncRequest = true;
-                message.Data = data;
+            int timeoutMs = Config.SyncTimeoutMs;
+            if (message.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(message.SyncTimeoutMs);
 
-                if (!AddSyncRequest(message.MessageID))
-                {
-                    Log("*** SendPrivateMessageSync unable to register sync request GUID " + message.MessageID);
-                    return false;
-                }
-
-                if (!SendRawMessage(message))
-                {
-                    Log("*** SendPrivateMessage unable to send message GUID " + message.MessageID + " to recipient " + message.RecipientGUID);
-                    return false;
-                }
-
-                int timeoutMs = Config.DefaultSyncTimeoutMs;
-                if (message.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(message.SyncTimeoutMs);
-
-                if (!GetSyncResponse(message.MessageID, timeoutMs, out response))
-                {
-                    Log("*** SendPrivateMessage unable to get response for message GUID " + message.MessageID);
-                    return false;
-                }
+            if (!GetSyncResponse(message.MessageID, timeoutMs, out response))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage unable to get response for message GUID " + message.MessageID);
+                return false;
+            }
                 
-                return true;
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessageSync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+            return true; 
         }
 
         /// <summary>
@@ -1578,21 +1254,10 @@ namespace BigQ
         /// <param name="request">The message object you wish to send to the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendServerMessageAsync(Message request)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                if (request == null) throw new ArgumentNullException("request");
-                request.RecipientGUID = ServerGUID;
-                return SendRawMessage(request);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendServerMessageAsync " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        { 
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            request.RecipientGUID = ServerGuid;
+            return SendMessage(request); 
         }
 
         /// <summary>
@@ -1603,64 +1268,46 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendServerMessageSync(Message request, out Message response)
         {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
             response = null;
-            
-            try
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
+            request.SyncRequest = true;
+            request.RecipientGUID = ServerGuid;
+             
+            if (!AddSyncRequest(request.MessageID))
             {
-                response = null;
-            
-                if (request == null) throw new ArgumentNullException("request");
-                if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
-                request.SyncRequest = true;
-                request.RecipientGUID = ServerGUID;
-
-                if (!AddSyncRequest(request.MessageID))
-                {
-                    Log("*** SendServerMessageSync unable to register sync request GUID " + request.MessageID);
-                    return false;
-                }
-                else
-                {
-                    Log("SendServerMessageSync registered sync request GUID " + request.MessageID);
-                }
-                
-                if (!SendRawMessage(request))
-                {
-                    Log("*** SendServerMessageSync unable to send message GUID " + request.MessageID + " to server");
-                    return false;
-                }
-                else
-                {
-                    Log("SendServerMessageSync sent message GUID " + request.MessageID + " to server");
-                }
-
-                int timeoutMs = Config.DefaultSyncTimeoutMs;
-                if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
-
-                if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
-                {
-                    Log("*** SendServerMessageSync unable to get response for message GUID " + request.MessageID);
-                    return false;
-                }
-                else
-                {
-                    Log("SendServerMessageSync received response for message GUID " + request.MessageID);
-                }
-                
-                return true;
-            }
-            catch (Exception e)
-            {
-                LogException("SendServerMessageSync", e);
+                Logging.Log(LoggingModule.Severity.Warn, "SendServerMessageSync unable to register sync request GUID " + request.MessageID);
                 return false;
             }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendServerMessageSync " + sw.Elapsed.TotalMilliseconds + "ms");
+            else
+            { 
+                Logging.Log(LoggingModule.Severity.Debug, "SendServerMessageSync registered sync request GUID " + request.MessageID);
             }
+             
+            if (!SendMessage(request))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendServerMessageSync unable to send message GUID " + request.MessageID + " to server");
+                return false;
+            }
+            else
+            { 
+                Logging.Log(LoggingModule.Severity.Debug, "SendServerMessageSync sent message GUID " + request.MessageID + " to server");
+            }
+             
+            int timeoutMs = Config.SyncTimeoutMs;
+            if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
+             
+            if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
+            { 
+                Logging.Log(LoggingModule.Severity.Warn, "SendServerMessageSync unable to get response for message GUID " + request.MessageID);
+                return false;
+            }
+            else
+            { 
+                Logging.Log(LoggingModule.Severity.Debug, "SendServerMessageSync received response for message GUID " + request.MessageID);
+            }
+ 
+            return true; 
         }
 
         /// <summary>
@@ -1670,21 +1317,10 @@ namespace BigQ
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendChannelMessageAsync(string guid, string data)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-                return SendChannelMessageAsync(guid, Encoding.UTF8.GetBytes(data));
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMembersMessage (string) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        { 
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
+            return SendChannelMessageAsync(guid, Encoding.UTF8.GetBytes(data)); 
         }
 
         /// <summary>
@@ -1694,32 +1330,21 @@ namespace BigQ
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendChannelMessageAsync(string guid, byte[] data)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (data == null) throw new ArgumentNullException(nameof(data));
 
-            try
-            {
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (data == null) throw new ArgumentNullException("data");
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = null;
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = null;
-                request.ChannelGUID = guid;
-                request.Data = data;
-                return SendRawMessage(request);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMembersMessage (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = null;
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = null;
+            request.ChannelGUID = guid;
+            request.Data = data;
+            return SendMessage(request); 
         }
 
         /// <summary>
@@ -1730,21 +1355,10 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendChannelMessageSync(string guid, string data, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (String.IsNullOrEmpty(data)) throw new ArgumentNullException("data");
-                return SendChannelMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMessageSync (string) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        { 
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
+            return SendChannelMessageSync(guid, Encoding.UTF8.GetBytes(data), out response); 
         }
 
         /// <summary>
@@ -1755,59 +1369,46 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool SendChannelMessageSync(string guid, byte[] data, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+            if (data == null) throw new ArgumentNullException(nameof(data));
 
             Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = null;
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = null;
+            request.ChannelGUID = guid;
+            request.SyncRequest = true;
+            request.Data = data;
 
-            try
+            if (!AddSyncRequest(request.MessageID))
             {
-                response = null;
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelMessageSync unable to register sync request GUID " + request.MessageID);
+                return false;
+            }
 
-                if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException("guid");
-                if (data == null) throw new ArgumentNullException("data");
+            if (!SendMessage(request))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelMessageSync unable to send message GUID " + request.MessageID + " to channel " + request.ChannelGUID);
+                return false;
+            }
 
-                request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = null;
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = null;
-                request.ChannelGUID = guid;
-                request.SyncRequest = true;
-                request.Data = data;
+            int timeoutMs = Config.SyncTimeoutMs;
+            if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
 
-                if (!AddSyncRequest(request.MessageID))
-                {
-                    Log("*** SendChannelMessageSync unable to register sync request GUID " + request.MessageID);
-                    return false;
-                }
-
-                if (!SendRawMessage(request))
-                {
-                    Log("*** SendChannelMessageSync unable to send message GUID " + request.MessageID + " to channel " + request.ChannelGUID);
-                    return false;
-                }
-
-                int timeoutMs = Config.DefaultSyncTimeoutMs;
-                if (request.SyncTimeoutMs != null) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
-
-                if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
-                {
-                    Log("*** SendChannelMessageSync unable to get response for message GUID " + request.MessageID);
-                    return false;
-                }
+            if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelMessageSync unable to get response for message GUID " + request.MessageID);
+                return false;
+            }
                 
-                return true;
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMessageSync (byte) " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+            return true; 
         }
 
         /// <summary>
@@ -1816,24 +1417,13 @@ namespace BigQ
         /// <param name="response">A dictionary containing the GUID of the synchronous request (key) and the timestamp it was sent (value).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool PendingSyncRequests(out Dictionary<string, DateTime> response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
+            if (SyncRequests == null) return true;
+            if (SyncRequests.Count < 1) return true;
 
-            try
-            {
-                response = null;
-                if (SyncRequests == null) return true;
-                if (SyncRequests.Count < 1) return true;
-
-                response = SyncRequests.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-                return true;
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("PendingSyncRequests " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+            response = SyncRequests.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            return true; 
         }
 
         /// <summary>
@@ -1843,146 +1433,140 @@ namespace BigQ
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool IsClientConnected(string guid, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            response = null;
 
-            try
+            Message request = new Message();
+            request.Email = Email;
+            request.Password = Password;
+            request.Command = "IsClientConnected";
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = ClientGUID;
+            request.RecipientGUID = ServerGuid;
+            request.SyncRequest = true;
+            request.ChannelGUID = null;
+            request.Data = Encoding.UTF8.GetBytes(guid);
+
+            if (!SendServerMessageSync(request, out response))
             {
-                response = null;
-
-                Message request = new Message();
-                request.Email = Email;
-                request.Password = Password;
-                request.Command = "IsClientConnected";
-                request.CreatedUTC = DateTime.Now.ToUniversalTime();
-                request.MessageID = Guid.NewGuid().ToString();
-                request.SenderGUID = ClientGUID;
-                request.RecipientGUID = ServerGUID;
-                request.SyncRequest = true;
-                request.ChannelGUID = null;
-                request.Data = Encoding.UTF8.GetBytes(guid);
-
-                if (!SendServerMessageSync(request, out response))
-                {
-                    Log("*** ListClients unable to retrieve server response");
-                    return false;
-                }
-
-                if (response == null)
-                {
-                    Log("*** ListClients null response from server");
-                    return false;
-                }
-
-                if (!Helper.IsTrue(response.Success))
-                {
-                    Log("*** ListClients failed with response data " + response.Data.ToString());
-                    return false;
-                }
-                else
-                {
-                    if (response.Data != null)
-                    {
-                        SuccessData ret = Helper.DeserializeJson<SuccessData>(Encoding.UTF8.GetString(response.Data), false);
-                        return (ret.Success && Convert.ToBoolean(ret.Data));
-                    }
-
-                    return false;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "ListClients unable to retrieve server response");
+                return false;
             }
-            finally
+
+            if (response == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("IsClientConnected " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "ListClients null response from server");
+                return false;
             }
+
+            if (!Helper.IsTrue(response.Success))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ListClients failed with response data " + response.Data.ToString());
+                return false;
+            }
+            else
+            {
+                if (response.Data != null)
+                {
+                    SuccessData ret = Helper.DeserializeJson<SuccessData>(Encoding.UTF8.GetString(response.Data));
+                    return (ret.Success && Convert.ToBoolean(ret.Data));
+                }
+
+                return false;
+            } 
         }
 
-        /// <summary>
-        /// Retrieve a structured string containing the IP address and port of the client in the format of 10.1.142.12:31763.
-        /// </summary>
-        /// <returns>Formatted string containing the IP address and port of the client.</returns>
-        public string IpPort()
+        #endregion
+
+        #region Private-Watson-Methods
+
+        private bool WTcpServerConnected()
         {
-            return SourceIP + ":" + SourcePort;
+            Logging.Log(LoggingModule.Severity.Info, "Server connection detected");
+            Connected = true;
+            return true;
         }
 
-        /// <summary>
-        /// Close and dispose of client resources.
-        /// </summary>
-        public void Close()
+        private bool WTcpServerDisconnected()
         {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+            Logging.Log(LoggingModule.Severity.Info, "Server disconnect detected");
+            Connected = false;
+            if (ServerDisconnected != null) Task.Run(() => ServerDisconnected());
+            return true;
+        }
 
-            try
-            {
-                if (DataReceiverTokenSource != null)
-                {
-                    DataReceiverTokenSource.Cancel(false);
-                }
+        private bool WTcpMessageReceived(byte[] data)
+        {
+            Message curr = new Message(data);
+            HandleMessage(curr);
+            return true;
+        }
 
-                if (CleanupSyncTokenSource != null)
-                {
-                    CleanupSyncTokenSource.Cancel(false);
-                }
+        private bool WTcpSslServerConnected()
+        {
+            Logging.Log(LoggingModule.Severity.Info, "Server connection detected");
+            Connected = true;
+            return true;
+        }
 
-                if (HeartbeatTokenSource != null)
-                {
-                    HeartbeatTokenSource.Cancel(false);
-                }
+        private bool WTcpSslServerDisconnected()
+        {
+            Logging.Log(LoggingModule.Severity.Info, "Server disconnect detected");
+            Connected = false;
+            if (ServerDisconnected != null) Task.Run(() => ServerDisconnected());
+            return true;
+        }
 
-                if (ProcessClientQueueTokenSource != null)
-                {
-                    ProcessClientQueueTokenSource.Cancel(false);
-                }
+        private bool WTcpSslMessageReceived(byte[] data)
+        {
+            Message curr = new Message(data);
+            HandleMessage(curr);
+            return true;
+        }
 
-                if (ClientTCPInterface != null)
-                {
-                    if (ClientTCPInterface.Connected)
-                    {
-                        if (ClientTCPInterface.GetStream() != null)
-                        {
-                            ClientTCPInterface.GetStream().Close();
-                        }
-                    }
-                    
-                    ClientTCPInterface.Close();
-                }
+        private bool WWsServerConnected()
+        {
+            Logging.Log(LoggingModule.Severity.Info, "Server connection detected");
+            Connected = true;
+            return true;
+        }
 
-                ClientTCPInterface = null;
+        private bool WWsServerDisconnected()
+        {
+            Logging.Log(LoggingModule.Severity.Info, "Server disconnect detected");
+            Connected = false;
+            if (ServerDisconnected != null) Task.Run(() => ServerDisconnected());
+            return true;
+        }
 
-                if (ClientSSLStream != null)
-                {
-                    ClientSSLStream.Close();
-                }
+        private bool WWsMessageReceived(byte[] data)
+        {
+            Message curr = new Message(data);
+            HandleMessage(curr);
+            return true;
+        }
 
-                ClientSSLStream = null;
+        private bool WWsSslServerConnected()
+        {
+            Logging.Log(LoggingModule.Severity.Info, "Server connection detected");
+            Connected = true;
+            return true;
+        }
 
-                if (ClientTCPSSLInterface != null)
-                {
-                    ClientTCPSSLInterface.Close();
-                }
+        private bool WWsSslServerDisconnected()
+        {
+            Logging.Log(LoggingModule.Severity.Info, "Server disconnect detected");
+            Connected = false;
+            if (ServerDisconnected != null) Task.Run(() => ServerDisconnected());
+            return true;
+        }
 
-                ClientTCPSSLInterface = null;
-
-                return;
-            }
-            catch (Exception e)
-            {
-                LogException("Close", e);
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config != null)
-                {
-                    if (Config.Debug != null)
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("Close " + sw.Elapsed.TotalMilliseconds + "ms");
-                    }
-                }
-            }
+        private bool WWsSslMessageReceived(byte[] data)
+        {
+            Message curr = new Message(data);
+            HandleMessage(curr);
+            return true;
         }
 
         #endregion
@@ -1999,30 +1583,30 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Log("*** SyncResponseReady null GUID supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady null GUID supplied");
                 return false;
             }
 
             if (SyncResponses == null)
             {
-                Log("*** SyncResponseReady null sync responses list, initializing");
+                Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady null sync responses list, initializing");
                 SyncResponses = new ConcurrentDictionary<string, Message>();
                 return false;
             }
 
             if (SyncResponses.Count < 1)
             {
-                Log("*** SyncResponseReady no entries in sync responses list");
+                Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady no entries in sync responses list");
                 return false;
             }
 
             if (SyncResponses.ContainsKey(guid))
             {
-                Log("SyncResponseReady found sync response for GUID " + guid);
+                Logging.Log(LoggingModule.Severity.Debug, "SyncResponseReady found sync response for GUID " + guid);
                 return true;
             }
 
-            Log("*** SyncResponseReady no sync response for GUID " + guid);
+            Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady no sync response for GUID " + guid);
             return false;
         }
 
@@ -2030,24 +1614,24 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Log("*** AddSyncRequest null GUID supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "AddSyncRequest null GUID supplied");
                 return false;
             }
 
             if (SyncRequests == null)
             {
-                Log("*** AddSyncRequest null sync requests list, initializing");
+                Logging.Log(LoggingModule.Severity.Warn, "AddSyncRequest null sync requests list, initializing");
                 SyncRequests = new ConcurrentDictionary<string, DateTime>();
             }
 
             if (SyncRequests.ContainsKey(guid))
             {
-                Log("*** AddSyncRequest already contains an entry for GUID " + guid);
+                Logging.Log(LoggingModule.Severity.Warn, "AddSyncRequest already contains an entry for GUID " + guid);
                 return false;
             }
 
             SyncRequests.TryAdd(guid, DateTime.Now);
-            Log("AddSyncRequest added request for GUID " + guid + ": " + DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss"));
+            Logging.Log(LoggingModule.Severity.Debug, "AddSyncRequest added request for GUID " + guid + ": " + DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss"));
             return true;
         }
 
@@ -2055,25 +1639,21 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Log("*** RemoveSyncRequest null GUID supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "RemoveSyncRequest null GUID supplied");
                 return false;
             }
 
             if (SyncRequests == null)
             {
-                Log("*** RemoveSyncRequest null sync requests list, initializing");
+                Logging.Log(LoggingModule.Severity.Warn, "RemoveSyncRequest null sync requests list, initializing");
                 SyncRequests = new ConcurrentDictionary<string, DateTime>();
                 return false;
             }
 
             DateTime TempDateTime;
-
-            if (SyncRequests.ContainsKey(guid))
-            {
-                SyncRequests.TryRemove(guid, out TempDateTime);
-            }
-
-            Log("RemoveSyncRequest removed sync request for GUID " + guid);
+            if (SyncRequests.ContainsKey(guid)) SyncRequests.TryRemove(guid, out TempDateTime);
+            
+            Logging.Log(LoggingModule.Severity.Debug, "RemoveSyncRequest removed sync request for GUID " + guid);
             return true;
         }
 
@@ -2081,30 +1661,30 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Log("*** SyncRequestExists null GUID supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists null GUID supplied");
                 return false;
             }
             
             if (SyncRequests == null)
             {
-                Log("*** SyncRequestExists null sync requests list, initializing");
+                Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists null sync requests list, initializing");
                 SyncRequests = new ConcurrentDictionary<string, DateTime>();
                 return false;
             }
 
             if (SyncRequests.Count < 1)
             {
-                Log("*** SyncRequestExists empty sync requests list, returning false");
+                Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists empty sync requests list, returning false");
                 return false;
             }
 
             if (SyncRequests.ContainsKey(guid))
             {
-                Log("SyncRequestExists found sync request for GUID " + guid);
+                Logging.Log(LoggingModule.Severity.Debug, "SyncRequestExists found sync request for GUID " + guid);
                 return true;
             }
 
-            Log("*** SyncRequestExists unable to find sync request for GUID " + guid);
+            Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists unable to find sync request for GUID " + guid);
             return false;
         }
 
@@ -2112,130 +1692,110 @@ namespace BigQ
         {
             if (response == null)
             {
-                Log("*** AddSyncResponse null BigQMessage supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "AddSyncResponse null BigQMessage supplied");
                 return false;
             }
 
             if (String.IsNullOrEmpty(response.MessageID))
             {
-                Log("*** AddSyncResponse null MessageId within supplied message");
+                Logging.Log(LoggingModule.Severity.Warn, "AddSyncResponse null MessageId within supplied message");
                 return false;
             }
             
             if (SyncResponses.ContainsKey(response.MessageID))
             {
-                Log("*** AddSyncResponse response already awaits for MessageId " + response.MessageID);
+                Logging.Log(LoggingModule.Severity.Warn, "AddSyncResponse response already awaits for MessageId " + response.MessageID);
                 return false;
             }
 
             SyncResponses.TryAdd(response.MessageID, response);
-            Log("AddSyncResponse added sync response for MessageId " + response.MessageID);
+            Logging.Log(LoggingModule.Severity.Debug, "AddSyncResponse added sync response for MessageId " + response.MessageID);
             return true;
         }
 
         private bool GetSyncResponse(string guid, int timeoutMs, out Message response)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
+        { 
             response = new Message();
             DateTime start = DateTime.Now;
-            bool timeoutExceeded = false;
-            bool messageReceived = false;
-            
-            try
+             
+            #region Check-for-Null-Values
+
+            if (String.IsNullOrEmpty(guid))
             {
-                #region Check-for-Null-Values
+                Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse null GUID supplied");
+                return false;
+            }
 
-                if (String.IsNullOrEmpty(guid))
+            if (SyncResponses == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse null sync responses list, initializing");
+                SyncResponses = new ConcurrentDictionary<string, Message>();
+                return false;
+            }
+
+            if (timeoutMs < 1000)
+            {
+                timeoutMs = 1000;
+            }
+
+            #endregion
+
+            #region Process
+
+            int iterations = 0;
+            while (true)
+            {
+                // if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Logging.Log(LoggingModule.Severity.Debug, "GetSyncResponse iteration " + iterations + " " + sw.Elapsed.TotalMilliseconds + "ms");
+
+                if (SyncResponses.ContainsKey(guid))
                 {
-                    Log("*** GetSyncResponse null GUID supplied");
-                    return false;
-                }
-
-                if (SyncResponses == null)
-                {
-                    Log("*** GetSyncResponse null sync responses list, initializing");
-                    SyncResponses = new ConcurrentDictionary<string, Message>();
-                    return false;
-                }
-
-                if (timeoutMs < 1000)
-                {
-                    timeoutMs = 1000;
-                }
-
-                #endregion
-
-                #region Process
-
-                int iterations = 0;
-                while (true)
-                {
-                    // if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("GetSyncResponse iteration " + iterations + " " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    if (SyncResponses.ContainsKey(guid))
+                    if (!SyncResponses.TryGetValue(guid, out response))
                     {
-                        if (!SyncResponses.TryGetValue(guid, out response))
-                        {
-                            Log("*** GetSyncResponse unable to retrieve sync response for GUID " + guid + " though one exists");
-                            return false;
-                        }
-
-                        messageReceived = true;
-                        response.Success = true;
-                        Log("GetSyncResponse returning response for message GUID " + guid);
-                        return true;
-                    }
-
-                    //
-                    // Check if timeout exceeded
-                    //
-                    TimeSpan ts = DateTime.Now - start;
-                    if (ts.TotalMilliseconds > timeoutMs)
-                    {
-                        Log("*** GetSyncResponse timeout waiting for response for message GUID " + guid);
-                        timeoutExceeded = true;
-                        response = null;
+                        Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse unable to retrieve sync response for GUID " + guid + " though one exists");
                         return false;
                     }
-
-                    iterations++;
-                    continue;
+                     
+                    response.Success = true;
+                    Logging.Log(LoggingModule.Severity.Debug, "GetSyncResponse returning response for message GUID " + guid);
+                    return true;
                 }
 
-                #endregion
-            }
-            finally
-            {
-                if (messageReceived) Task.Run(() => RemoveSyncRequest(guid));
-
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime)
+                //
+                // Check if timeout exceeded
+                //
+                TimeSpan ts = DateTime.Now - start;
+                if (ts.TotalMilliseconds > timeoutMs)
                 {
-                    Log("GetSyncResponse " + sw.Elapsed.TotalMilliseconds + "ms (timeout " + timeoutExceeded + ")");
+                    Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse timeout waiting for response for message GUID " + guid); 
+                    response = null;
+                    return false;
                 }
+
+                iterations++;
+                continue;
             }
+
+            #endregion 
         }
         
         private void CleanupSyncRequests()
         {
             while (true)
             {
-                Task.Delay(Config.DefaultSyncTimeoutMs).Wait();
+                Task.Delay(Config.SyncTimeoutMs).Wait();
                 List<string> expiredIds = new List<string>();
                 DateTime tempTimestamp;
                 Message tempMessage;
 
                 foreach (KeyValuePair<string, DateTime> currRequest in SyncRequests)
                 {
-                    DateTime expiryTimestamp = currRequest.Value.AddMilliseconds(Config.DefaultSyncTimeoutMs);
+                    DateTime expiryTimestamp = currRequest.Value.AddMilliseconds(Config.SyncTimeoutMs);
 
                     if (DateTime.Compare(expiryTimestamp, DateTime.Now) < 0)
                     {
                         #region Expiration-Earlier-Than-Current-Time
 
-                        Log("*** CleanupSyncRequests adding MessageId " + currRequest.Key + " (added " + currRequest.Value.ToString("MM/dd/yyyy hh:mm:ss") + ") to cleanup list (past expiration time " + expiryTimestamp.ToString("MM/dd/yyyy hh:mm:ss") + ")");
+                        Logging.Log(LoggingModule.Severity.Debug, "CleanupSyncRequests adding MessageId " + currRequest.Key + " (added " + currRequest.Value.ToString("MM/dd/yyyy hh:mm:ss") + ") to cleanup list (past expiration time " + expiryTimestamp.ToString("MM/dd/yyyy hh:mm:ss") + ")");
                         expiredIds.Add(currRequest.Key);
 
                         #endregion
@@ -2259,8 +1819,7 @@ namespace BigQ
                         //
                         SyncResponses.TryRemove(CurrentRequestGuid, out tempMessage);
                     }
-                }
-              
+                } 
             }
         }
 
@@ -2268,798 +1827,273 @@ namespace BigQ
 
         #region Private-Methods
 
-        public bool ValidateCert(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-        {
-            // return true; // Allow untrusted certificates.
-            return Config.AcceptInvalidSSLCerts;
-        }
-
-        #region TCP-Server
-
-        private bool TCPDataSender(Message message)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-            
-            try
+        protected virtual void Dispose(bool disposing)
+        { 
+            if (disposing)
             {
-                #region Check-for-Null-Values
+                if (WTcpClient != null) WTcpClient.Dispose();
+                if (WTcpSslClient != null) WTcpSslClient.Dispose();
+                if (WWsClient != null) WWsClient.Dispose();
+                if (WWsSslClient != null) WWsSslClient.Dispose();
 
-                if (message == null)
-                {
-                    Log("*** TCPDataSender null message supplied");
-                    return false;
-                }
-                
-                #endregion
-                
-                #region Send-Message
+                if (CleanupSyncTokenSource != null) CleanupSyncTokenSource.Cancel(false);
+                if (HeartbeatTokenSource != null) HeartbeatTokenSource.Cancel(false);
+                if (ProcessClientQueueTokenSource != null) ProcessClientQueueTokenSource.Cancel(false);
 
-                if (!Helper.TCPMessageWrite(ClientTCPInterface, message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
-                {
-                    Log("TCPDataSender unable to send data to server " + ServerIP + ":" + ServerPort);
-                    return false;
-                }
-                else
-                {
-                    Log("TCPDataSender successfully sent message to server " + ServerIP + ":" + ServerPort);
-                }
-
-                #endregion
-
-                return true;
-            }
-            catch (Exception e)
-            {
-                LogException("TCPDataSender", e);
-                return false;
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPDataSender " + sw.Elapsed.TotalMilliseconds + "ms");
+                return;
             }
         }
         
-        private void TCPDataReceiver()
-        {
-            bool disconnectDetected = false;
-
-            try
+        private void HandleMessage(Message currentMessage)
+        { 
+            if (String.Compare(currentMessage.SenderGUID, ServerGuid) == 0
+                && !String.IsNullOrEmpty(currentMessage.Command)
+                && String.Compare(currentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
             {
-                #region Attach-to-Stream
+                #region Handle-Incoming-Server-Heartbeat
 
-                if (!ClientTCPInterface.Connected)
-                {
-                    Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " is no longer connected");
-                    disconnectDetected = true;
-                    return;
-                }
-
-                NetworkStream clientStream = ClientTCPInterface.GetStream();
+                // do nothing
+                return;
 
                 #endregion
+            }
+            else if (String.Compare(currentMessage.SenderGUID, ServerGuid) == 0
+                && !String.IsNullOrEmpty(currentMessage.Command)
+                && String.Compare(currentMessage.Command.ToLower().Trim(), "event") == 0)
+            {
+                #region Server-Event-Message
 
-                #region Wait-for-Data
-
-                while (true)
+                if (currentMessage.Data != null)
                 {
-                    #region Check-if-Client-Connected-to-Server
+                    #region Data-Exists
 
-                    if (ClientTCPInterface == null)
+                    EventData ev = null;
+                    try
                     {
-                        Log("*** TCPDataReceiver null TCP interface detected, disconnection or close assumed");
-                        Connected = false;
-                        disconnectDetected = true;
-                        break;
+                        ev = Helper.DeserializeJson<EventData>(currentMessage.Data);
                     }
-
-                    if (!ClientTCPInterface.Connected)
+                    catch (Exception)
                     {
-                        Log("*** TCPDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
-                        Connected = false;
-                        disconnectDetected = true;
-                        break;
-                    }
-                    else
-                    {
-                        // Log("TCPDataReceiver server " + ServerIP + ":" + ServerPort + " is still connected");
-                    }
-
-                    #endregion
-
-                    #region Read-Message
-
-                    Message currentMessage = null;
-                    if (!Helper.TCPMessageRead(
-                        ClientTCPInterface, 
-                        (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)),
-                        out currentMessage))
-                    {
-                        Log("*** TCPDataReceiver disconnect detected for server " + ServerIP + ":" + ServerPort);
-                        disconnectDetected = true;
+                        Logging.Log(LoggingModule.Severity.Warn, "HandleMessage unable to deserialize incoming server message to event");
                         return;
                     }
 
-                    if (currentMessage == null)
+                    if (ev == null)
                     {
-                        // Log("TCPDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
-                        Task.Delay(30).Wait();
-                        continue;
-                    }
-
-                    #endregion
-
-                    #region Handle-Message
-
-                    if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(currentMessage.Command)
-                        && String.Compare(currentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
-                    {
-                        #region Handle-Incoming-Server-Heartbeat
-
-                        // 
-                        //
-                        // do nothing, just continue
-                        //
-                        //
-                        continue;
-
-                        #endregion
-                    }
-                    else if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(currentMessage.Command)
-                        && String.Compare(currentMessage.Command.ToLower().Trim(), "event") == 0)
-                    {
-                        #region Server-Event-Message
-
-                        if (currentMessage.Data != null)
-                        {
-                            #region Data-Exists
-
-                            EventData ev = null;
-                            try
-                            {
-                                ev = Helper.DeserializeJson<EventData>(currentMessage.Data, false);
-                            }
-                            catch (Exception)
-                            {
-                                Log("*** TCPDataReceiver unable to deserialize incoming server message to event");
-                                continue;
-                            }
-
-                            if (ev == null)
-                            {
-                                Log("*** TCPDataReceiver null event object after deserializing incoming server message");
-                                continue;
-                            }
-
-                            switch (ev.EventType)
-                            {
-                                case EventTypes.ClientJoinedServer:
-                                    if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
-                                    continue;
-
-                                case EventTypes.ClientLeftServer:
-                                    if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
-                                    continue;
-
-                                case EventTypes.ClientJoinedChannel:
-                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.ClientLeftChannel:
-                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.SubscriberJoinedChannel:
-                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.SubscriberLeftChannel:
-                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.ChannelCreated:
-                                    if (ChannelCreated != null) Task.Run(() => ChannelCreated(ev.Data.ToString()));
-                                    continue;
-
-                                case EventTypes.ChannelDestroyed:
-                                    if (ChannelDestroyed != null) Task.Run(() => ChannelDestroyed(ev.Data.ToString()));
-                                    continue;
-
-                                default:
-                                    Log("*** TCPDataReceiver unknown event type: " + ev.EventType);
-                                    continue;
-                            }
-
-                            #endregion
-                        }
-                        else
-                        {
-                            //
-                            //
-                            // do nothing, just continue
-                            //
-                            //
-
-                            continue;
-                        }
-
-                        #endregion
-                    }
-                    else if (Helper.IsTrue(currentMessage.SyncRequest))
-                    {
-                        #region Handle-Incoming-Sync-Request
-
-                        Log("TCPDataReceiver sync request detected for message GUID " + currentMessage.MessageID);
-
-                        if (SyncMessageReceived != null)
-                        {
-                            byte[] ResponseData = SyncMessageReceived(currentMessage);
-
-                            currentMessage.Success = true;
-                            currentMessage.SyncRequest = false;
-                            currentMessage.SyncResponse = true;
-                            currentMessage.Data = ResponseData;
-                            string tempGuid = String.Copy(currentMessage.SenderGUID);
-                            currentMessage.SenderGUID = ClientGUID;
-                            currentMessage.RecipientGUID = tempGuid;
-
-                            TCPDataSender(currentMessage);
-                            Log("TCPDataReceiver sent response message for message GUID " + currentMessage.MessageID);
-                        }
-                        else
-                        {
-                            Log("*** TCPDataReceiver sync request received for MessageId " + currentMessage.MessageID + " but no handler specified, sending async");
-                            if (AsyncMessageReceived != null)
-                            {
-                                Task.Run(() => AsyncMessageReceived(currentMessage));
-                            }
-                            else
-                            {
-                                Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
-                            }
-                        }
-
-                        #endregion
-                    }
-                    else if (Helper.IsTrue(currentMessage.SyncResponse))
-                    {
-                        #region Handle-Incoming-Sync-Response
-
-                        Log("TCPDataReceiver sync response detected for message GUID " + currentMessage.MessageID);
-
-                        if (SyncRequestExists(currentMessage.MessageID))
-                        {
-                            Log("TCPDataReceiver sync request exists for message GUID " + currentMessage.MessageID);
-
-                            if (AddSyncResponse(currentMessage))
-                            {
-                                Log("TCPDataReceiver added sync response for message GUID " + currentMessage.MessageID);
-                            }
-                            else
-                            {
-                                Log("*** TCPDataReceiver unable to add sync response for MessageId " + currentMessage.MessageID + ", sending async");
-                                if (AsyncMessageReceived != null)
-                                {
-                                    Task.Run(() => AsyncMessageReceived(currentMessage));
-                                }
-                                else
-                                {
-                                    Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
-                                }
-
-                            }
-                        }
-                        else
-                        {
-                            Log("*** TCPDataReceiver message marked as sync response but no sync request found for MessageId " + currentMessage.MessageID + ", sending async");
-                            if (AsyncMessageReceived != null)
-                            {
-                                Task.Run(() => AsyncMessageReceived(currentMessage));
-                            }
-                            else
-                            {
-                                Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
-                            }
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Handle-Async
-
-                        Log("TCPDataReceiver async message GUID " + currentMessage.MessageID);
-
-                        if (AsyncMessageReceived != null)
-                        {
-                            Task.Run(() => AsyncMessageReceived(currentMessage));
-                        }
-                        else
-                        {
-                            Log("*** TCPDataReceiver no method defined for AsyncMessageReceived");
-                        }
-
-                        #endregion
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (ObjectDisposedException)
-            {
-                Log("*** TCPDataReceiver no longer connected (object disposed exception)");
-                disconnectDetected = true;
-            }
-            catch (Exception e)
-            {
-                Log("*** TCPDataReceiver outer exception detected");
-                LogException("TCPDataReceiver", e);
-                disconnectDetected = true;
-            }
-            finally
-            {
-                if (disconnectDetected || !Connected)
-                {
-                    if (ServerDisconnected != null)
-                    {
-                        Task.Run(() => ServerDisconnected());
-                    }
-                }
-            }
-        }
-
-        #endregion
-
-        #region TCP-SSL-Server
-
-        private bool TCPSSLDataSender(Message message)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (message == null)
-                {
-                    Log("*** TCPSSLDataSender null message supplied");
-                    return false;
-                }
-
-                #endregion
-                
-                #region Send-Message
-
-                if (!Helper.TCPSSLMessageWrite(ClientTCPSSLInterface, ClientSSLStream, message, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
-                {
-                    Log("TCPSSLDataSender unable to send data to server " + ServerIP + ":" + ServerPort);
-                    return false;
-                }
-                else
-                {
-                    Log("TCPSSLDataSender successfully sent message to server " + ServerIP + ":" + ServerPort);
-                }
-
-                #endregion
-
-                return true;
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPSSLDataSender " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
-        }
-
-        private void TCPSSLDataReceiver()
-        {
-            bool disconnectDetected = false;
-
-            try
-            {
-                #region Attach-to-Stream
-
-                if (!ClientTCPSSLInterface.Connected)
-                {
-                    Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " is no longer connected");
-                    disconnectDetected = true;
-                    return;
-                }
-                
-                #endregion
-
-                #region Wait-for-Data
-
-                while (true)
-                {
-                    #region Check-if-Client-Connected-to-Server
-
-                    if (ClientTCPSSLInterface == null)
-                    {
-                        Log("*** TCPSSLDataReceiver null TCP interface detected, disconnection or close assumed");
-                        Connected = false;
-                        disconnectDetected = true;
-                    }
-
-                    if (!ClientTCPSSLInterface.Connected)
-                    {
-                        Log("*** TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " disconnected");
-                        Connected = false;
-                        disconnectDetected = true;
-                        break;
-                    }
-                    else
-                    {
-                        // Log("TCPSSLDataReceiver server " + ServerIP + ":" + ServerPort + " is still connected");
-                    }
-
-                    #endregion
-
-                    #region Read-Message
-
-                    Message currentMessage = Helper.TCPSSLMessageRead(ClientTCPSSLInterface, ClientSSLStream, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
-                    if (currentMessage == null)
-                    {
-                        // Log("TCPSSLDataReceiver unable to read message from server " + ServerIP + ":" + ServerPort);
-                        Task.Delay(30).Wait();
-                        continue;
-                    }
-
-                    #endregion
-
-                    #region Handle-Message
-
-                    if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(currentMessage.Command)
-                        && String.Compare(currentMessage.Command.ToLower().Trim(), "heartbeatrequest") == 0)
-                    {
-                        #region Handle-Incoming-Server-Heartbeat
-
-                        // 
-                        //
-                        // do nothing, just continue
-                        //
-                        //
-
-                        continue;
-
-                        #endregion
-                    }
-                    else if (String.Compare(currentMessage.SenderGUID, ServerGUID) == 0
-                        && !String.IsNullOrEmpty(currentMessage.Command)
-                        && String.Compare(currentMessage.Command.ToLower().Trim(), "event") == 0)
-                    {
-                        #region Server-Event-Message
-
-                        if (currentMessage.Data != null)
-                        {
-                            #region Data-Exists
-
-                            EventData ev = null;
-                            try
-                            {
-                                ev = Helper.DeserializeJson<EventData>(currentMessage.Data, false);
-                            }
-                            catch (Exception)
-                            {
-                                Log("*** TCPSSLDataReceiver unable to deserialize incoming server message to event");
-                                continue;
-                            }
-
-                            if (ev == null)
-                            {
-                                Log("*** TCPSSLDataReceiver null event object after deserializing incoming server message");
-                                continue;
-                            }
-
-                            switch (ev.EventType)
-                            {
-                                case EventTypes.ClientJoinedServer:
-                                    if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
-                                    continue;
-
-                                case EventTypes.ClientLeftServer:
-                                    if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
-                                    continue;
-
-                                case EventTypes.ClientJoinedChannel:
-                                    if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.ClientLeftChannel:
-                                    if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.SubscriberJoinedChannel:
-                                    if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                case EventTypes.SubscriberLeftChannel:
-                                    if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
-                                    continue;
-
-                                default:
-                                    Log("*** TCPSSLDataReceiver unknown event type: " + ev.EventType);
-                                    continue;
-                            }
-
-                            #endregion
-                        }
-                        else
-                        {
-                            //
-                            //
-                            // do nothing, just continue
-                            //
-                            //
-
-                            continue;
-                        }
-
-                        #endregion
-                    }
-                    else if (Helper.IsTrue(currentMessage.SyncRequest))
-                    {
-                        #region Handle-Incoming-Sync-Request
-
-                        Log("TCPSSLDataReceiver sync request detected for message GUID " + currentMessage.MessageID);
-
-                        if (SyncMessageReceived != null)
-                        {
-                            byte[] responseData = SyncMessageReceived(currentMessage);
-
-                            currentMessage.Success = true;
-                            currentMessage.SyncRequest = false;
-                            currentMessage.SyncResponse = true;
-                            currentMessage.Data = responseData;
-
-                            string tempGuid = String.Copy(currentMessage.SenderGUID);
-                            currentMessage.SenderGUID = ClientGUID;
-                            currentMessage.RecipientGUID = tempGuid;
-
-                            TCPSSLDataSender(currentMessage);
-                            Log("TCPSSLDataReceiver sent response message for message GUID " + currentMessage.MessageID);
-                        }
-                        else
-                        {
-                            Log("*** TCPSSLDataReceiver sync request received for MessageId " + currentMessage.MessageID + " but no handler specified, sending async");
-                            if (AsyncMessageReceived != null)
-                            {
-                                Task.Run(() => AsyncMessageReceived(currentMessage));
-                            }
-                            else
-                            {
-                                Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
-                            }
-                        }
-
-                        #endregion
-                    }
-                    else if (Helper.IsTrue(currentMessage.SyncResponse))
-                    {
-                        #region Handle-Incoming-Sync-Response
-
-                        Log("TCPSSLDataReceiver sync response detected for message GUID " + currentMessage.MessageID);
-
-                        if (SyncRequestExists(currentMessage.MessageID))
-                        {
-                            Log("TCPSSLDataReceiver sync request exists for message GUID " + currentMessage.MessageID);
-
-                            if (AddSyncResponse(currentMessage))
-                            {
-                                Log("TCPSSLDataReceiver added sync response for message GUID " + currentMessage.MessageID);
-                            }
-                            else
-                            {
-                                Log("*** TCPSSLDataReceiver unable to add sync response for MessageId " + currentMessage.MessageID + ", sending async");
-                                if (AsyncMessageReceived != null)
-                                {
-                                    Task.Run(() => AsyncMessageReceived(currentMessage));
-                                }
-                                else
-                                {
-                                    Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
-                                }
-
-                            }
-                        }
-                        else
-                        {
-                            Log("*** TCPSSLDataReceiver message marked as sync response but no sync request found for MessageId " + currentMessage.MessageID + ", sending async");
-                            if (AsyncMessageReceived != null)
-                            {
-                                Task.Run(() => AsyncMessageReceived(currentMessage));
-                            }
-                            else
-                            {
-                                Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
-                            }
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Handle-Async
-
-                        Log("TCPSSLDataReceiver async message GUID " + currentMessage.MessageID);
-
-                        if (AsyncMessageReceived != null)
-                        {
-                            Task.Run(() => AsyncMessageReceived(currentMessage));
-                        }
-                        else
-                        {
-                            Log("*** TCPSSLDataReceiver no method defined for AsyncMessageReceived");
-                        }
-
-                        #endregion
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (ObjectDisposedException)
-            {
-                Log("*** TCPSSLDataReceiver no longer connected (object disposed exception)");
-                disconnectDetected = true;
-            }
-            catch (Exception e)
-            {
-                Log("*** TCPSSLDataReceiver outer exception detected");
-                LogException("TCPSSLDataReceiver", e);
-                disconnectDetected = true;
-            }
-            finally
-            {
-                if (disconnectDetected || !Connected)
-                {
-                    if (ServerDisconnected != null)
-                    {
-                        Task.Run(() => ServerDisconnected());
-                    }
-                }
-            }
-        }
-
-        #endregion
-        
-        private void HeartbeatManager()
-        {
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (Config.TcpServer.Enable)
-                {
-                    if (ClientTCPInterface == null)
-                    {
-                        Log("*** HeartbeatManager null TCP client supplied");
+                        Logging.Log(LoggingModule.Severity.Warn, "HandleMessage null event object after deserializing incoming server message");
                         return;
                     }
-                }
-                else if (Config.TcpSSLServer.Enable)
-                {
-                    if (ClientTCPSSLInterface == null)
+
+                    switch (ev.EventType)
                     {
-                        Log("*** HeartbeatManager null TCP SSL client supplied");
-                        return;
-                    }
-                }
-
-                #endregion
-
-                #region Variables
-
-                DateTime threadStart = DateTime.Now;
-                DateTime lastHeartbeatAttempt = DateTime.Now;
-                DateTime lastSuccess = DateTime.Now;
-                DateTime lastFailure = DateTime.Now;
-                int numConsecutiveFailures = 0;
-                bool firstRun = true;
-
-                #endregion
-
-                #region Process
-
-                while (true)
-                {
-                    #region Sleep
-
-                    if (firstRun)
-                    {
-                        firstRun = false;
-                    }
-                    else
-                    {
-                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
-                    }
-
-                    #endregion
-                    
-                    #region Send-Heartbeat-Message
-
-                    lastHeartbeatAttempt = DateTime.Now;
-                    Message HeartbeatMessage = HeartbeatRequestMessage();
-                    
-                    if (!SendServerMessageAsync(HeartbeatMessage))
-                    { 
-                        numConsecutiveFailures++;
-                        lastFailure = DateTime.Now;
-
-                        Log("*** HeartbeatManager failed to send heartbeat to server " + ServerIP + ":" + ServerPort + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
-
-                        if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
-                        {
-                            Log("*** HeartbeatManager maximum number of failed heartbeats reached");
-                            Connected = false;
+                        case EventTypes.ClientJoinedServer:
+                            if (ClientJoinedServer != null) Task.Run(() => ClientJoinedServer(ev.Data.ToString()));
                             return;
-                        }
-                    }
-                    else
-                    {
-                        numConsecutiveFailures = 0;
-                        lastSuccess = DateTime.Now;
+
+                        case EventTypes.ClientLeftServer:
+                            if (ClientLeftServer != null) Task.Run(() => ClientLeftServer(ev.Data.ToString()));
+                            return;
+
+                        case EventTypes.ClientJoinedChannel:
+                            if (ClientJoinedChannel != null) Task.Run(() => ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            return;
+
+                        case EventTypes.ClientLeftChannel:
+                            if (ClientLeftChannel != null) Task.Run(() => ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            return;
+
+                        case EventTypes.SubscriberJoinedChannel:
+                            if (SubscriberJoinedChannel != null) Task.Run(() => SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            return;
+
+                        case EventTypes.SubscriberLeftChannel:
+                            if (SubscriberLeftChannel != null) Task.Run(() => SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            return;
+
+                        case EventTypes.ChannelCreated:
+                            if (ChannelCreated != null) Task.Run(() => ChannelCreated(ev.Data.ToString()));
+                            return;
+
+                        case EventTypes.ChannelDestroyed:
+                            if (ChannelDestroyed != null) Task.Run(() => ChannelDestroyed(ev.Data.ToString()));
+                            return;
+
+                        default:
+                            Logging.Log(LoggingModule.Severity.Warn, "HandleMessage unknown event type: " + ev.EventType);
+                            return;
                     }
 
                     #endregion
                 }
+                else
+                {
+                    // do nothing
+                    return;
+                }
 
                 #endregion
             }
-            catch (Exception e)
+            else if (Helper.IsTrue(currentMessage.SyncRequest))
             {
-                LogException("HeartbeatManager", e);
+                #region Handle-Incoming-Sync-Request
+
+                Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sync request detected for message GUID " + currentMessage.MessageID);
+
+                if (SyncMessageReceived != null)
+                {
+                    byte[] ResponseData = SyncMessageReceived(currentMessage);
+
+                    currentMessage.Success = true;
+                    currentMessage.SyncRequest = false;
+                    currentMessage.SyncResponse = true;
+                    currentMessage.Data = ResponseData;
+                    string tempGuid = String.Copy(currentMessage.SenderGUID);
+                    currentMessage.SenderGUID = ClientGUID;
+                    currentMessage.RecipientGUID = tempGuid;
+
+                    SendMessage(currentMessage); 
+                    Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sent response message for message GUID " + currentMessage.MessageID);
+                }
+                else
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "HandleMessage sync request received for MessageId " + currentMessage.MessageID + " but no handler specified, sending async");
+                    if (AsyncMessageReceived != null)
+                    {
+                        Task.Run(() => AsyncMessageReceived(currentMessage));
+                    }
+                    else
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
+                    }
+                }
+
+                #endregion
             }
-            finally
+            else if (Helper.IsTrue(currentMessage.SyncResponse))
             {
+                #region Handle-Incoming-Sync-Response
+
+                Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sync response detected for message GUID " + currentMessage.MessageID);
+
+                if (SyncRequestExists(currentMessage.MessageID))
+                {
+                    Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sync request exists for message GUID " + currentMessage.MessageID);
+
+                    if (AddSyncResponse(currentMessage))
+                    {
+                        Logging.Log(LoggingModule.Severity.Debug, "HandleMessage added sync response for message GUID " + currentMessage.MessageID);
+                    }
+                    else
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "HandleMessage unable to add sync response for MessageId " + currentMessage.MessageID + ", sending async");
+                        if (AsyncMessageReceived != null)
+                        {
+                            Task.Run(() => AsyncMessageReceived(currentMessage));
+                        }
+                        else
+                        {
+                            Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
+                        }
+
+                    }
+                }
+                else
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "HandleMessage message marked as sync response but no sync request found for MessageId " + currentMessage.MessageID + ", sending async");
+                    if (AsyncMessageReceived != null)
+                    {
+                        Task.Run(() => AsyncMessageReceived(currentMessage));
+                    }
+                    else
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
+                    }
+                }
+
+                #endregion
             }
+            else
+            {
+                #region Handle-Async
+
+                Logging.Log(LoggingModule.Severity.Debug, "HandleMessage async message GUID " + currentMessage.MessageID);
+
+                if (AsyncMessageReceived != null)
+                {
+                    Task.Run(() => AsyncMessageReceived(currentMessage));
+                }
+                else
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
+                }
+
+                #endregion
+            } 
+        }
+         
+        private void HeartbeatManager()
+        { 
+            DateTime threadStart = DateTime.Now;
+            DateTime lastHeartbeatAttempt = DateTime.Now;
+            DateTime lastSuccess = DateTime.Now;
+            DateTime lastFailure = DateTime.Now;
+            int numConsecutiveFailures = 0;
+            bool firstRun = true;
+              
+            while (true)
+            {
+                #region Sleep
+
+                if (firstRun)
+                {
+                    firstRun = false;
+                }
+                else
+                {
+                    Task.Delay(Config.Heartbeat.IntervalMs).Wait();
+                }
+
+                #endregion
+                    
+                #region Send-Heartbeat-Message
+
+                lastHeartbeatAttempt = DateTime.Now;
+                Message HeartbeatMessage = HeartbeatRequestMessage();
+                    
+                if (!SendServerMessageAsync(HeartbeatMessage))
+                { 
+                    numConsecutiveFailures++;
+                    lastFailure = DateTime.Now;
+
+                    Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager failed to send heartbeat to server (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
+
+                    if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager maximum number of failed heartbeats reached");
+                        Connected = false;
+                        return;
+                    }
+                }
+                else
+                {
+                    numConsecutiveFailures = 0;
+                    lastSuccess = DateTime.Now;
+                }
+
+                #endregion
+            } 
         }
 
         private Message HeartbeatRequestMessage()
         {
             Message request = new Message();
             request.MessageID = Guid.NewGuid().ToString();
-            request.RecipientGUID = ServerGUID;
+            request.RecipientGUID = ServerGuid;
             request.Command = "HeartbeatRequest";
             request.SenderGUID = ClientGUID;
-            request.CreatedUTC = DateTime.Now.ToUniversalTime();
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
             request.Data = null;
             return request;
-        }
-
-        #endregion
-
-        #region Private-Utility-Methods
-
-        private void Log(string message)
-        {
-            if (LogMessage != null) LogMessage(message);
-            if (Config.Debug.Enable && Config.Debug.ConsoleLogging)
-            {
-                Console.WriteLine(message);
-            }
-        }
-
-        private void LogException(string method, Exception e)
-        {
-            Log("================================================================================");
-            Log(" = Method: " + method);
-            Log(" = Exception Type: " + e.GetType().ToString());
-            Log(" = Exception Data: " + e.Data);
-            Log(" = Inner Exception: " + e.InnerException);
-            Log(" = Exception Message: " + e.Message);
-            Log(" = Exception Source: " + e.Source);
-            Log(" = Exception StackTrace: " + e.StackTrace);
-            Log("================================================================================");
         }
 
         #endregion

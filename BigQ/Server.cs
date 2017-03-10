@@ -13,13 +13,16 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SyslogLogging;
+using WatsonTcp;
+using WatsonWebsocket;
 
 namespace BigQ
 {
     /// <summary>
     /// The BigQ server listens on TCP and Websockets and acts as a message queue and distribution network for connected clients.
     /// </summary>
-    public class Server
+    public class Server : IDisposable
     {
         #region Public-Members
 
@@ -35,9 +38,14 @@ namespace BigQ
         //
         // configuration
         //
-        private DateTime CreatedUTC;
+        private DateTime CreatedUtc;
         private Random RNG;
         private string ServerGUID = "00000000-0000-0000-0000-000000000000";
+
+        //
+        // Logging
+        //
+        private LoggingModule Logging;
 
         //
         // resources
@@ -48,42 +56,13 @@ namespace BigQ
         private ConcurrentDictionary<string, DateTime> ClientActiveSendMap;     // Receiver GUID, AddedUTC
 
         //
-        // TCP server variables
+        // Server variables
         //
-        private IPAddress TCPListenerIPAddress;
-        private TcpListener TCPListener;
-        private int TCPActiveConnectionThreads;
-        private CancellationTokenSource TCPCancellationTokenSource;
-        private CancellationToken TCPCancellationToken;
-
-        //
-        // TCP SSL server variables
-        //
-        private IPAddress TCPSSLListenerIPAddress;
-        private TcpListener TCPSSLListener;
-        private int TCPSSLActiveConnectionThreads;
-        private X509Certificate2 TCPSSLCertificate;
-        private CancellationTokenSource TCPSSLCancellationTokenSource;
-        private CancellationToken TCPSSLCancellationToken;
-
-        //
-        // websocket server variables
-        //
-        private IPAddress WSListenerIPAddress;
-        private HttpListener WSListener;
-        private int WSActiveConnectionThreads;
-        private CancellationTokenSource WSCancellationTokenSource;
-        private CancellationToken WSCancellationToken;
-
-        //
-        // websocket SSL server variables
-        //
-        private IPAddress WSSSLListenerIPAddress;
-        private HttpListener WSSSLListener;
-        private int WSSSLActiveConnectionThreads;
-        private CancellationTokenSource WSSSLCancellationTokenSource;
-        private CancellationToken WSSSLCancellationToken;
-
+        private WatsonTcpServer WTcpServer;
+        private WatsonTcpSslServer WTcpSslServer;
+        private WatsonWsServer WWsServer;
+        private WatsonWsServer WWsSslServer;
+        
         //
         // authentication and authorization
         //
@@ -131,12 +110,7 @@ namespace BigQ
         /// Delegate method called when the connection to the server is severed.
         /// </summary>
         public Func<Client, bool> ClientDisconnected;
-
-        /// <summary>
-        /// Delegate method called when the server desires to send a log message.
-        /// </summary>
-        public Func<string, bool> LogMessage;
-
+         
         #endregion
 
         #region Constructors
@@ -147,9 +121,9 @@ namespace BigQ
         /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
         public Server(string configFile)
         {
-            #region Load-and-Validate-Config
+            #region Load-Config
 
-            CreatedUTC = DateTime.Now.ToUniversalTime();
+            CreatedUtc = DateTime.Now.ToUniversalTime();
             RNG = new Random((int)DateTime.Now.Ticks);
 
             Config = null;
@@ -169,20 +143,31 @@ namespace BigQ
 
             #endregion
 
+            #region Initialize-Logging
+
+            Logging = new LoggingModule(
+                Config.Logging.SyslogServerIp,
+                Config.Logging.SyslogServerPort,
+                Config.Logging.ConsoleLogging,
+                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true);
+
+            #endregion
+
             #region Set-Class-Variables
 
             if (!String.IsNullOrEmpty(Config.GUID)) ServerGUID = Config.GUID;
 
             MsgBuilder = new MessageBuilder(ServerGUID);
-            ConnMgr = new ConnectionManager(Config);
-            ChannelMgr = new ChannelManager(Config);
+            ConnMgr = new ConnectionManager(Logging, Config);
+            ChannelMgr = new ChannelManager(Logging, Config);
             ClientActiveSendMap = new ConcurrentDictionary<string, DateTime>();
-
-            TCPActiveConnectionThreads = 0;
-            TCPSSLActiveConnectionThreads = 0;
-            WSActiveConnectionThreads = 0;
-            WSSSLActiveConnectionThreads = 0;
-
+             
             UsersLastModified = "";
             UsersList = new ConcurrentList<User>();
             PermissionsLastModified = "";
@@ -197,30 +182,9 @@ namespace BigQ
             ClientConnected = null;
             ClientLogin = null;
             ClientDisconnected = null;
-            LogMessage = null;
-
+            
             #endregion
-
-            #region Accept-SSL-Certificates
-
-            if (Config.AcceptInvalidSSLCerts) ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-
-            #endregion
-
-            #region Stop-Existing-Tasks
-
-            if (TCPCancellationTokenSource != null) TCPCancellationTokenSource.Cancel();
-            if (TCPSSLCancellationTokenSource != null) TCPSSLCancellationTokenSource.Cancel();
-            if (WSCancellationTokenSource != null) WSCancellationTokenSource.Cancel();
-            if (WSSSLCancellationTokenSource != null) WSSSLCancellationTokenSource.Cancel();
-
-            if (UsersCancellationTokenSource != null) UsersCancellationTokenSource.Cancel();
-            if (PermissionsCancellationTokenSource != null) PermissionsCancellationTokenSource.Cancel();
-
-            if (CleanupCancellationTokenSource != null) CleanupCancellationTokenSource.Cancel();
-
-            #endregion
-
+             
             #region Start-Users-and-Permissions-File-Monitor
 
             UsersCancellationTokenSource = new CancellationTokenSource();
@@ -249,78 +213,60 @@ namespace BigQ
                 CurrentClient.Email = null;
                 CurrentClient.Password = null;
                 CurrentClient.ClientGUID = ServerGUID;
-                CurrentClient.SourceIP = "127.0.0.1";
-                CurrentClient.SourcePort = 0;
-                CurrentClient.ServerIP = CurrentClient.SourceIP;
-                CurrentClient.ServerPort = CurrentClient.SourcePort;
-                CurrentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                CurrentClient.UpdatedUTC = CurrentClient.CreatedUTC;
+                CurrentClient.IpPort = "127.0.0.1:0";
+                CurrentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+                CurrentClient.UpdatedUtc = CurrentClient.CreatedUtc;
 
                 foreach (Channel curr in Config.ServerChannels)
                 {
                     if (!AddChannel(CurrentClient, curr))
                     {
-                        Log("*** Unable to add server channel " + curr.ChannelName);
+                        Logging.Log(LoggingModule.Severity.Warn, "Unable to add server channel " + curr.ChannelName);
                     }
                     else
                     {
-                        Log("Added server channel " + curr.ChannelName);
+                        Logging.Log(LoggingModule.Severity.Debug, "Added server channel " + curr.ChannelName);
                     }
                 }
             }
 
             #endregion
-
-            #region Start-Servers
+            
+            #region Start-Watson-Servers
 
             if (Config.TcpServer.Enable)
             {
                 #region Start-TCP-Server
 
-                if (String.IsNullOrEmpty(Config.TcpServer.IP))
-                {
-                    TCPListenerIPAddress = System.Net.IPAddress.Any;
-                    Config.TcpServer.IP = TCPListenerIPAddress.ToString();
-                }
-                else
-                {
-                    TCPListenerIPAddress = IPAddress.Parse(Config.TcpServer.IP);
-                }
+                Logging.Log(LoggingModule.Severity.Debug, "Starting TCP server: " + Config.TcpServer.Ip + ":" + Config.TcpServer.Port);
 
-                TCPListener = new TcpListener(TCPListenerIPAddress, Config.TcpServer.Port);
-                Log("Starting TCP server at: tcp://" + Config.TcpServer.IP + ":" + Config.TcpServer.Port);
-
-                TCPCancellationTokenSource = new CancellationTokenSource();
-                TCPCancellationToken = TCPCancellationTokenSource.Token;
-                Task.Run(() => TCPAcceptConnections(), TCPCancellationToken);
-
+                WTcpServer = new WatsonTcpServer(
+                    Config.TcpServer.Ip,
+                    Config.TcpServer.Port,
+                    WTcpClientConnected,
+                    WTcpClientDisconnected,
+                    WTcpMessageReceived,
+                    Config.TcpServer.Debug);
+                 
                 #endregion
             }
 
-            if (Config.TcpSSLServer.Enable)
+            if (Config.TcpSslServer.Enable)
             {
                 #region Start-TCP-SSL-Server
 
-                TCPSSLCertificate = null;
-                if (String.IsNullOrEmpty(Config.TcpSSLServer.PFXCertPassword)) TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile);
-                else TCPSSLCertificate = new X509Certificate2(Config.TcpSSLServer.PFXCertFile, Config.TcpSSLServer.PFXCertPassword);
+                Logging.Log(LoggingModule.Severity.Debug, "Starting TCP SSL server: " + Config.TcpSslServer.Ip + ":" + Config.TcpSslServer.Port);
 
-                if (String.IsNullOrEmpty(Config.TcpSSLServer.IP))
-                {
-                    TCPSSLListenerIPAddress = System.Net.IPAddress.Any;
-                    Config.TcpSSLServer.IP = TCPSSLListenerIPAddress.ToString();
-                }
-                else
-                {
-                    TCPSSLListenerIPAddress = IPAddress.Parse(Config.TcpSSLServer.IP);
-                }
-
-                TCPSSLListener = new TcpListener(TCPSSLListenerIPAddress, Config.TcpSSLServer.Port);
-                Log("Starting TCP SSL server at: tcp://" + Config.TcpSSLServer.IP + ":" + Config.TcpSSLServer.Port);
-
-                TCPSSLCancellationTokenSource = new CancellationTokenSource();
-                TCPSSLCancellationToken = TCPSSLCancellationTokenSource.Token;
-                Task.Run(() => TCPSSLAcceptConnections(), TCPSSLCancellationToken);
+                WTcpSslServer = new WatsonTcpSslServer(
+                    Config.TcpSslServer.Ip,
+                    Config.TcpSslServer.Port,
+                    Config.TcpSslServer.PfxCertFile,
+                    Config.TcpSslServer.PfxCertPassword,
+                    Config.TcpSslServer.AcceptInvalidCerts,
+                    WTcpSslClientConnected,
+                    WTcpSslClientDisconnected,
+                    WTcpSslMessageReceived,
+                    Config.TcpSslServer.Debug);
 
                 #endregion
             }
@@ -329,48 +275,38 @@ namespace BigQ
             {
                 #region Start-Websocket-Server
 
-                if (String.IsNullOrEmpty(Config.WebsocketServer.IP))
-                {
-                    WSListenerIPAddress = System.Net.IPAddress.Any;
-                    Config.WebsocketServer.IP = "+";
-                }
+                Logging.Log(LoggingModule.Severity.Debug, "Starting websocket server: " + Config.WebsocketServer.Ip + ":" + Config.WebsocketServer.Port);
 
-                string prefix = "http://" + Config.WebsocketServer.IP + ":" + Config.WebsocketServer.Port + "/";
-                WSListener = new HttpListener();
-                WSListener.Prefixes.Add(prefix);
-                Log("Starting Websocket server at: " + prefix);
-
-                WSCancellationTokenSource = new CancellationTokenSource();
-                WSCancellationToken = WSCancellationTokenSource.Token;
-                Task.Run(() => WSAcceptConnections(), WSCancellationToken);
+                WWsServer = new WatsonWsServer(
+                    Config.WebsocketServer.Ip,
+                    Config.WebsocketServer.Port,
+                    false,
+                    false,
+                    null,
+                    WWsClientConnected,
+                    WWsClientDisconnected,
+                    WWsMessageReceived,
+                    Config.WebsocketServer.Debug);
 
                 #endregion
             }
 
-            if (Config.WebsocketSSLServer.Enable)
+            if (Config.WebsocketSslServer.Enable)
             {
                 #region Start-Websocket-SSL-Server
 
-                //
-                //
-                // No need to set up the certificate; this is done by binding the certificate to the port
-                //
-                //
+                Logging.Log(LoggingModule.Severity.Debug, "Starting websocket SSL server: " + Config.WebsocketSslServer.Ip + ":" + Config.WebsocketSslServer.Port);
 
-                if (String.IsNullOrEmpty(Config.WebsocketSSLServer.IP))
-                {
-                    WSSSLListenerIPAddress = System.Net.IPAddress.Any;
-                    Config.WebsocketSSLServer.IP = "+";
-                }
-
-                string prefix = "https://" + Config.WebsocketSSLServer.IP + ":" + Config.WebsocketSSLServer.Port + "/";
-                WSSSLListener = new HttpListener();
-                WSSSLListener.Prefixes.Add(prefix);
-                Log("Starting Websocket SSL server at: " + prefix);
-
-                WSSSLCancellationTokenSource = new CancellationTokenSource();
-                WSSSLCancellationToken = WSSSLCancellationTokenSource.Token;
-                Task.Run(() => WSSSLAcceptConnections(), WSSSLCancellationToken);
+                WWsSslServer = new WatsonWsServer(
+                    Config.WebsocketSslServer.Ip,
+                    Config.WebsocketSslServer.Port,
+                    true,
+                    Config.WebsocketSslServer.AcceptInvalidCerts,
+                    null,
+                    WWsSslClientConnected,
+                    WWsSslClientDisconnected,
+                    WWsSslMessageReceived,
+                    Config.WebsocketServer.Debug);
 
                 #endregion
             }
@@ -383,22 +319,13 @@ namespace BigQ
         #region Public-Methods
 
         /// <summary>
-        /// Close and dispose of server resources.
+        /// Tear down the server and dispose of background workers.
         /// </summary>
-        public void Close()
+        public void Dispose()
         {
-            if (TCPCancellationTokenSource != null) TCPCancellationTokenSource.Cancel();
-            if (TCPSSLCancellationTokenSource != null) TCPSSLCancellationTokenSource.Cancel();
-            if (WSCancellationTokenSource != null) WSCancellationTokenSource.Cancel();
-            if (WSSSLCancellationTokenSource != null) WSSSLCancellationTokenSource.Cancel();
-
-            if (UsersCancellationTokenSource != null) UsersCancellationTokenSource.Cancel();
-            if (PermissionsCancellationTokenSource != null) PermissionsCancellationTokenSource.Cancel();
-
-            if (CleanupCancellationTokenSource != null) CleanupCancellationTokenSource.Cancel();
-            return;
+            Dispose(true);
         }
-        
+         
         /// <summary>
         /// Retrieve list of all channels.
         /// </summary>
@@ -462,16 +389,7 @@ namespace BigQ
         {
             ClientActiveSendMap.Clear();
         }
-
-        /// <summary>
-        /// Retrieve the connection count.
-        /// </summary>
-        /// <returns>An int containing the number of active connections (sum of websocket and TCP).</returns>
-        public int ConnectionCount()
-        {
-            return TCPActiveConnectionThreads + TCPSSLActiveConnectionThreads + WSActiveConnectionThreads + WSSSLActiveConnectionThreads;
-        }
-
+         
         /// <summary>
         /// Retrieve all objects in the user configuration file defined in the server configuration file.
         /// </summary>
@@ -492,298 +410,419 @@ namespace BigQ
 
         #endregion
 
-        #region Private-Transport-Connection-Heartbeat
+        #region Private-Watson-Methods
 
-        #region Agnostic
-        
-        private bool SendMessageImmediately(Client currentClient, Message currentMessage)
+        private bool WTcpClientConnected(string ipPort)
         {
+            Logging.Log(LoggingModule.Severity.Debug, "WTcpClientConnected new connection from " + ipPort);
+            Client currentClient = new Client(ipPort, true, false, false);
+            ConnMgr.AddClient(currentClient);
+            StartClientQueue(currentClient);
+            return true;
+        }
+
+        private bool WTcpClientDisconnected(string ipPort)
+        {
+            Logging.Log(LoggingModule.Severity.Debug, "WTcpClientDisconnected connection termination from " + ipPort);
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WTcpClientDisconnected unable to find client " + ipPort);
+                return true;
+            }
+            currentClient.Dispose();
+            ConnMgr.RemoveClient(ipPort);
+            return true;
+        }
+
+        private bool WTcpMessageReceived(string ipPort, byte[] data)
+        {
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WTcpMessageReceived unable to retrieve client " + ipPort);
+                return true;
+            }
+
+            Message currentMessage = new Message(data);
+            MessageProcessor(currentClient, currentMessage);
+            if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
+            return true;
+        }
+         
+        private bool WTcpSslClientConnected(string ipPort)
+        {
+            Logging.Log(LoggingModule.Severity.Debug, "WTcpSslClientConnected new connection from " + ipPort);
+            Client currentClient = new Client(ipPort, true, false, true);
+            ConnMgr.AddClient(currentClient);
+            StartClientQueue(currentClient);
+            return true;
+        }
+
+        private bool WTcpSslClientDisconnected(string ipPort)
+        {
+            Logging.Log(LoggingModule.Severity.Debug, "WTcpSslClientDisconnected connection termination from " + ipPort);
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WTcpSslClientDisconnected unable to find client " + ipPort);
+                return true;
+            }
+            currentClient.Dispose();
+            ConnMgr.RemoveClient(ipPort);
+            return true;
+        }
+
+        private bool WTcpSslMessageReceived(string ipPort, byte[] data)
+        {
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WTcpSslMessageReceived unable to retrieve client " + ipPort);
+                return true;
+            }
+
+            Message currentMessage = new Message(data);
+            MessageProcessor(currentClient, currentMessage);
+            if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
+            return true;
+        }
+
+        private bool WWsClientConnected(string ipPort)
+        {
+            try
+            {
+                Logging.Log(LoggingModule.Severity.Debug, "WWsClientConnected new connection from " + ipPort);
+                Client currentClient = new Client(ipPort, false, true, false);
+                ConnMgr.AddClient(currentClient);
+                StartClientQueue(currentClient);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Logging.LogException("Server", "WWsClientConnected", e);
+                return false;
+            }
+        }
+
+        private bool WWsClientDisconnected(string ipPort)
+        {
+            Logging.Log(LoggingModule.Severity.Debug, "WWsClientDisconnected connection termination from " + ipPort);
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WWsClientDisconnected unable to find client " + ipPort);
+                return true;
+            }
+            currentClient.Dispose();
+            ConnMgr.RemoveClient(ipPort);
+            return true;
+        }
+
+        private bool WWsMessageReceived(string ipPort, byte[] data)
+        {
+            try
+            {
+                Client currentClient = ConnMgr.GetByIpPort(ipPort);
+                if (currentClient == null || currentClient == default(Client))
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "WWsMessageReceived unable to retrieve client " + ipPort);
+                    return true;
+                }
+
+                Message currentMessage = new Message(data);
+                Console.WriteLine(currentMessage.ToString());
+                MessageProcessor(currentClient, currentMessage);
+                if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
+                return true;
+            }
+            catch (Exception e)
+            {
+                Logging.LogException("Server", "WWsMessageReceived", e);
+                return false;
+            }
+        }
+
+        private bool WWsSslClientConnected(string ipPort)
+        {
+            Logging.Log(LoggingModule.Severity.Debug, "WWsSslClientConnected new connection from " + ipPort);
+            Client currentClient = new Client(ipPort, false, true, true);
+            ConnMgr.AddClient(currentClient);
+            StartClientQueue(currentClient);
+            return true;
+        }
+
+        private bool WWsSslClientDisconnected(string ipPort)
+        {
+            Logging.Log(LoggingModule.Severity.Debug, "WWsSslClientDisconnected connection termination from " + ipPort);
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WWsSslClientDisconnected unable to find client " + ipPort);
+                return true;
+            }
+            currentClient.Dispose();
+            ConnMgr.RemoveClient(ipPort);
+            return true;
+        }
+
+        private bool WWsSslMessageReceived(string ipPort, byte[] data)
+        {
+            Client currentClient = ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "WWsSslMessageReceived unable to retrieve client " + ipPort);
+                return true;
+            }
+
+            Message currentMessage = new Message(data);
+            MessageProcessor(currentClient, currentMessage);
+            if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
+            return true;
+        }
+        
+        #endregion
+
+        #region Private-Methods
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (WTcpServer != null) WTcpServer.Dispose();
+                if (WTcpSslServer != null) WTcpSslServer.Dispose();
+                if (WWsServer != null) WWsServer.Dispose();
+                if (WWsSslServer != null) WWsSslServer.Dispose();
+                if (UsersCancellationTokenSource != null) UsersCancellationTokenSource.Cancel();
+                if (PermissionsCancellationTokenSource != null) PermissionsCancellationTokenSource.Cancel();
+                if (CleanupCancellationTokenSource != null) CleanupCancellationTokenSource.Cancel();
+                return;
+            }
+        }
+
+        #endregion
+         
+        #region Private-Senders-and-Queues
+
+        private bool SendMessage(Client currentClient, Message currentMessage)
+        {
+            bool locked = false;
+
             try
             {
                 #region Check-for-Null-Values
 
                 if (currentClient == null)
                 {
-                    Log("*** SendMessageImmediately null client supplied");
-                    return false;
-                }
-
-                if (
-                    !currentClient.IsTCP 
-                    && !currentClient.IsTCPSSL
-                    && !currentClient.IsWebsocket
-                    && !currentClient.IsWebsocketSSL
-                    )
-                {
-                    Log("*** SendMessageImmediately unable to discern transport for client " + currentClient.IpPort());
+                    Logging.Log(LoggingModule.Severity.Warn, "SendMessage null client supplied");
                     return false;
                 }
 
                 if (currentMessage == null)
                 {
-                    Log("*** SendMessageImmediately null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Process
-
-                if (currentClient.IsTCP)
-                {
-                    return TCPDataSender(currentClient, currentMessage);
-                }
-                if (currentClient.IsTCPSSL)
-                {
-                    return TCPSSLDataSender(currentClient, currentMessage);
-                }
-                else if (currentClient.IsWebsocket)
-                {
-                    return WSDataSender(currentClient, currentMessage);
-                }
-                else if (currentClient.IsWebsocketSSL)
-                {
-                    return WSDataSender(currentClient, currentMessage);
-                }
-                else
-                {
-                    Log("*** SendMessageImmediately unable to discern transport for client " + currentClient.IpPort());
-                    return false;
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("SendMessageImmediately (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("SendMessageImmediately (null)", e);
-                }
-
-                return false;
-            }
-        }
-
-        private bool ChannelDataSender(Client currentClient, Channel currentChannel, Message currentMessage)
-        {
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentChannel == null)
-                {
-                    Log("*** ChannelDataSender null channel supplied");
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** ChannelDataSender null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Process-by-Channel-Type
-
-                if (Helper.IsTrue(currentChannel.Broadcast))
-                {
-                    #region Broadcast-Channel
-
-                    List<Client> currChannelMembers = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
-                    if (currChannelMembers == null || currChannelMembers.Count < 1)
-                    {
-                        Log("*** ChannelDataSender no members found in channel " + currentChannel.ChannelGUID);
-                        return true;
-                    }
-
-                    currentMessage.SenderGUID = currentClient.ClientGUID;
-                    foreach (Client curr in currChannelMembers)
-                    {
-                        Task.Run(() =>
-                        {
-                            currentMessage.RecipientGUID = curr.ClientGUID;
-                            bool ResponseSuccess = false;
-                            ResponseSuccess = QueueClientMessage(curr, currentMessage);
-                            if (!ResponseSuccess)
-                            {
-                                Log("*** ChannelDataSender error queuing channel message from " + currentMessage.SenderGUID + " to member " + currentMessage.RecipientGUID + " in channel " + currentMessage.ChannelGUID);
-                            }
-                        });
-                    }
-
-                    return true;
-
-                    #endregion
-                }
-                else if (Helper.IsTrue(currentChannel.Multicast))
-                {
-                    #region Multicast-Channel-to-Subscribers
-
-                    List<Client> currChannelSubscribers = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
-                    if (currChannelSubscribers == null || currChannelSubscribers.Count < 1)
-                    {
-                        Log("*** ChannelDataSender no subscribers found in channel " + currentChannel.ChannelGUID);
-                        return true;
-                    }
-
-                    currentMessage.SenderGUID = currentClient.ClientGUID;
-                    foreach (Client curr in currChannelSubscribers)
-                    {
-                        Task.Run(() =>
-                        {
-                            currentMessage.RecipientGUID = curr.ClientGUID;
-                            bool respSuccess = false;
-                            respSuccess = QueueClientMessage(curr, currentMessage);
-                            if (!respSuccess)
-                            {
-                                Log("*** ChannelDataSender error queuing channel message from " + currentMessage.SenderGUID + " to subscriber " + currentMessage.RecipientGUID + " in channel " + currentMessage.ChannelGUID);
-                            }
-                        });
-                    }
-
-                    return true;
-
-                    #endregion
-                }
-                else if (Helper.IsTrue(currentChannel.Unicast))
-                {
-                    #region Unicast-Channel-to-Subscriber
-
-                    List<Client> currChannelSubscribers = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
-                    if (currChannelSubscribers == null || currChannelSubscribers.Count < 1)
-                    {
-                        Log("*** ChannelDataSender no subscribers found in channel " + currentChannel.ChannelGUID);
-                        return true;
-                    }
-
-                    currentMessage.SenderGUID = currentClient.ClientGUID;
-                    Client recipient = currChannelSubscribers[RNG.Next(0, currChannelSubscribers.Count)];
-                    Task.Run(() =>
-                    {
-                        currentMessage.RecipientGUID = recipient.ClientGUID;
-                        bool respSuccess = false;
-                        respSuccess = QueueClientMessage(recipient, currentMessage);
-                        if (!respSuccess)
-                        {
-                            Log("*** ChannelDataSender error queuing channel message from " + currentMessage.SenderGUID + " to subscriber " + currentMessage.RecipientGUID + " in channel " + currentMessage.ChannelGUID);
-                        }
-                    });
-
-                    return true;
-
-                    #endregion
-                }
-                else
-                {
-                    #region Unknown
-
-                    Log("*** ChannelDataSender channel is not designated as broadcast, multicast, or unicast, deleting");
-                    return RemoveChannel(currentChannel);
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("ChannelDataSender (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("ChannelDataSender (null)", e);
-                }
-
-                return false;
-            }
-        }
-        
-        private bool QueueClientMessage(Client currentClient, Message currentMessage)
-        {
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** QueueClientMessage null client supplied");
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** QueueClientMessage null message supplied");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.SenderGUID))
-                {
-                    Log("*** QueueClientMessage null sender GUID supplied in message");
+                    Logging.Log(LoggingModule.Severity.Warn, "SendMessage null message supplied");
                     return false;
                 }
 
                 if (String.IsNullOrEmpty(currentMessage.RecipientGUID))
                 {
-                    Log("*** QueueClientMessage null recipient GUID in supplied message");
+                    Logging.Log(LoggingModule.Severity.Warn, "SendMessage null recipient GUID supplied");
                     return false;
-                }
-                
-                if (currentClient.MessageQueue == null)
-                {
-                    currentClient.MessageQueue = new BlockingCollection<Message>();
                 }
 
                 #endregion
 
-                #region Process
+                #region Wait-for-Client-Active-Send-Lock
 
-                Log("QueueClientMessage queued message for client " + currentClient.IpPort() + " " + currentClient.ClientGUID + " from " + currentMessage.SenderGUID);
-                currentClient.MessageQueue.Add(currentMessage);
-                return true;
+                int addLoopCount = 0;
+                while (!ClientActiveSendMap.TryAdd(currentMessage.RecipientGUID, DateTime.Now.ToUniversalTime()))
+                {
+                    //
+                    // wait
+                    //
+
+                    Task.Delay(25).Wait();
+                    addLoopCount += 25;
+
+                    if (addLoopCount % 250 == 0)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "SendMessage locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms");
+                    }
+
+                    if (addLoopCount == 2500)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "SendMessage locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
+                        return false;
+                    }
+                }
+
+                locked = true;
+
+                #endregion
+
+                #region Send-Message
+
+                byte[] data = currentMessage.ToBytes();
+
+                if (currentClient.IsTcp && !currentClient.IsSsl) return WTcpServer.Send(currentClient.IpPort, data);
+                else if (currentClient.IsTcp && currentClient.IsSsl) return WTcpSslServer.Send(currentClient.IpPort, data);
+                else if (currentClient.IsWebsocket && !currentClient.IsSsl) return WWsServer.SendAsync(currentClient.IpPort, data).Result;
+                else if (currentClient.IsWebsocket && currentClient.IsSsl) return WWsSslServer.SendAsync(currentClient.IpPort, data).Result;
+                else
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendMessage unable to discern transport for client " + currentClient.IpPort);
+                    return false;
+                }
 
                 #endregion
             }
             catch (Exception e)
             {
-                if (currentClient != null)
-                {
-                    LogException("QueueClientMessage (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("QueueClientMessage (null)", e);
-                }
-
+                Logging.LogException("Server", "SendMessage " + currentClient.IpPort, e);
                 return false;
             }
+            finally
+            {
+                #region Cleanup
+                       
+                if (locked)
+                {
+                    DateTime removedVal = DateTime.Now;
+                    int removeLoopCount = 0;
+                    while (!ClientActiveSendMap.TryRemove(currentMessage.RecipientGUID, out removedVal))
+                    {
+                        Task.Delay(25).Wait();
+                        removeLoopCount += 25;
+
+                        if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
+                        {
+                            // there was (temporarily) a conflict that has been resolved
+                            break;
+                        }
+
+                        if (removeLoopCount % 250 == 0)
+                        {
+                            Logging.Log(LoggingModule.Severity.Warn, "SendMessage locked send map attempting to remove recipient GUID " + currentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
+                        }
+                    }
+                }
+
+                #endregion
+            }
+        }
+
+        private bool ChannelDataSender(Client currentClient, Channel currentChannel, Message currentMessage)
+        { 
+            if (Helper.IsTrue(currentChannel.Broadcast))
+            {
+                #region Broadcast-Channel
+
+                List<Client> currChannelMembers = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
+                if (currChannelMembers == null || currChannelMembers.Count < 1)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender no members found in channel " + currentChannel.ChannelGUID);
+                    return true;
+                }
+
+                currentMessage.SenderGUID = currentClient.ClientGUID;
+                foreach (Client curr in currChannelMembers)
+                {
+                    Task.Run(() =>
+                    {
+                        currentMessage.RecipientGUID = curr.ClientGUID;
+                        bool ResponseSuccess = false;
+                        ResponseSuccess = QueueClientMessage(curr, currentMessage);
+                        if (!ResponseSuccess)
+                        {
+                            Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender error queuing channel message from " + currentMessage.SenderGUID + " to member " + currentMessage.RecipientGUID + " in channel " + currentMessage.ChannelGUID);
+                        }
+                    });
+                }
+
+                return true;
+
+                #endregion
+            }
+            else if (Helper.IsTrue(currentChannel.Multicast))
+            {
+                #region Multicast-Channel-to-Subscribers
+
+                List<Client> currChannelSubscribers = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
+                if (currChannelSubscribers == null || currChannelSubscribers.Count < 1)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender no subscribers found in channel " + currentChannel.ChannelGUID);
+                    return true;
+                }
+
+                currentMessage.SenderGUID = currentClient.ClientGUID;
+                foreach (Client curr in currChannelSubscribers)
+                {
+                    Task.Run(() =>
+                    {
+                        currentMessage.RecipientGUID = curr.ClientGUID;
+                        bool respSuccess = false;
+                        respSuccess = QueueClientMessage(curr, currentMessage);
+                        if (!respSuccess)
+                        {
+                            Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender error queuing channel message from " + currentMessage.SenderGUID + " to subscriber " + currentMessage.RecipientGUID + " in channel " + currentMessage.ChannelGUID);
+                        }
+                    });
+                }
+
+                return true;
+
+                #endregion
+            }
+            else if (Helper.IsTrue(currentChannel.Unicast))
+            {
+                #region Unicast-Channel-to-Subscriber
+
+                List<Client> currChannelSubscribers = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
+                if (currChannelSubscribers == null || currChannelSubscribers.Count < 1)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender no subscribers found in channel " + currentChannel.ChannelGUID);
+                    return true;
+                }
+
+                currentMessage.SenderGUID = currentClient.ClientGUID;
+                Client recipient = currChannelSubscribers[RNG.Next(0, currChannelSubscribers.Count)];
+                Task.Run(() =>
+                {
+                    currentMessage.RecipientGUID = recipient.ClientGUID;
+                    bool respSuccess = false;
+                    respSuccess = QueueClientMessage(recipient, currentMessage);
+                    if (!respSuccess)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender error queuing channel message from " + currentMessage.SenderGUID + " to subscriber " + currentMessage.RecipientGUID + " in channel " + currentMessage.ChannelGUID);
+                    }
+                });
+
+                return true;
+
+                #endregion
+            }
+            else
+            {
+                #region Unknown
+
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender channel is not designated as broadcast, multicast, or unicast, deleting");
+                return RemoveChannel(currentChannel);
+
+                #endregion
+            }
+        }
+        
+        private bool QueueClientMessage(Client currentClient, Message currentMessage)
+        { 
+            Logging.Log(LoggingModule.Severity.Debug, "QueueClientMessage queued message for client " + currentClient.IpPort + " " + currentClient.ClientGUID + " from " + currentMessage.SenderGUID);
+            currentClient.MessageQueue.Add(currentMessage);
+            return true;
         }
 
         private bool ProcessClientQueue(Client currentClient)
         {
             try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** ProcessClientQueue null client supplied");
-                    return false;
-                }
-
-                if (currentClient.MessageQueue == null)
-                {
-                    currentClient.MessageQueue = new BlockingCollection<Message>();
-                }
-
-                #endregion
-
+            { 
                 #region Process
 
                 while (true)
@@ -791,392 +830,56 @@ namespace BigQ
                     Message currMessage = currentClient.MessageQueue.Take(currentClient.ProcessClientQueueToken);
                     if (currMessage != null)
                     {
-                        bool success = SendMessageImmediately(currentClient, currMessage);
+                        bool success = SendMessage(currentClient, currMessage);
                         if (!success)
                         {
-                            Log("*** ProcessClientQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing");
+                            Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing");
                             currentClient.MessageQueue.Add(currMessage);
                         }
                         else
                         {
-                            Log("ProcessClientQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
+                            Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
                         }
                     }
                     else
                     {
-                        Log("*** ProcessClientQueue received null message from queue for client " + currentClient.ClientGUID);
+                        Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue received null message from queue for client " + currentClient.ClientGUID);
                     }
                 }
 
                 #endregion
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException oce)
             {
-                Log("ProcessClientQueue canceled for client " + currentClient.IpPort() + " likely due to disconnect");
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue canceled for client " + currentClient.IpPort + ": " + oce.Message);
                 return false;
             }
             catch (Exception e)
             {
                 if (currentClient != null)
                 {
-                    LogException("ProcessClientQueue (" + currentClient.IpPort() + ")", e);
+                    Logging.LogException("Server", "ProcessClientQueue (" + currentClient.IpPort + ")", e);
                 }
                 else
                 {
-                    LogException("ProcessClientQueue (null)", e);
+                    Logging.LogException("Server", "ProcessClientQueue (null)", e);
                 }
 
                 return false;
             }
         }
 
-        #endregion
-
-        #region TCP-Server
-
-        private void TCPAcceptConnections()
+        private void StartClientQueue(Client currentClient)
         {
-            try
-            {
-                #region Accept-TCP-Connections
-
-                TCPListener.Start();
-                while (!TCPCancellationToken.IsCancellationRequested)
-                {
-                    // Log("TCPAcceptConnections waiting for next connection");
-
-                    TcpClient client = TCPListener.AcceptTcpClientAsync().Result;
-                    client.LingerState.Enabled = false;
-                    
-                    Task.Run(() =>
-                    {
-                        #region Get-Tuple
-
-                        string clientIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-                        int clientPort = ((IPEndPoint)client.Client.RemoteEndPoint).Port;
-                        Log("TCPAcceptConnections accepted connection from " + clientIp + ":" + clientPort);
-
-                        #endregion
-
-                        #region Increment-Counters
-
-                        TCPActiveConnectionThreads++;
-
-                        //
-                        //
-                        // Do not decrement in this block, decrement is done by the connection reader
-                        //
-                        //
-
-                        #endregion
-
-                        #region Add-to-Client-List
-
-                        Client currClient = new Client();
-                        currClient.SourceIP = clientIp;
-                        currClient.SourcePort = clientPort;
-                        currClient.ClientTCPInterface = client;
-                        currClient.ClientTCPSSLInterface = null;
-                        currClient.ClientSSLStream = null;
-                        currClient.ClientHTTPContext = null;
-                        currClient.ClientWSContext = null;
-                        currClient.ClientWSInterface = null;
-                        currClient.ClientWSSSLContext = null;
-                        currClient.ClientWSSSLInterface = null;
-                        currClient.MessageQueue = new BlockingCollection<Message>();
-
-                        currClient.IsTCP = true;
-                        currClient.IsTCPSSL = false;
-                        currClient.IsWebsocket = false;
-                        currClient.IsWebsocketSSL = false;
-                        currClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                        currClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
-
-                        ConnMgr.AddClient(currClient);
-
-                        #endregion
-
-                        #region Start-Data-Receiver
-
-                        currClient.DataReceiverTokenSource = new CancellationTokenSource();
-                        currClient.DataReceiverToken = currClient.DataReceiverTokenSource.Token;
-                        Log("TCPAcceptConnections starting data receiver for " + currClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                        Task.Run(() => TCPDataReceiver(currClient), currClient.DataReceiverToken);
-
-                        #endregion
-
-                        #region Start-Queue-Processor
-
-                        currClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
-                        currClient.ProcessClientQueueToken = currClient.ProcessClientQueueTokenSource.Token;
-                        Log("TCPAcceptConnections starting queue processor for " + currClient.IpPort());
-                        Task.Run(() => ProcessClientQueue(currClient), currClient.ProcessClientQueueToken);
-
-                        #endregion
-
-                    }, TCPCancellationToken);
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                LogException("TCPAcceptConnections", e);
-                if (ServerStopped != null) ServerStopped();
-            }
+            currentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
+            currentClient.ProcessClientQueueToken = currentClient.ProcessClientQueueTokenSource.Token;
+            Logging.Log(LoggingModule.Severity.Debug, "StartClientQueue starting queue processor for " + currentClient.IpPort);
+            Task.Run(() => ProcessClientQueue(currentClient), currentClient.ProcessClientQueueToken);
         }
 
-        private void TCPDataReceiver(Client currentClient)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** TCPDataReceiver null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientTCPInterface == null)
-                {
-                    Log("*** TCPDataReceiver null TcpClient supplied within client");
-                    return;
-                }
-
-                #endregion
-
-                #region Wait-for-Data
-
-                if (!currentClient.ClientTCPInterface.Connected)
-                {
-                    Log("*** TCPDataReceiver client " + currentClient.IpPort() + " is no longer connected");
-                    return;
-                }
-
-                NetworkStream clientStream = currentClient.ClientTCPInterface.GetStream();
-
-                while (true)
-                {
-                    #region Retrieve-Message
-
-                    Message currMessage = null;
-                    if (!Helper.TCPMessageRead(
-                        currentClient.ClientTCPInterface, 
-                        (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)),
-                        out currMessage))
-                    {
-                        Log("*** TCPDataReceiver disconnect detected for client " + currentClient.IpPort());
-                        return;
-                    }
-
-                    if (currMessage == null)
-                    {
-                        Task.Delay(30).Wait();
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPDataReceiver received message from " + currentClient.IpPort() + " after " + sw.Elapsed.TotalMilliseconds + "ms of inactivity, resetting stopwatch");
-                        sw.Reset();
-                        sw.Start();
-                    }
-
-                    if (!currMessage.IsValid())
-                    {
-                        Log("TCPDataReceiver invalid message received from client " + currentClient.IpPort());
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPDataReceiver verified message validity from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    }
-
-                    #endregion
-
-                    #region Process-Message
-
-                    MessageProcessor(currentClient, currMessage);
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPDataReceiver processed message from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    sw.Reset();
-                    sw.Start();
-
-                    if (MessageReceived != null) Task.Run(() => MessageReceived(currMessage));
-                    // Log("TCPDataReceiver finished processing message from client " + CurrentClient.IpPort());
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("TCPDataReceiver (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("TCPDataReceiver (null)", e);
-                }
-            }
-            finally
-            {
-                TCPActiveConnectionThreads--;
-                Log("TCPDataReceiver closed data receiver for " + currentClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                currentClient.Close();
-            }
-        }
-
-        private bool TCPDataSender(Client currentClient, Message currentMessage)
-        {
-            bool locked = false;
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** TCPDataSender null client supplied");
-                    return false;
-                }
-
-                if (currentClient.ClientTCPInterface == null)
-                {
-                    Log("*** TCPDataSender null TcpClient supplied within client object for client " + currentClient.ClientGUID);
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** TCPDataSender null message supplied");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.SenderGUID))
-                {
-                    Log("*** TCPDataSender null sender GUID in supplied message");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.RecipientGUID))
-                {
-                    Log("*** TCPDataSender null recipient GUID in supplied message");
-                    return false;
-                }
-
-                #endregion
-                
-                #region Wait-for-Client-Active-Send-Lock
-
-                int addLoopCount = 0;
-                while (!ClientActiveSendMap.TryAdd(currentMessage.RecipientGUID, DateTime.Now.ToUniversalTime()))
-                {
-                    //
-                    // wait
-                    //
-
-                    Task.Delay(25).Wait();
-                    addLoopCount += 25;
-
-                    if (addLoopCount % 250 == 0)
-                    {
-                        Log("*** TCPDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms");
-                    }
-
-                    if (addLoopCount == 2500)
-                    {
-                        Log("*** TCPDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
-                        return false;
-                    }
-                }
-
-                locked = true;
-
-                #endregion
-
-                #region Send-Message
-
-                if (!Helper.TCPMessageWrite(currentClient.ClientTCPInterface, currentMessage, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
-                {
-                    Log("TCPDataSender unable to send data to client " + currentClient.IpPort());
-                    return false;
-                }
-                else
-                {
-                    if (!String.IsNullOrEmpty(currentMessage.Command))
-                    {
-                        Log("TCPDataSender successfully sent data to client " + currentClient.IpPort() + " for command " + currentMessage.Command);
-                    }
-                    else
-                    {
-                        Log("TCPDataSender successfully sent data to client " + currentClient.IpPort() + " for command (null)");
-                    }
-                }
-
-                #endregion
-
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("TCPDataSender (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("TCPDataSender (null)", e);
-                }
-
-                return false;
-            }
-            finally
-            {
-                //
-                // remove active client send lock
-                //
-                if (locked)
-                {
-                    DateTime removedVal = DateTime.Now;
-                    int removeLoopCount = 0;
-                    while (!ClientActiveSendMap.TryRemove(currentMessage.RecipientGUID, out removedVal))
-                    {
-                        //
-                        // wait
-                        //
-
-                        Task.Delay(25).Wait();
-                        removeLoopCount += 25;
-
-                        if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
-                        {
-                            //
-                            // there was (temporarily) a conflict that has been resolved
-                            //
-                            break;
-                        }
-
-                        if (removeLoopCount % 250 == 0)
-                        {
-                            Log("*** TCPDataSender locked send map attempting to remove recipient GUID " + currentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
-                        }
-                    }
-                }
-            }
-        }
-
-        private void TCPHeartbeatManager(Client currentClient)
-        {
-            //
-            //
+        private void HeartbeatManager(Client currentClient)
+        { 
             // Should only be called after client login
-            //
-            //
 
             try
             {
@@ -1184,25 +887,13 @@ namespace BigQ
 
                 if (Config.Heartbeat.IntervalMs <= 0)
                 {
-                    Log("*** TCPHeartbeatManager invalid heartbeat interval, using 1000ms");
+                    Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager invalid heartbeat interval, using 1000ms");
                     Config.Heartbeat.IntervalMs = 1000;
                 }
-
-                if (currentClient == null)
-                {
-                    Log("*** TCPHeartbeatManager null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientTCPInterface == null)
-                {
-                    Log("*** TCPHeartbeatManager null TcpClient supplied within client");
-                    return;
-                }
-
+                 
                 if (String.IsNullOrEmpty(currentClient.ClientGUID))
                 {
-                    Log("*** TCPHeartbeatManager null client GUID in supplied client");
+                    Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager null client GUID in supplied client");
                     return;
                 }
 
@@ -1235,24 +926,24 @@ namespace BigQ
                     }
 
                     #endregion
-                    
+
                     #region Send-Heartbeat-Message
 
                     lastHeartbeatAttempt = DateTime.Now;
 
                     Message heartbeatMessage = MsgBuilder.HeartbeatRequest(currentClient);
-                    if (Config.Debug.SendHeartbeat) Log("TCPHeartbeatManager sending heartbeat to " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID);
+                    if (Config.Debug.SendHeartbeat) Logging.Log(LoggingModule.Severity.Debug, "HeartbeatManager sending heartbeat to " + currentClient.IpPort + " GUID " + currentClient.ClientGUID);
 
-                    if (!TCPDataSender(currentClient, heartbeatMessage))
+                    if (!SendMessage(currentClient, heartbeatMessage))
                     {
                         numConsecutiveFailures++;
                         lastFailure = DateTime.Now;
 
-                        Log("*** TCPHeartbeatManager failed to send heartbeat to client " + currentClient.IpPort() + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
+                        Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager failed to send heartbeat to client " + currentClient.IpPort + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
 
                         if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
-                            Log("*** TCPHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + currentClient.IpPort());
+                            Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager maximum number of failed heartbeats reached, abandoning client " + currentClient.IpPort);
                             return;
                         }
                     }
@@ -1268,1453 +959,21 @@ namespace BigQ
                 #endregion
             }
             catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("TCPHeartbeatManager (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("TCPHeartbeatManager (null)", e);
-                }
+            { 
+                Logging.LogException("Server", "HeartbeatManager " + currentClient.IpPort, e);
             }
             finally
             {
                 List<Channel> affectedChannels = null;
-                ConnMgr.RemoveClient(currentClient.IpPort());
+                ConnMgr.RemoveClient(currentClient.IpPort);
                 ChannelMgr.RemoveClientChannels(currentClient.ClientGUID, out affectedChannels);
                 ChannelDestroyEvent(affectedChannels);
-                ChannelMgr.RemoveClient(currentClient.IpPort());
+                ChannelMgr.RemoveClient(currentClient.IpPort);
                 if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(currentClient));
+                currentClient.Dispose();
             }
         }
-
-        #endregion
-
-        #region TCP-SSL-Server
-
-        private void TCPSSLAcceptConnections()
-        {
-            try
-            {
-                #region Accept-TCP-SSL-Connections
-
-                TCPSSLListener.Start();
-                while (!TCPSSLCancellationToken.IsCancellationRequested)
-                {
-                    // Log("TCPAcceptConnections waiting for next connection");
-
-                    TcpClient client = TCPSSLListener.AcceptTcpClientAsync().Result;
-                    client.LingerState.Enabled = false;
-
-                    Task.Run(() =>
-                    {
-                        #region Get-Tuple
-
-                        string clientIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-                        int clientPort = ((IPEndPoint)client.Client.RemoteEndPoint).Port;
-                        Log("TCPSSLAcceptConnections accepted connection from " + clientIp + ":" + clientPort);
-
-                        #endregion
-
-                        #region Initialize-and-Authenticate-as-Server
-
-                        SslStream sslStream = null;
-                        if (Config.AcceptInvalidSSLCerts)
-                        {
-                            sslStream = new SslStream(client.GetStream(), false, new RemoteCertificateValidationCallback(TCPSSLValidateCert));
-                        }
-                        else
-                        {
-                            //
-                            // do not accept invalid SSL certificates
-                            //
-                            sslStream = new SslStream(client.GetStream(), false);
-                        }
-
-                        sslStream.AuthenticateAsServer(TCPSSLCertificate, true, SslProtocols.Tls, false);
-                        Log("TCPSSLAcceptConnections SSL authentication complete with " + clientIp + ":" + clientPort);
-
-                        #endregion
-
-                        #region Increment-Counters
-
-                        TCPSSLActiveConnectionThreads++;
-
-                        //
-                        //
-                        // Do not decrement in this block, decrement is done by the connection reader
-                        //
-                        //
-
-                        #endregion
-
-                        #region Add-to-Client-List
-
-                        Client currClient = new Client();
-                        currClient.SourceIP = clientIp;
-                        currClient.SourcePort = clientPort;
-                        currClient.ClientTCPInterface = null;
-                        currClient.ClientTCPSSLInterface = client;
-                        currClient.ClientSSLStream = sslStream;
-                        currClient.ClientHTTPContext = null;
-                        currClient.ClientWSContext = null;
-                        currClient.ClientWSInterface = null;
-                        currClient.ClientWSSSLContext = null;
-                        currClient.ClientWSSSLInterface = null;
-                        currClient.MessageQueue = new BlockingCollection<Message>();
-
-                        currClient.IsTCP = false;
-                        currClient.IsTCPSSL = true;
-                        currClient.IsWebsocket = false;
-                        currClient.IsWebsocketSSL = false;
-                        currClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                        currClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
-
-                        ConnMgr.AddClient(currClient);
-
-                        #endregion
-
-                        #region Start-Data-Receiver
-
-                        Log("TCPSSLAcceptConnections starting data receiver for " + currClient.IpPort() + " (now " + TCPActiveConnectionThreads + " connections active)");
-                        currClient.DataReceiverTokenSource = new CancellationTokenSource();
-                        currClient.DataReceiverToken = currClient.DataReceiverTokenSource.Token;
-                        Task.Run(() => TCPSSLDataReceiver(currClient), currClient.DataReceiverToken);
-
-                        #endregion
-
-                        #region Start-Queue-Processor
-
-                        currClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
-                        currClient.ProcessClientQueueToken = currClient.ProcessClientQueueTokenSource.Token;
-                        Log("TCPSSLAcceptConnections starting queue processor for " + currClient.IpPort());
-                        Task.Run(() => ProcessClientQueue(currClient), currClient.ProcessClientQueueToken);
-
-                        #endregion
-                        
-                    }, TCPSSLCancellationToken);
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                LogException("TCPSSLAcceptConnections", e);
-                if (ServerStopped != null) ServerStopped();
-            }
-        }
-
-        private void TCPSSLDataReceiver(Client currentClient)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** TCPSSLDataReceiver null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientTCPSSLInterface == null)
-                {
-                    Log("*** TCPSSLDataReceiver null TcpClient supplied within client");
-                    return;
-                }
-
-                if (currentClient.ClientSSLStream == null)
-                {
-                    Log("*** TCPSSLDataReceiver null SslStream supplied within client");
-                    return;
-                }
-
-                if (!currentClient.ClientSSLStream.CanRead || !currentClient.ClientSSLStream.CanWrite)
-                {
-                    Log("*** TCPSSLDataReceiver supplied SslStream is either not readable or not writeable");
-                    return;
-                }
-
-                #endregion
-
-                #region Wait-for-Data
-
-                if (!currentClient.ClientTCPSSLInterface.Connected)
-                {
-                    Log("*** TCPSSLDataReceiver client " + currentClient.IpPort() + " is no longer connected");
-                    return;
-                }
-
-                NetworkStream clientStream = currentClient.ClientTCPSSLInterface.GetStream();
-
-                while (true)
-                {
-                    #region Retrieve-Message
-
-                    Message message = Helper.TCPSSLMessageRead(currentClient.ClientTCPSSLInterface, currentClient.ClientSSLStream, (Config.Debug.Enable && (Config.Debug.Enable && Config.Debug.MsgResponseTime)));
-                    if (message == null)
-                    {
-                        // Log("*** TCPSSLDataReceiver unable to read from client " + CurrentClient.IpPort());
-                        Task.Delay(30).Wait();
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPSSLDataReceiver received message from " + currentClient.IpPort() + " after " + sw.Elapsed.TotalMilliseconds + "ms of inactivity, resetting stopwatch");
-                        sw.Reset();
-                        sw.Start();
-                    }
-
-                    if (!message.IsValid())
-                    {
-                        Log("TCPSSLDataReceiver invalid message received from client " + currentClient.IpPort());
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPSSLDataReceiver verified message validity from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    }
-
-                    #endregion
-
-                    #region Process-Message
-
-                    MessageProcessor(currentClient, message);
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("TCPSSLDataReceiver processed message from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    sw.Reset();
-                    sw.Start();
-
-                    if (MessageReceived != null) Task.Run(() => MessageReceived(message));
-                    // Log("TCPSSLDataReceiver finished processing message from client " + CurrentClient.IpPort());
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("TCPSSLDataReceiver (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("TCPSSLDataReceiver (null)", e);
-                }
-            }
-            finally
-            {
-                TCPSSLActiveConnectionThreads--;
-                Log("TCPSSLDataReceiver closed data receiver for " + currentClient.IpPort() + " (now " + TCPSSLActiveConnectionThreads + " connections active)");
-
-                currentClient.Close();
-            }
-        }
-
-        private bool TCPSSLDataSender(Client currentClient, Message currentMessage)
-        {
-            bool locked = false;
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** TCPSSLDataSender null client supplied");
-                    return false;
-                }
-
-                if (currentClient.ClientTCPSSLInterface == null)
-                {
-                    Log("*** TCPSSLDataSender null TcpClient supplied within client object for client " + currentClient.ClientGUID);
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** TCPSSLDataSender null message supplied");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.SenderGUID))
-                {
-                    Log("*** TCPSSLDataSender null sender GUID in supplied message");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.RecipientGUID))
-                {
-                    Log("*** TCPSSLDataSender null recipient GUID in supplied message");
-                    return false;
-                }
-
-                #endregion
-                
-                #region Wait-for-Client-Active-Send-Lock
-
-                int addLoopCount = 0;
-                while (!ClientActiveSendMap.TryAdd(currentMessage.RecipientGUID, DateTime.Now.ToUniversalTime()))
-                {
-                    //
-                    // wait
-                    //
-
-                    Task.Delay(25).Wait();
-                    addLoopCount += 25;
-
-                    if (addLoopCount % 250 == 0)
-                    {
-                        Log("*** TCPSSLDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms");
-                    }
-
-                    if (addLoopCount == 2500)
-                    {
-                        Log("*** TCPSSLDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
-                        return false;
-                    }
-                }
-
-                locked = true;
-
-                #endregion
-
-                #region Send-Message
-
-                if (!Helper.TCPSSLMessageWrite(currentClient.ClientTCPSSLInterface, currentClient.ClientSSLStream, currentMessage, (Config.Debug.Enable && Config.Debug.MsgResponseTime)))
-                {
-                    Log("TCPSSLDataSender unable to send data to client " + currentClient.IpPort());
-                    return false;
-                }
-                else
-                {
-                    if (!String.IsNullOrEmpty(currentMessage.Command))
-                    {
-                        Log("TCPSSLDataSender successfully sent data to client " + currentClient.IpPort() + " for command " + currentMessage.Command);
-                    }
-                    else
-                    {
-                        Log("TCPSSLDataSender successfully sent data to client " + currentClient.IpPort() + " for command (null)");
-                    }
-                }
-
-                #endregion
-
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("TCPSSLDataSender (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("TCPSSLDataSender (null)", e);
-                }
-
-                return false;
-            }
-            finally
-            {
-                //
-                // remove active client send lock
-                //
-                if (locked)
-                {
-                    DateTime removedVal = DateTime.Now;
-                    int removeLoopCount = 0;
-                    while (!ClientActiveSendMap.TryRemove(currentMessage.RecipientGUID, out removedVal))
-                    {
-                        //
-                        // wait
-                        //
-
-                        Task.Delay(25).Wait();
-                        removeLoopCount += 25;
-
-                        if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
-                        {
-                            //
-                            // there was (temporarily) a conflict that has been resolved
-                            //
-                            break;
-                        }
-
-                        if (removeLoopCount % 250 == 0)
-                        {
-                            Log("*** TCPSSLDataSender locked send map attempting to remove recipient GUID " + currentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
-                        }
-                    }
-                }
-            }
-        }
-
-        private void TCPSSLHeartbeatManager(Client currentClient)
-        {
-            //
-            //
-            // Should only be called after client login
-            //
-            //
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (Config.Heartbeat.IntervalMs <= 0)
-                {
-                    Log("*** TCPSSLHeartbeatManager invalid heartbeat interval, using 1000ms");
-                    Config.Heartbeat.IntervalMs = 1000;
-                }
-
-                if (currentClient == null)
-                {
-                    Log("*** TCPSSLHeartbeatManager null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientTCPSSLInterface == null)
-                {
-                    Log("*** TCPSSLHeartbeatManager null TcpClient supplied within client");
-                    return;
-                }
-
-                if (String.IsNullOrEmpty(currentClient.ClientGUID))
-                {
-                    Log("*** TCPSSLHeartbeatManager null client GUID in supplied client");
-                    return;
-                }
-
-                #endregion
-
-                #region Variables
-
-                DateTime threadStart = DateTime.Now;
-                DateTime lastHeartbeatAttempt = DateTime.Now;
-                DateTime lastSuccess = DateTime.Now;
-                DateTime lastFailure = DateTime.Now;
-                int numConsecutiveFailures = 0;
-                bool firstRun = true;
-
-                #endregion
-
-                #region Process
-
-                while (true)
-                {
-                    #region Sleep
-
-                    if (firstRun)
-                    {
-                        firstRun = false;
-                    }
-                    else
-                    {
-                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
-                    }
-
-                    #endregion
-                    
-                    #region Send-Heartbeat-Message
-
-                    lastHeartbeatAttempt = DateTime.Now;
-
-                    Message heartbeatMessage = MsgBuilder.HeartbeatRequest(currentClient);
-                    if (Config.Debug.SendHeartbeat) Log("TCPSSLHeartbeatManager sending heartbeat to " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID);
-
-                    if (!TCPSSLDataSender(currentClient, heartbeatMessage))
-                    {
-                        numConsecutiveFailures++;
-                        lastFailure = DateTime.Now;
-
-                        Log("*** TCPSSLHeartbeatManager failed to send heartbeat to client " + currentClient.IpPort() + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
-
-                        if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
-                        {
-                            Log("*** TCPSSLHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + currentClient.IpPort());
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        numConsecutiveFailures = 0;
-                        lastSuccess = DateTime.Now;
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("TCPSSLHeartbeatManager (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("TCPSSLHeartbeatManager (null)", e);
-                }
-            }
-            finally
-            {
-                List<Channel> affectedChannels = null;
-                ConnMgr.RemoveClient(currentClient.IpPort());
-                ChannelMgr.RemoveClientChannels(currentClient.ClientGUID, out affectedChannels);
-                ChannelDestroyEvent(affectedChannels);
-                ChannelMgr.RemoveClient(currentClient.IpPort());
-                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(currentClient));
-            }
-        }
-
-        private bool TCPSSLValidateCert(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-        {
-            // return true; // Allow untrusted certificates.
-            return Config.AcceptInvalidSSLCerts;
-        }
-
-        #endregion
-
-        #region Websocket-Server
-
-        private void WSAcceptConnections()
-        {
-            try
-            {
-                #region Accept-WS-Connections
-
-                WSListener.Start();
-                while (!WSCancellationToken.IsCancellationRequested)
-                {
-                    HttpListenerContext context = WSListener.GetContextAsync().Result;
-
-                    Task.Run(() =>
-                    {
-                        #region Get-Tuple
-
-                        string clientIp = context.Request.RemoteEndPoint.Address.ToString();
-                        int clientPort = context.Request.RemoteEndPoint.Port;
-                        Log("WSAcceptConnections accepted connection from " + clientIp + ":" + clientPort);
-
-                        #region Increment-Counters
-
-                        WSActiveConnectionThreads++;
-
-                        //
-                        //
-                        // Do not decrement in this block, decrement is done by the connection reader
-                        //
-                        //
-
-                        #endregion
-
-                        #endregion
-
-                        #region Get-Websocket-Context
-
-                        WebSocketContext wsContext = null;
-                        try
-                        {
-                            wsContext = context.AcceptWebSocketAsync(subProtocol: null).Result;
-                        }
-                        catch (Exception)
-                        {
-                            Log("*** WSAcceptConnections exception while gathering websocket context for client " + clientIp + ":" + clientPort);
-                            context.Response.StatusCode = 500;
-                            context.Response.Close();
-                            return;
-                        }
-
-                        WebSocket client = wsContext.WebSocket;
-
-                        #endregion
-
-                        #region Add-to-Client-List
-
-                        Client currentClient = new Client();
-                        currentClient.SourceIP = clientIp;
-                        currentClient.SourcePort = clientPort;
-                        currentClient.ClientTCPInterface = null;
-                        currentClient.ClientTCPSSLInterface = null;
-                        currentClient.ClientHTTPContext = context;
-                        currentClient.ClientHTTPSSLContext = context;
-                        currentClient.ClientWSContext = wsContext;
-                        currentClient.ClientWSInterface = client;
-                        currentClient.ClientWSSSLContext = wsContext;
-                        currentClient.ClientWSSSLInterface = client;
-                        currentClient.MessageQueue = new BlockingCollection<Message>();
-
-                        currentClient.IsTCP = false;
-                        currentClient.IsTCPSSL = false;
-                        currentClient.IsWebsocket = true;
-                        currentClient.IsWebsocketSSL = false;
-                        currentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                        currentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
-
-                        ConnMgr.AddClient(currentClient);
-
-                        #endregion
-
-                        #region Start-Data-Receiver
-
-                        Log("WSAcceptConnections starting data receiver for " + currentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
-                        currentClient.DataReceiverTokenSource = new CancellationTokenSource();
-                        currentClient.DataReceiverToken = currentClient.DataReceiverTokenSource.Token;
-                        Task.Run(() => WSDataReceiver(currentClient), currentClient.DataReceiverToken);
-
-                        #endregion
-
-                        #region Start-Queue-Processor
-
-                        currentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
-                        currentClient.ProcessClientQueueToken = currentClient.ProcessClientQueueTokenSource.Token;
-                        Log("WSAcceptConnections starting queue processor for " + currentClient.IpPort());
-                        Task.Run(() => ProcessClientQueue(currentClient), currentClient.ProcessClientQueueToken);
-
-                        #endregion
-                        
-                    }, WSCancellationToken);
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                LogException("WSAcceptConnections", e);
-                if (ServerStopped != null) ServerStopped();
-            }
-        }
-
-        private void WSDataReceiver(Client currentClient)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** WSDataReceiver null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientWSInterface == null)
-                {
-                    Log("*** WSDataReceiver null WebSocket supplied within client");
-                    return;
-                }
-
-                #endregion
-
-                #region Wait-for-Data
-
-                while (true)
-                {
-                    #region Retrieve-Message
-
-                    Message currentMessage = Helper.WSMessageRead(currentClient.ClientHTTPContext, currentClient.ClientWSInterface, Config.Debug.MsgResponseTime).Result;
-                    if (currentMessage == null)
-                    {
-                        Log("WSDataReceiver unable to read message from client " + currentClient.IpPort());
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("WSDataReceiver received message from " + currentClient.IpPort() + " after " + sw.Elapsed.TotalMilliseconds + "ms of inactivity, resetting stopwatch");
-                        sw.Reset();
-                        sw.Start();
-
-                        Task.Run(() => MessageReceived(currentMessage));
-                    }
-
-                    if (!currentMessage.IsValid())
-                    {
-                        Log("WSDataReceiver invalid message received from client " + currentClient.IpPort());
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("WSDataReceiver verified message validity from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    }
-
-                    #endregion
-
-                    #region Process-Message
-
-                    MessageProcessor(currentClient, currentMessage);
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("WSDataReceiver processed message from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    sw.Reset();
-                    sw.Start();
-
-                    if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("WSDataReceiver (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("WSDataReceiver (null)", e);
-                }
-            }
-            finally
-            {
-                WSActiveConnectionThreads--;
-                Log("WSDataReceiver closed data receiver for " + currentClient.IpPort() + " (now " + WSActiveConnectionThreads + " connections active)");
-
-                currentClient.Close();
-            }
-        }
-
-        private bool WSDataSender(Client currentClient, Message currentMessage)
-        {
-            bool locked = false;
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** WSDataSender null client supplied");
-                    return false;
-                }
-
-                if (currentClient.ClientWSInterface == null)
-                {
-                    Log("*** WSDataSender null websocket supplied within client object for client " + currentClient.ClientGUID);
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** WSDataSender null message supplied");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.SenderGUID))
-                {
-                    Log("*** WSDataSender null sender GUID in supplied message");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.RecipientGUID))
-                {
-                    Log("*** WSDataSender null recipient GUID in supplied message");
-                    return false;
-                }
-
-                #endregion
-                
-                #region Wait-for-Client-Active-Send-Lock
-
-                int addLoopCount = 0;
-                while (!ClientActiveSendMap.TryAdd(currentMessage.RecipientGUID, DateTime.Now.ToUniversalTime()))
-                {
-                    //
-                    // wait
-                    //
-
-                    Task.Delay(25).Wait();
-                    addLoopCount += 25;
-
-                    if (addLoopCount % 250 == 0)
-                    {
-                        Log("*** WSDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms");
-                    }
-
-                    if (addLoopCount == 2500)
-                    {
-                        Log("*** WSDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
-                        return false;
-                    }
-                }
-
-                locked = true;
-
-                #endregion
-
-                #region Send-Message
-
-                bool success = Helper.WSMessageWrite(currentClient.ClientHTTPContext, currentClient.ClientWSInterface, currentMessage, Config.Debug.MsgResponseTime).Result;
-                if (!success)
-                {
-                    Log("WSDataSender unable to send data to client " + currentClient.IpPort());
-                    return false;
-                }
-                else
-                {
-                    if (!String.IsNullOrEmpty(currentMessage.Command))
-                    {
-                        Log("WSDataSender successfully sent data to client " + currentClient.IpPort() + " for command " + currentMessage.Command);
-                    }
-                    else
-                    {
-                        Log("WSDataSender successfully sent data to client " + currentClient.IpPort() + " for command (null)");
-                    }
-                }
-
-                #endregion
-
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("WSDataSender (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("WSDataSender (null)", e);
-                }
-
-                return false;
-            }
-            finally
-            {
-                //
-                // remove active client send lock
-                //
-                if (locked)
-                {
-                    DateTime removedVal = DateTime.Now;
-                    int removeLoopCount = 0;
-                    while (!ClientActiveSendMap.TryRemove(currentMessage.RecipientGUID, out removedVal))
-                    {
-                        //
-                        // wait
-                        //
-
-                        Task.Delay(25).Wait();
-                        removeLoopCount += 25;
-
-                        if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
-                        {
-                            //
-                            // there was (temporarily) a conflict that has been resolved
-                            //
-                            break;
-                        }
-
-                        if (removeLoopCount % 250 == 0)
-                        {
-                            Log("*** WSDataSender locked send map attempting to remove recipient GUID " + currentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
-                        }
-                    }
-                }
-            }
-        }
-
-        private void WSHeartbeatManager(Client currentClient)
-        {
-            //
-            //
-            // Should only be called after client login
-            //
-            //
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (Config.Heartbeat.IntervalMs <= 0)
-                {
-                    Log("*** WSHeartbeatManager invalid heartbeat interval, using 1000ms");
-                    Config.Heartbeat.IntervalMs = 1000;
-                }
-
-                if (currentClient == null)
-                {
-                    Log("*** WSHeartbeatManager null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientWSInterface == null)
-                {
-                    Log("*** WSHeartbeatManager null websocket supplied within client");
-                    return;
-                }
-
-                if (String.IsNullOrEmpty(currentClient.ClientGUID))
-                {
-                    Log("*** WSHeartbeatManager null client GUID in supplied client");
-                    return;
-                }
-
-                #endregion
-
-                #region Variables
-
-                DateTime threadStart = DateTime.Now;
-                DateTime lastHeartbeatAttempt = DateTime.Now;
-                DateTime lastSuccess = DateTime.Now;
-                DateTime lastFailure = DateTime.Now;
-                int numConsecutiveFailures = 0;
-                bool firstRun = true;
-
-                #endregion
-
-                #region Process
-
-                while (true)
-                {
-                    #region Sleep
-
-                    if (firstRun)
-                    {
-                        firstRun = false;
-                    }
-                    else
-                    {
-                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
-                    }
-
-                    #endregion
-                    
-                    #region Send-Heartbeat-Message
-
-                    lastHeartbeatAttempt = DateTime.Now;
-
-                    Message heartbeatMessage = MsgBuilder.HeartbeatRequest(currentClient);
-                    if (Config.Debug.SendHeartbeat) Log("WSHeartbeatManager sending heartbeat to " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID);
-
-                    bool success = Helper.WSMessageWrite(currentClient.ClientHTTPContext, currentClient.ClientWSInterface, heartbeatMessage, Config.Debug.MsgResponseTime).Result;
-                    if (!success)
-                    {
-                        numConsecutiveFailures++;
-                        lastFailure = DateTime.Now;
-
-                        Log("*** WSHeartbeatManager failed to send heartbeat to client " + currentClient.IpPort() + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
-
-                        if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
-                        {
-                            Log("*** WSHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + currentClient.IpPort());
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        numConsecutiveFailures = 0;
-                        lastSuccess = DateTime.Now;
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("WSHeartbeatManager (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("WSHeartbeatManager (null)", e);
-                }
-            }
-            finally
-            {
-                List<Channel> affectedChannels = null;
-                ConnMgr.RemoveClient(currentClient.IpPort());
-                ChannelMgr.RemoveClientChannels(currentClient.ClientGUID, out affectedChannels);
-                ChannelDestroyEvent(affectedChannels);
-                ChannelMgr.RemoveClient(currentClient.IpPort());
-                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(currentClient));
-            }
-        }
-
-        #endregion
-
-        #region Websocket-SSL-Server
-
-        private void WSSSLAcceptConnections()
-        {
-            try
-            {
-                #region Accept-WS-SSL-Connections
-
-                WSSSLListener.Start();
-                while (!WSSSLCancellationToken.IsCancellationRequested)
-                {
-                    HttpListenerContext context = WSSSLListener.GetContextAsync().Result;
-
-                    Task.Run(() =>
-                    {
-                        #region Get-Tuple
-
-                        string clientIp = context.Request.RemoteEndPoint.Address.ToString();
-                        int clientPort = context.Request.RemoteEndPoint.Port;
-                        Log("WSSSLAcceptConnections accepted connection from " + clientIp + ":" + clientPort);
-
-                        #endregion
-
-                        #region Authenticate
-
-                        //
-                        //
-                        // This is implemented by binding the certificate to the port
-                        //
-                        //
-
-                        #endregion
-
-                        #region Increment-Counters
-
-                        WSSSLActiveConnectionThreads++;
-
-                        //
-                        //
-                        // Do not decrement in this block, decrement is done by the connection reader
-                        //
-                        //
-
-                        #endregion
-
-                        #region Get-Websocket-Context
-
-                        WebSocketContext wsContext = null;
-                        try
-                        {
-                            wsContext = context.AcceptWebSocketAsync(subProtocol: null).Result;
-                        }
-                        catch (Exception)
-                        {
-                            Log("*** WSSSLAcceptConnections exception while gathering websocket context for client " + clientIp + ":" + clientPort);
-                            context.Response.StatusCode = 500;
-                            context.Response.Close();
-                            return;
-                        }
-
-                        WebSocket client = wsContext.WebSocket;
-
-                        #endregion
-
-                        #region Add-to-Client-List
-
-                        Client currentClient = new Client();
-                        currentClient.SourceIP = clientIp;
-                        currentClient.SourcePort = clientPort;
-                        currentClient.ClientTCPInterface = null;
-                        currentClient.ClientTCPSSLInterface = null;
-                        currentClient.ClientHTTPContext = null;
-                        currentClient.ClientWSContext = null;
-                        currentClient.ClientWSInterface = null;
-                        currentClient.ClientHTTPSSLContext = context;
-                        currentClient.ClientWSSSLContext = wsContext;
-                        currentClient.ClientWSSSLInterface = client;
-                        currentClient.MessageQueue = new BlockingCollection<Message>();
-
-                        currentClient.IsTCP = false;
-                        currentClient.IsTCPSSL = false;
-                        currentClient.IsWebsocket = false;
-                        currentClient.IsWebsocketSSL = true;
-                        currentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                        currentClient.UpdatedUTC = DateTime.Now.ToUniversalTime();
-
-                        ConnMgr.AddClient(currentClient);
-
-                        #endregion
-
-                        #region Start-Data-Receiver
-
-                        Log("WSSSLAcceptConnections starting data receiver for " + currentClient.IpPort() + " (now " + WSSSLActiveConnectionThreads + " connections active)");
-                        currentClient.DataReceiverTokenSource = new CancellationTokenSource();
-                        currentClient.DataReceiverToken = currentClient.DataReceiverTokenSource.Token;
-                        Task.Run(() => WSSSLDataReceiver(currentClient), currentClient.DataReceiverToken);
-
-                        #endregion
-
-                        #region Start-Queue-Processor
-
-                        currentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
-                        currentClient.ProcessClientQueueToken = currentClient.ProcessClientQueueTokenSource.Token;
-                        Log("WSSSLAcceptConnections starting queue processor for " + currentClient.IpPort());
-                        Task.Run(() => ProcessClientQueue(currentClient), currentClient.ProcessClientQueueToken);
-
-                        #endregion
-                        
-                    }, WSSSLCancellationToken);
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                LogException("WSSSLAcceptConnections", e);
-                if (ServerStopped != null) ServerStopped();
-            }
-        }
-
-        private void WSSSLDataReceiver(Client currentClient)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** WSSSLDataReceiver null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientWSSSLInterface == null)
-                {
-                    Log("*** WSSSLDataReceiver null WebSocket supplied within client");
-                    return;
-                }
-
-                #endregion
-
-                #region Wait-for-Data
-
-                while (true)
-                {
-                    #region Retrieve-Message
-
-                    Message currentMessage = Helper.WSMessageRead(currentClient.ClientHTTPSSLContext, currentClient.ClientWSSSLInterface, Config.Debug.MsgResponseTime).Result;
-                    if (currentMessage == null)
-                    {
-                        Log("WSSSLDataReceiver unable to read message from client " + currentClient.IpPort());
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("WSSSLDataReceiver received message from " + currentClient.IpPort() + " after " + sw.Elapsed.TotalMilliseconds + "ms of inactivity, resetting stopwatch");
-                        sw.Reset();
-                        sw.Start();
-
-                        Task.Run(() => MessageReceived(currentMessage));
-                    }
-
-                    if (!currentMessage.IsValid())
-                    {
-                        Log("WSSSLDataReceiver invalid message received from client " + currentClient.IpPort());
-                        continue;
-                    }
-                    else
-                    {
-                        if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("WSSSLDataReceiver verified message validity from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    }
-
-                    #endregion
-
-                    #region Process-Message
-
-                    MessageProcessor(currentClient, currentMessage);
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("WSSSLDataReceiver processed message from " + currentClient.IpPort() + " " + sw.Elapsed.TotalMilliseconds + "ms");
-                    sw.Reset();
-                    sw.Start();
-
-                    if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("WSSSLDataReceiver (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("WSSSLDataReceiver (null)", e);
-                }
-            }
-            finally
-            {
-                WSSSLActiveConnectionThreads--;
-                Log("WSSSLDataReceiver closed data receiver for " + currentClient.IpPort() + " (now " + WSSSLActiveConnectionThreads + " connections active)");
-
-                currentClient.Close();
-            }
-        }
-
-        private bool WSSSLDataSender(Client currentClient, Message currentMessage)
-        {
-            bool locked = false;
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (currentClient == null)
-                {
-                    Log("*** WSSSLDataSender null client supplied");
-                    return false;
-                }
-
-                if (currentClient.ClientWSSSLInterface == null)
-                {
-                    Log("*** WSSSLDataSender null websocket supplied within client object for client " + currentClient.ClientGUID);
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** WSSSLDataSender null message supplied");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.SenderGUID))
-                {
-                    Log("*** WSSSLDataSender null sender GUID in supplied message");
-                    return false;
-                }
-
-                if (String.IsNullOrEmpty(currentMessage.RecipientGUID))
-                {
-                    Log("*** WSSSLDataSender null recipient GUID in supplied message");
-                    return false;
-                }
-
-                #endregion
-                
-                #region Wait-for-Client-Active-Send-Lock
-
-                int addLoopCount = 0;
-                while (!ClientActiveSendMap.TryAdd(currentMessage.RecipientGUID, DateTime.Now.ToUniversalTime()))
-                {
-                    //
-                    // wait
-                    //
-
-                    Task.Delay(25).Wait();
-                    addLoopCount += 25;
-
-                    if (addLoopCount % 250 == 0)
-                    {
-                        Log("*** WSSSLDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms");
-                    }
-
-                    if (addLoopCount == 2500)
-                    {
-                        Log("*** WSSSLDataSender locked send map attempting to add recipient GUID " + currentMessage.RecipientGUID + " for " + addLoopCount + "ms, failing");
-                        return false;
-                    }
-                }
-
-                locked = true;
-
-                #endregion
-
-                #region Send-Message
-
-                bool success = Helper.WSMessageWrite(currentClient.ClientHTTPSSLContext, currentClient.ClientWSSSLInterface, currentMessage, Config.Debug.MsgResponseTime).Result;
-                if (!success)
-                {
-                    Log("WSSSLDataSender unable to send data to client " + currentClient.IpPort());
-                    return false;
-                }
-                else
-                {
-                    if (!String.IsNullOrEmpty(currentMessage.Command))
-                    {
-                        Log("WSSSLDataSender successfully sent data to client " + currentClient.IpPort() + " for command " + currentMessage.Command);
-                    }
-                    else
-                    {
-                        Log("WSSSLDataSender successfully sent data to client " + currentClient.IpPort() + " for command (null)");
-                    }
-                }
-
-                #endregion
-
-                return true;
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("WSSSLDataSender (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("WSSSLDataSender (null)", e);
-                }
-
-                return false;
-            }
-            finally
-            {
-                //
-                // remove active client send lock
-                //
-                if (locked)
-                {
-                    DateTime removedVal = DateTime.Now;
-                    int removeLoopCount = 0;
-                    while (!ClientActiveSendMap.TryRemove(currentMessage.RecipientGUID, out removedVal))
-                    {
-                        //
-                        // wait
-                        //
-
-                        Task.Delay(25).Wait();
-                        removeLoopCount += 25;
-
-                        if (!ClientActiveSendMap.ContainsKey(currentMessage.RecipientGUID))
-                        {
-                            //
-                            // there was (temporarily) a conflict that has been resolved
-                            //
-                            break;
-                        }
-
-                        if (removeLoopCount % 250 == 0)
-                        {
-                            Log("*** WSSSLDataSender locked send map attempting to remove recipient GUID " + currentMessage.RecipientGUID + " for " + removeLoopCount + "ms");
-                        }
-                    }
-                }
-            }
-        }
-
-        private void WSSSLHeartbeatManager(Client currentClient)
-        {
-            //
-            //
-            // Should only be called after client login
-            //
-            //
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (Config.Heartbeat.IntervalMs <= 0)
-                {
-                    Log("*** WSSSLHeartbeatManager invalid heartbeat interval, using 1000ms");
-                    Config.Heartbeat.IntervalMs = 1000;
-                }
-
-                if (currentClient == null)
-                {
-                    Log("*** WSSSLHeartbeatManager null client supplied");
-                    return;
-                }
-
-                if (currentClient.ClientWSSSLInterface == null)
-                {
-                    Log("*** WSSSLHeartbeatManager null websocket supplied within client");
-                    return;
-                }
-
-                if (String.IsNullOrEmpty(currentClient.ClientGUID))
-                {
-                    Log("*** WSSSLHeartbeatManager null client GUID in supplied client");
-                    return;
-                }
-
-                #endregion
-
-                #region Variables
-
-                DateTime threadStart = DateTime.Now;
-                DateTime lastHeartbeatAttempt = DateTime.Now;
-                DateTime lastSuccess = DateTime.Now;
-                DateTime lastFailure = DateTime.Now;
-                int numConsecutiveFailures = 0;
-                bool firstRun = true;
-
-                #endregion
-
-                #region Process
-
-                while (true)
-                {
-                    #region Sleep
-
-                    if (firstRun)
-                    {
-                        firstRun = false;
-                    }
-                    else
-                    {
-                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
-                    }
-
-                    #endregion
-                    
-                    #region Send-Heartbeat-Message
-
-                    lastHeartbeatAttempt = DateTime.Now;
-
-                    Message heartbeatMessage = MsgBuilder.HeartbeatRequest(currentClient);
-                    if (Config.Debug.SendHeartbeat) Log("WSSSLHeartbeatManager sending heartbeat to " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID);
-
-                    bool success = Helper.WSMessageWrite(currentClient.ClientHTTPSSLContext, currentClient.ClientWSSSLInterface, heartbeatMessage, Config.Debug.MsgResponseTime).Result;
-                    if (!success)
-                    {
-                        numConsecutiveFailures++;
-                        lastFailure = DateTime.Now;
-
-                        Log("*** WSSSLHeartbeatManager failed to send heartbeat to client " + currentClient.IpPort() + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
-
-                        if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
-                        {
-                            Log("*** WSSSLHeartbeatManager maximum number of failed heartbeats reached, abandoning client " + currentClient.IpPort());
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        numConsecutiveFailures = 0;
-                        lastSuccess = DateTime.Now;
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                if (currentClient != null)
-                {
-                    LogException("WSSSLHeartbeatManager (" + currentClient.IpPort() + ")", e);
-                }
-                else
-                {
-                    LogException("WSSSLHeartbeatManager (null)", e);
-                }
-            }
-            finally
-            {
-                List<Channel> affectedChannels = null;
-                ConnMgr.RemoveClient(currentClient.IpPort());
-                ChannelMgr.RemoveClientChannels(currentClient.ClientGUID, out affectedChannels);
-                ChannelDestroyEvent(affectedChannels);
-                ChannelMgr.RemoveClient(currentClient.IpPort());
-                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(currentClient));
-            }
-        }
-
-        #endregion
-
+         
         #endregion
         
         #region Private-Event-Methods
@@ -2723,22 +982,22 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** ServerJoinEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ServerJoinEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** ServerJoinEvent null ClientGUID suplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "ServerJoinEvent null ClientGUID suplied within Client");
                 return true;
             }
 
-            Log("ServerJoinEvent sending server join notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "ServerJoinEvent sending server join notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID);
 
             List<Client> currentClients = ConnMgr.GetClients(); 
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** ServerJoinEvent no clients found on server");
+                Logging.Log(LoggingModule.Severity.Warn, "ServerJoinEvent no clients found on server");
                 return true;
             }
 
@@ -2754,7 +1013,7 @@ namespace BigQ
                         bool responseSuccess = QueueClientMessage(curr, msg);
                         if (!responseSuccess)
                         {
-                            Log("*** ServerJoinEvent error queuing server join event to " + msg.RecipientGUID + " (join by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Warn, "ServerJoinEvent error queuing server join event to " + msg.RecipientGUID + " (join by " + currentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -2767,22 +1026,22 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** ServerLeaveEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ServerLeaveEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** ServerLeaveEvent null ClientGUID suplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "ServerLeaveEvent null ClientGUID suplied within Client");
                 return true;
             }
 
-            Log("ServerLeaveEvent sending server leave notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "ServerLeaveEvent sending server leave notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID);
 
             List<Client> currentClients = ConnMgr.GetClients();
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** ServerLeaveEvent no clients found on server");
+                Logging.Log(LoggingModule.Severity.Warn, "ServerLeaveEvent no clients found on server");
                 return true;
             }
 
@@ -2798,11 +1057,11 @@ namespace BigQ
                         bool responseSuccess = QueueClientMessage(curr, msg);
                         if (!responseSuccess)
                         {
-                            Log("*** ServerLeaveEvent error queuing server leave event to " + msg.RecipientGUID + " (leave by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Warn, "ServerLeaveEvent error queuing server leave event to " + msg.RecipientGUID + " (leave by " + currentClient.ClientGUID + ")");
                         }
                         else
                         {
-                            Log("ServerLeaveEvent queued server leave event to " + msg.RecipientGUID + " (leave by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Debug, "ServerLeaveEvent queued server leave event to " + msg.RecipientGUID + " (leave by " + currentClient.ClientGUID + ")");
                         }
                     }
                 }
@@ -2815,34 +1074,34 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** ChannelJoinEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** ChannelJoinEvent null ClientGUID supplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent null ClientGUID supplied within Client");
                 return true;
             }
 
             if (currentChannel == null)
             {
-                Log("*** ChannelJoinEvent null Channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent null Channel supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentChannel.ChannelGUID))
             {
-                Log("*** ChannelJoinEvent null GUID supplied within Channel");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent null GUID supplied within Channel");
                 return true;
             }
 
-            Log("ChannelJoinEvent sending channel join notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "ChannelJoinEvent sending channel join notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
 
             List<Client> currentClients = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** ChannelJoinEvent no clients found in channel " + currentChannel.ChannelGUID);
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent no clients found in channel " + currentChannel.ChannelGUID);
                 return true;
             }
 
@@ -2858,7 +1117,7 @@ namespace BigQ
                         bool responseSuccess = QueueClientMessage(curr, msg);
                         if (!responseSuccess)
                         {
-                            Log("*** ChannelJoinEvent error queuing channel join event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (join by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent error queuing channel join event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (join by " + currentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -2871,34 +1130,34 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** ChannelLeaveEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** ChannelLeaveEvent null ClientGUID supplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent null ClientGUID supplied within Client");
                 return true;
             }
 
             if (currentChannel == null)
             {
-                Log("*** ChannelLeaveEvent null Channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent null Channel supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentChannel.ChannelGUID))
             {
-                Log("*** ChannelLeaveEvent null GUID supplied within Channel");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent null GUID supplied within Channel");
                 return true;
             }
 
-            Log("ChannelLeaveEvent sending channel leave notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "ChannelLeaveEvent sending channel leave notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
 
             List<Client> currentClients = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** ChannelLeaveEvent no clients found in channel " + currentChannel.ChannelGUID);
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent no clients found in channel " + currentChannel.ChannelGUID);
                 return true;
             }
 
@@ -2914,7 +1173,7 @@ namespace BigQ
                         bool responseSuccess = QueueClientMessage(curr, msg);
                         if (!responseSuccess)
                         {
-                            Log("*** ChannelLeaveEvent error queuing channel leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent error queuing channel leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -2927,40 +1186,40 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** ChannelCreateEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** ChannelCreateEvent null ClientGUID supplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent null ClientGUID supplied within Client");
                 return true;
             }
 
             if (currentChannel == null)
             {
-                Log("*** ChannelCreateEvent null Channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent null Channel supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentChannel.ChannelGUID))
             {
-                Log("*** ChannelCreateEvent null GUID supplied within Channel");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent null GUID supplied within Channel");
                 return true;
             }
 
             if (Helper.IsTrue(currentChannel.Private))
             {
-                Log("*** ChannelCreateEvent skipping create notification for channel " + currentChannel.ChannelGUID + " (private)");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent skipping create notification for channel " + currentChannel.ChannelGUID + " (private)");
                 return true;
             }
 
-            Log("ChannelCreateEvent sending channel create notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "ChannelCreateEvent sending channel create notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
 
             List<Client> currentClients = ConnMgr.GetClients();
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** ChannelCreateEvent no clients found on server");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent no clients found on server");
                 return true;
             }
 
@@ -2973,7 +1232,7 @@ namespace BigQ
                     bool responseSuccess = QueueClientMessage(curr, msg);
                     if (!responseSuccess)
                     {
-                        Log("*** ChannelCreateEvent error queuing channel create event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
+                        Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent error queuing channel create event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
                     }
                 });
             }
@@ -2997,7 +1256,7 @@ namespace BigQ
                             bool responseSuccess = SendSystemMessage(msg);
                             if (!responseSuccess)
                             {
-                                Log("*** ChannelDestroyEvent error sending channel destroy event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currChannel.OwnerGUID + ")");
+                                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent error sending channel destroy event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currChannel.OwnerGUID + ")");
                             }
                         });
                     }
@@ -3014,7 +1273,7 @@ namespace BigQ
                             bool responseSuccess = SendSystemMessage(msg);
                             if (!responseSuccess)
                             {
-                                Log("*** ChannelDestroyEvent error sending channel destroy event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currChannel.OwnerGUID + ")");
+                                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent error sending channel destroy event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currChannel.OwnerGUID + ")");
                             }
                         });
                     }
@@ -3028,40 +1287,40 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** ChannelDestroyEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** ChannelDestroyEvent null ClientGUID supplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent null ClientGUID supplied within Client");
                 return true;
             }
 
             if (currentChannel == null)
             {
-                Log("*** ChannelDestroyEvent null Channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent null Channel supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentChannel.ChannelGUID))
             {
-                Log("*** ChannelDestroyEvent null GUID supplied within Channel");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent null GUID supplied within Channel");
                 return true;
             }
 
             if (Helper.IsTrue(currentChannel.Private))
             {
-                Log("*** ChannelDestroyEvent skipping destroy notification for channel " + currentChannel.ChannelGUID + " (private)");
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent skipping destroy notification for channel " + currentChannel.ChannelGUID + " (private)");
                 return true;
             }
 
-            Log("ChannelDestroyEvent sending channel destroy notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "ChannelDestroyEvent sending channel destroy notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
 
             List<Client> currentClients = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** ChannelDestroyEvent no clients found in channel " + currentChannel.ChannelGUID);
+                Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent no clients found in channel " + currentChannel.ChannelGUID);
                 return true;
             }
 
@@ -3074,7 +1333,7 @@ namespace BigQ
                     bool responseSuccess = QueueClientMessage(curr, msg);
                     if (!responseSuccess)
                     {
-                        Log("*** ChannelDestroyEvent error queuing channel leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
+                        Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent error queuing channel leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
                     }
                 });
             }
@@ -3086,34 +1345,34 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** SubscriberJoinEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** SubscriberJoinEvent null ClientGUID supplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent null ClientGUID supplied within Client");
                 return true;
             }
 
             if (currentChannel == null)
             {
-                Log("*** SubscriberJoinEvent null Channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent null Channel supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentChannel.ChannelGUID))
             {
-                Log("*** SubscriberJoinEvent null GUID supplied within Channel");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent null GUID supplied within Channel");
                 return true;
             }
 
-            Log("SubscriberJoinEvent sending subcriber join notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "SubscriberJoinEvent sending subcriber join notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
 
             List<Client> currentClients = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** SubscriberJoinEvent no clients found in channel " + currentChannel.ChannelGUID);
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent no clients found in channel " + currentChannel.ChannelGUID);
                 return true;
             }
 
@@ -3129,7 +1388,7 @@ namespace BigQ
                         bool responseSuccess = QueueClientMessage(curr, msg);
                         if (!responseSuccess)
                         {
-                            Log("*** SubscriberJoinEvent error queuing subscriber join event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (join by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent error queuing subscriber join event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (join by " + currentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -3142,34 +1401,34 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** SubscriberLeaveEvent null Client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent null Client supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentClient.ClientGUID))
             {
-                Log("*** SubscriberLeaveEvent null ClientGUID supplied within Client");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent null ClientGUID supplied within Client");
                 return true;
             }
 
             if (currentChannel == null)
             {
-                Log("*** SubscriberLeaveEvent null Channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent null Channel supplied");
                 return true;
             }
 
             if (String.IsNullOrEmpty(currentChannel.ChannelGUID))
             {
-                Log("*** SubscriberLeaveEvent null GUID supplied within Channel");
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent null GUID supplied within Channel");
                 return true;
             }
 
-            Log("SubscriberLeaveEvent sending subscriber leave notification for " + currentClient.IpPort() + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "SubscriberLeaveEvent sending subscriber leave notification for " + currentClient.IpPort + " GUID " + currentClient.ClientGUID + " channel " + currentChannel.ChannelGUID);
 
             List<Client> currentClients = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
             if (currentClients == null || currentClients.Count < 1)
             {
-                Log("*** SubscriberLeaveEvent no clients found in channel " + currentChannel.ChannelGUID);
+                Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent no clients found in channel " + currentChannel.ChannelGUID);
                 return true;
             }
 
@@ -3185,7 +1444,7 @@ namespace BigQ
                         bool responseSuccess = QueueClientMessage(curr, msg);
                         if (!responseSuccess)
                         {
-                            Log("*** SubscriberLeaveEvent error queuing subscriber leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
+                            Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent error queuing subscriber leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currentClient.ClientGUID + ")");
                         }
                     });
                 }
@@ -3238,7 +1497,7 @@ namespace BigQ
                     {
                         #region First-Read
 
-                        Log("MonitorUsersFile loading " + Config.Files.UsersFile);
+                        Logging.Log(LoggingModule.Severity.Debug, "MonitorUsersFile loading " + Config.Files.UsersFile);
 
                         //
                         // get timestamp
@@ -3251,18 +1510,18 @@ namespace BigQ
                         fileContents = File.ReadAllText(Config.Files.UsersFile);
                         if (String.IsNullOrEmpty(fileContents))
                         {
-                            Log("*** MonitorUsersFile empty file found at " + Config.Files.UsersFile);
+                            Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile empty file found at " + Config.Files.UsersFile);
                             continue;
                         }
 
                         try
                         {
-                            UsersList = Helper.DeserializeJson<ConcurrentList<User>>(Encoding.UTF8.GetBytes(fileContents), false);
+                            UsersList = Helper.DeserializeJson<ConcurrentList<User>>(Encoding.UTF8.GetBytes(fileContents));
                         }
                         catch (Exception EInner)
                         {
-                            LogException("MonitorUsersFile", EInner);
-                            Log("*** MonitorUsersFile unable to deserialize contents of " + Config.Files.UsersFile);
+                            Logging.LogException("Server", "MonitorUsersFile", EInner);
+                            Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile unable to deserialize contents of " + Config.Files.UsersFile);
                             continue;
                         }
 
@@ -3282,7 +1541,7 @@ namespace BigQ
                         //
                         if (String.Compare(UsersLastModified, tempTimestamp) != 0)
                         {
-                            Log("MonitorUsersFile loading " + Config.Files.UsersFile);
+                            Logging.Log(LoggingModule.Severity.Debug, "MonitorUsersFile loading " + Config.Files.UsersFile);
 
                             //
                             // get timestamp
@@ -3295,18 +1554,18 @@ namespace BigQ
                             fileContents = File.ReadAllText(Config.Files.UsersFile);
                             if (String.IsNullOrEmpty(fileContents))
                             {
-                                Log("*** MonitorUsersFile empty file found at " + Config.Files.UsersFile);
+                                Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile empty file found at " + Config.Files.UsersFile);
                                 continue;
                             }
 
                             try
                             {
-                                UsersList = Helper.DeserializeJson<ConcurrentList<User>>(Encoding.UTF8.GetBytes(fileContents), false);
+                                UsersList = Helper.DeserializeJson<ConcurrentList<User>>(Encoding.UTF8.GetBytes(fileContents));
                             }
                             catch (Exception EInner)
                             {
-                                LogException("MonitorUsersFile", EInner);
-                                Log("*** MonitorUsersFile unable to deserialize contents of " + Config.Files.UsersFile);
+                                Logging.LogException("Server", "MonitorUsersFile", EInner);
+                                Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile unable to deserialize contents of " + Config.Files.UsersFile);
                                 continue;
                             }
                         }
@@ -3319,7 +1578,7 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                LogException("MonitorUsersFile", e);
+                Logging.LogException("Server", "MonitorUsersFile", e);
                 if (ServerStopped != null) ServerStopped();
             }
         }
@@ -3364,7 +1623,7 @@ namespace BigQ
                     {
                         #region First-Read
 
-                        Log("MonitorPermissionsFile loading " + Config.Files.PermissionsFile);
+                        Logging.Log(LoggingModule.Severity.Debug, "MonitorPermissionsFile loading " + Config.Files.PermissionsFile);
 
                         //
                         // get timestamp
@@ -3377,18 +1636,18 @@ namespace BigQ
                         fileContents = File.ReadAllText(Config.Files.PermissionsFile);
                         if (String.IsNullOrEmpty(fileContents))
                         {
-                            Log("*** MonitorPermissionsFile empty file found at " + Config.Files.PermissionsFile);
+                            Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile empty file found at " + Config.Files.PermissionsFile);
                             continue;
                         }
 
                         try
                         {
-                            PermissionsList = Helper.DeserializeJson<ConcurrentList<Permission>>(Encoding.UTF8.GetBytes(fileContents), false);
+                            PermissionsList = Helper.DeserializeJson<ConcurrentList<Permission>>(Encoding.UTF8.GetBytes(fileContents));
                         }
                         catch (Exception EInner)
                         {
-                            LogException("MonitorPermissionsFile", EInner);
-                            Log("*** MonitorPermissionsFile unable to deserialize contents of " + Config.Files.PermissionsFile);
+                            Logging.LogException("Server", "MonitorPermissionsFile", EInner);
+                            Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile unable to deserialize contents of " + Config.Files.PermissionsFile);
                             continue;
                         }
 
@@ -3408,7 +1667,7 @@ namespace BigQ
                         //
                         if (String.Compare(PermissionsLastModified, tempTimestamp) != 0)
                         {
-                            Log("MonitorPermissionsFile loading " + Config.Files.PermissionsFile);
+                            Logging.Log(LoggingModule.Severity.Debug, "MonitorPermissionsFile loading " + Config.Files.PermissionsFile);
 
                             //
                             // get timestamp
@@ -3421,18 +1680,18 @@ namespace BigQ
                             fileContents = File.ReadAllText(Config.Files.PermissionsFile);
                             if (String.IsNullOrEmpty(fileContents))
                             {
-                                Log("*** MonitorPermissionsFile empty file found at " + Config.Files.PermissionsFile);
+                                Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile empty file found at " + Config.Files.PermissionsFile);
                                 continue;
                             }
 
                             try
                             {
-                                PermissionsList = Helper.DeserializeJson<ConcurrentList<Permission>>(Encoding.UTF8.GetBytes(fileContents), false);
+                                PermissionsList = Helper.DeserializeJson<ConcurrentList<Permission>>(Encoding.UTF8.GetBytes(fileContents));
                             }
                             catch (Exception EInner)
                             {
-                                LogException("MonitorPermissionsFile", EInner);
-                                Log("*** MonitorPermissionsFile unable to deserialize contents of " + Config.Files.PermissionsFile);
+                                Logging.LogException("Server", "MonitorPermissionsFile", EInner);
+                                Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile unable to deserialize contents of " + Config.Files.PermissionsFile);
                                 continue;
                             }
                         }
@@ -3445,7 +1704,7 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                LogException("MonitorPermissionsFile", e);
+                Logging.LogException("Server", "MonitorPermissionsFile", e);
                 if (ServerStopped != null) ServerStopped();
             }
         }
@@ -3460,13 +1719,13 @@ namespace BigQ
 
                     if (String.IsNullOrEmpty(email))
                     {
-                        Log("*** AllowConnection no email supplied");
+                        Logging.Log(LoggingModule.Severity.Warn, "AllowConnection no email supplied");
                         return false;
                     }
 
                     if (String.IsNullOrEmpty(ip))
                     {
-                        Log("*** AllowConnection no IP supplied");
+                        Logging.Log(LoggingModule.Severity.Warn, "AllowConnection no IP supplied");
                         return false;
                     }
 
@@ -3477,7 +1736,7 @@ namespace BigQ
                     User currUser = GetUser(email);
                     if (currUser == null)
                     {
-                        Log("*** AllowConnection unable to find entry for email " + email);
+                        Logging.Log(LoggingModule.Severity.Warn, "AllowConnection unable to find entry for email " + email);
                         return false;
                     }
 
@@ -3505,13 +1764,13 @@ namespace BigQ
                         Permission currPermission = GetPermission(currUser.Permission);
                         if (currPermission == null)
                         {
-                            Log("*** AllowConnection permission entry " + currUser.Permission + " not found for user " + email);
+                            Logging.Log(LoggingModule.Severity.Warn, "AllowConnection permission entry " + currUser.Permission + " not found for user " + email);
                             return false;
                         }
 
                         if (!currPermission.Login)
                         {
-                            Log("*** AllowConnection login permission denied in permission entry " + currUser.Permission + " for user " + email);
+                            Logging.Log(LoggingModule.Severity.Warn, "AllowConnection login permission denied in permission entry " + currUser.Permission + " for user " + email);
                             return false;
                         }
 
@@ -3546,7 +1805,7 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                LogException("AllowConnection", e);
+                Logging.LogException("Server", "AllowConnection", e);
                 return false;
             }
         }
@@ -3561,7 +1820,7 @@ namespace BigQ
 
                 if (String.IsNullOrEmpty(email))
                 {
-                    Log("*** GetUser null email supplied");
+                    Logging.Log(LoggingModule.Severity.Warn, "GetUser null email supplied");
                     return null;
                 }
 
@@ -3578,14 +1837,14 @@ namespace BigQ
                     }
                 }
 
-                Log("*** GetUser unable to find email " + email);
+                Logging.Log(LoggingModule.Severity.Warn, "GetUser unable to find email " + email);
                 return null;
 
                 #endregion
             }
             catch (Exception e)
             {
-                LogException("GetUser", e);
+                Logging.LogException("Server", "GetUser", e);
                 return null;
             }
         }
@@ -3601,7 +1860,7 @@ namespace BigQ
 
                 if (String.IsNullOrEmpty(email))
                 {
-                    Log("*** GetUserPermissions null email supplied");
+                    Logging.Log(LoggingModule.Severity.Warn, "GetUserPermissions null email supplied");
                     return null;
                 }
 
@@ -3612,7 +1871,7 @@ namespace BigQ
                 User currUser = GetUser(email);
                 if (currUser == null)
                 {
-                    Log("*** GetUserPermission unable to find user " + email);
+                    Logging.Log(LoggingModule.Severity.Warn, "GetUserPermission unable to find user " + email);
                     return null;
                 }
 
@@ -3623,7 +1882,7 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                LogException("GetUserPermissions", e);
+                Logging.LogException("Server", "GetUserPermissions", e);
                 return null;
             }
         }
@@ -3637,7 +1896,7 @@ namespace BigQ
                 if (PermissionsList == null || PermissionsList.Count < 1) return null;
                 if (String.IsNullOrEmpty(permission))
                 {
-                    Log("*** GetPermission null permission supplied");
+                    Logging.Log(LoggingModule.Severity.Warn, "GetPermission null permission supplied");
                     return null;
                 }
 
@@ -3654,14 +1913,14 @@ namespace BigQ
                     }
                 }
 
-                Log("*** GetPermission permission " + permission + " not found");
+                Logging.Log(LoggingModule.Severity.Warn, "GetPermission permission " + permission + " not found");
                 return null;
 
                 #endregion
             }
             catch (Exception e)
             {
-                LogException("GetPermission", e);
+                Logging.LogException("Server", "GetPermission", e);
                 return null;
             }
         }
@@ -3674,7 +1933,7 @@ namespace BigQ
 
                 if (currentMessage == null)
                 {
-                    Log("*** AuthorizeMessage null message supplied");
+                    Logging.Log(LoggingModule.Severity.Warn, "AuthorizeMessage null message supplied");
                     return false;
                 }
 
@@ -3695,7 +1954,7 @@ namespace BigQ
                     User currUser = GetUser(currentMessage.Email);
                     if (currUser == null)
                     {
-                        Log("*** AuthenticateUser unable to find user " + currentMessage.Email);
+                        Logging.Log(LoggingModule.Severity.Warn, "AuthenticateUser unable to find user " + currentMessage.Email);
                         return false;
                     }
 
@@ -3703,7 +1962,7 @@ namespace BigQ
                     {
                         if (String.Compare(currUser.Password, currentMessage.Password) != 0)
                         {
-                            Log("*** AuthenticateUser invalid password supplied for user " + currentMessage.Email);
+                            Logging.Log(LoggingModule.Severity.Warn, "AuthenticateUser invalid password supplied for user " + currentMessage.Email);
                             return false;
                         }
                     }
@@ -3715,39 +1974,39 @@ namespace BigQ
                     if (String.IsNullOrEmpty(currUser.Permission))
                     {
                         // default permit
-                        // Log("AuthenticateUser default permit in use (user " + CurrentMessage.Email + " has null permission list)");
+                        // Logging.Log(LoggingModule.Severity.Debug, "AuthenticateUser default permit in use (user " + CurrentMessage.Email + " has null permission list)");
                         return true;
                     }
 
                     if (String.IsNullOrEmpty(currentMessage.Command))
                     {
                         // default permit
-                        // Log("AuthenticateUser default permit in use (user " + CurrentMessage.Email + " sending message with no command)");
+                        // Logging.Log(LoggingModule.Severity.Debug, "AuthenticateUser default permit in use (user " + CurrentMessage.Email + " sending message with no command)");
                         return true;
                     }
 
                     Permission currPermission = GetPermission(currUser.Permission);
                     if (currPermission == null)
                     {
-                        Log("*** AuthorizeMessage unable to find permission " + currUser.Permission + " for user " + currUser.Email);
+                        Logging.Log(LoggingModule.Severity.Warn, "AuthorizeMessage unable to find permission " + currUser.Permission + " for user " + currUser.Email);
                         return false;
                     }
 
                     if (currPermission.Permissions == null || currPermission.Permissions.Count < 1)
                     {
                         // default permit
-                        // Log("AuthorizeMessage default permit in use (no permissions found for permission name " + currUser.Permission);
+                        // Logging.Log(LoggingModule.Severity.Debug, "AuthorizeMessage default permit in use (no permissions found for permission name " + currUser.Permission);
                         return true;
                     }
 
                     if (currPermission.Permissions.Contains(currentMessage.Command))
                     {
-                        // Log("AuthorizeMessage found permission for command " + CurrentMessage.Command + " in permission " + currUser.Permission + " for user " + currUser.Email);
+                        // Logging.Log(LoggingModule.Severity.Debug, "AuthorizeMessage found permission for command " + CurrentMessage.Command + " in permission " + currUser.Permission + " for user " + currUser.Email);
                         return true;
                     }
                     else
                     {
-                        Log("*** AuthorizeMessage permission " + currPermission.Name + " does not contain command " + currentMessage.Command + " for user " + currUser.Email);
+                        Logging.Log(LoggingModule.Severity.Warn, "AuthorizeMessage permission " + currPermission.Name + " does not contain command " + currentMessage.Command + " for user " + currUser.Email);
                         return false;
                     }
 
@@ -3757,7 +2016,7 @@ namespace BigQ
                 {
                     #region No-Material
 
-                    Log("*** AuthenticateUser no authentication material supplied");
+                    Logging.Log(LoggingModule.Severity.Warn, "AuthenticateUser no authentication material supplied");
                     return false;
 
                     #endregion
@@ -3767,7 +2026,7 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                LogException("AuthorizeMessage", e);
+                Logging.LogException("Server", "AuthorizeMessage", e);
                 return false;
             }
         }
@@ -3776,7 +2035,7 @@ namespace BigQ
         {
             if (UsersList == null || UsersList.Count < 1)
             {
-                Log("*** GetCurrentUsersFile no users listed or no users file");
+                Logging.Log(LoggingModule.Severity.Warn, "GetCurrentUsersFile no users listed or no users file");
                 return null;
             }
 
@@ -3786,7 +2045,7 @@ namespace BigQ
                 ret.Add(curr);
             }
 
-            Log("GetCurrentUsersFile returning " + ret.Count + " users");
+            Logging.Log(LoggingModule.Severity.Debug, "GetCurrentUsersFile returning " + ret.Count + " users");
             return ret;
         }
 
@@ -3794,7 +2053,7 @@ namespace BigQ
         {
             if (PermissionsList == null || PermissionsList.Count < 1)
             {
-                Log("*** GetCurrentPermissionsFile no permissions listed or no permissions file");
+                Logging.Log(LoggingModule.Severity.Warn, "GetCurrentPermissionsFile no permissions listed or no permissions file");
                 return null;
             }
 
@@ -3804,7 +2063,7 @@ namespace BigQ
                 ret.Add(curr);
             }
 
-            Log("GetCurrentPermissionsFile returning " + ret.Count + " permissions");
+            Logging.Log(LoggingModule.Severity.Debug, "GetCurrentPermissionsFile returning " + ret.Count + " permissions");
             return ret;
         }
 
@@ -3845,10 +2104,10 @@ namespace BigQ
                                 int elapsed = 0;
                                 while (true)
                                 {
-                                    Log("CleanupTask attempting to remove active send map for " + curr.Key + " (elapsed " + elapsed + "ms)");
+                                    Logging.Log(LoggingModule.Severity.Debug, "CleanupTask attempting to remove active send map for " + curr.Key + " (elapsed " + elapsed + "ms)");
                                     if (!ClientActiveSendMap.ContainsKey(curr.Key))
                                     {
-                                        Log("CleanupTask key " + curr.Key + " no longer present in active send map, exiting");
+                                        Logging.Log(LoggingModule.Severity.Debug, "CleanupTask key " + curr.Key + " no longer present in active send map, exiting");
                                         break;
                                     }
                                     else
@@ -3856,7 +2115,7 @@ namespace BigQ
                                         DateTime removedVal = DateTime.Now;
                                         if (ClientActiveSendMap.TryRemove(curr.Key, out removedVal))
                                         {
-                                            Log("CleanupTask key " + curr.Key + " removed by cleanup task, exiting");
+                                            Logging.Log(LoggingModule.Severity.Debug, "CleanupTask key " + curr.Key + " removed by cleanup task, exiting");
                                             break;
                                         }
                                         Task.Delay(1000).Wait();
@@ -3872,7 +2131,7 @@ namespace BigQ
             }
             catch (Exception e)
             {
-                LogException("CleanupTask", e);
+                Logging.LogException("Server", "CleanupTask", e);
                 if (ServerStopped != null) ServerStopped();
             }
         }
@@ -3898,13 +2157,13 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** AddChannel null client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "AddChannel null client supplied");
                 return false;
             }
 
             if (currentChannel == null)
             {
-                Log("*** AddChannel null channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "AddChannel null channel supplied");
                 return false;
             }
 
@@ -3912,8 +2171,8 @@ namespace BigQ
             if (String.IsNullOrEmpty(currentChannel.ChannelName)) currentChannel.ChannelName = currentChannel.ChannelGUID;
 
             DateTime timestamp = DateTime.Now.ToUniversalTime();
-            if (currentChannel.CreatedUTC == null) currentChannel.CreatedUTC = timestamp;
-            if (currentChannel.UpdatedUTC == null) currentChannel.UpdatedUTC = timestamp;
+            if (currentChannel.CreatedUtc == null) currentChannel.CreatedUtc = timestamp;
+            if (currentChannel.UpdatedUtc == null) currentChannel.UpdatedUtc = timestamp;
             currentChannel.Members = new List<Client>();
             currentChannel.Members.Add(currentClient);
             currentChannel.Subscribers = new List<Client>();
@@ -3921,13 +2180,13 @@ namespace BigQ
 
             if (ChannelMgr.ChannelExists(currentChannel.ChannelGUID))
             {
-                Log("*** AddChannel channel GUID " + currentChannel.ChannelGUID + " already exists");
+                Logging.Log(LoggingModule.Severity.Warn, "AddChannel channel GUID " + currentChannel.ChannelGUID + " already exists");
                 return false;
             }
 
             ChannelMgr.AddChannel(currentChannel);
 
-            Log("AddChannel successfully added channel with GUID " + currentChannel.ChannelGUID + " for client " + currentChannel.OwnerGUID);
+            Logging.Log(LoggingModule.Severity.Debug, "AddChannel successfully added channel with GUID " + currentChannel.ChannelGUID + " for client " + currentChannel.OwnerGUID);
             return true;
         }
 
@@ -3936,18 +2195,18 @@ namespace BigQ
             currentChannel = ChannelMgr.GetChannelByGUID(currentChannel.ChannelGUID);
             if (currentChannel == null)
             {
-                Log("*** RemoveChannel unable to find specified channel");
+                Logging.Log(LoggingModule.Severity.Warn, "RemoveChannel unable to find specified channel");
                 return false;
             }
                 
             if (String.Compare(currentChannel.OwnerGUID, ServerGUID) == 0)
             {
-                Log("RemoveChannel skipping removal of channel " + currentChannel.ChannelGUID + " (server channel)");
+                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel skipping removal of channel " + currentChannel.ChannelGUID + " (server channel)");
                 return true;
             }
 
             ChannelMgr.RemoveChannel(currentChannel.ChannelGUID);
-            Log("RemoveChannel notifying channel members of channel removal");
+            Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel notifying channel members of channel removal");
 
             if (currentChannel.Members != null)
             {
@@ -3965,7 +2224,7 @@ namespace BigQ
                         {
                             if (String.Compare(Client.ClientGUID, currentChannel.OwnerGUID) != 0)
                             {
-                                Log("RemoveChannel notifying channel " + tempChannel.ChannelGUID + " member " + Client.ClientGUID + " of channel deletion by owner");
+                                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel notifying channel " + tempChannel.ChannelGUID + " member " + Client.ClientGUID + " of channel deletion by owner");
                                 SendSystemMessage(MsgBuilder.ChannelDeletedByOwner(Client, tempChannel));
                             }
                         }
@@ -3974,7 +2233,7 @@ namespace BigQ
                 }
             }
 
-            Log("RemoveChannel removed channel " + currentChannel.ChannelGUID + " successfully");
+            Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel removed channel " + currentChannel.ChannelGUID + " successfully");
             return true;
         }
 
@@ -4031,7 +2290,7 @@ namespace BigQ
                             Channel TempChannel = currentChannel;
                             Task.Run(() =>
                             {
-                                Log("RemoveChannelMember notifying channel " + TempChannel.ChannelGUID + " member " + c.ClientGUID + " of channel leave by member " + currentClient.ClientGUID);
+                                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember notifying channel " + TempChannel.ChannelGUID + " member " + c.ClientGUID + " of channel leave by member " + currentClient.ClientGUID);
                                 SendSystemMessage(MsgBuilder.ChannelLeaveEvent(TempChannel, currentClient));
                             }
                             );
@@ -4068,7 +2327,7 @@ namespace BigQ
                             Channel tempChannel = currentChannel;
                             Task.Run(() =>
                             {
-                                Log("RemoveChannelSubscriber notifying channel " + tempChannel.ChannelGUID + " member " + c.ClientGUID + " of channel leave by subscriber " + currentClient.ClientGUID);
+                                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber notifying channel " + tempChannel.ChannelGUID + " member " + c.ClientGUID + " of channel leave by subscriber " + currentClient.ClientGUID);
                                 SendSystemMessage(MsgBuilder.ChannelSubscriberLeaveEvent(tempChannel, currentClient));
                             }
                             );
@@ -4104,36 +2363,36 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Log("*** BuildChannelFromMessageData null client supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData null client supplied");
                 return null;
             }
 
             if (currentMessage == null)
             {
-                Log("*** BuildChannelFromMessageData null channel supplied");
+                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData null channel supplied");
                 return null;
             }
 
             if (currentMessage.Data == null)
             {
-                Log("*** BuildChannelFromMessageData null data supplied in message");
+                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData null data supplied in message");
                 return null;
             }
 
             Channel ret = null;
             try
             {
-                ret = Helper.DeserializeJson<Channel>(currentMessage.Data, false);
+                ret = Helper.DeserializeJson<Channel>(currentMessage.Data);
             }
             catch (Exception e)
             {
-                LogException("BuildChannelFromMessageData", e);
+                Logging.LogException("Server", "BuildChannelFromMessageData", e);
                 ret = null;
             }
 
             if (ret == null)
             {
-                Log("*** BuildChannelFromMessageData unable to convert message body to Channel object");
+                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData unable to convert message body to Channel object");
                 return null;
             }
 
@@ -4142,8 +2401,8 @@ namespace BigQ
 
             if (String.IsNullOrEmpty(ret.ChannelGUID)) ret.ChannelGUID = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(ret.ChannelName)) ret.ChannelName = ret.ChannelGUID;
-            ret.CreatedUTC = DateTime.Now.ToUniversalTime();
-            ret.UpdatedUTC = ret.CreatedUTC;
+            ret.CreatedUtc = DateTime.Now.ToUniversalTime();
+            ret.UpdatedUtc = ret.CreatedUtc;
             ret.OwnerGUID = currentClient.ClientGUID;
             ret.Members = new List<Client>();
             ret.Members.Add(currentClient);
@@ -4152,1407 +2411,822 @@ namespace BigQ
         }
 
         private bool MessageProcessor(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        {  
+            #region Check-for-Null-Values
 
-            try
+            if (currentClient == null)
             {
-                #region Check-for-Null-Values
+                Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor null client supplied");
+                return false;
+            }
 
-                if (currentClient == null)
+            if (currentMessage == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor null message supplied");
+                return false;
+            }
+
+            #endregion
+
+            #region Variables-and-Initialization
+
+            Client currentRecipient = null;
+            Channel currentChannel = null;
+            Message responseMessage = new Message();
+            bool responseSuccess = false;
+            currentMessage.Success = null;
+
+            #endregion
+
+            #region Verify-Client-GUID-Present
+
+            if (String.IsNullOrEmpty(currentClient.ClientGUID))
+            {
+                if (!String.IsNullOrEmpty(currentMessage.Command))
                 {
-                    Log("*** MessageProcessor null client supplied");
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** MessageProcessor null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Variables-and-Initialization
-
-                Client currentRecipient = null;
-                Channel currentChannel = null;
-                Message responseMessage = new Message();
-                bool responseSuccess = false;
-                currentMessage.Success = null;
-
-                #endregion
-
-                #region Verify-Client-GUID-Present
-
-                if (String.IsNullOrEmpty(currentClient.ClientGUID))
-                {
-                    if (!String.IsNullOrEmpty(currentMessage.Command))
+                    if (String.Compare(currentMessage.Command.ToLower(), "login") != 0)
                     {
-                        if (String.Compare(currentMessage.Command.ToLower(), "login") != 0)
+                        #region Null-GUID-and-Not-Login
+
+                        Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor received message from client with no GUID");
+                        responseSuccess = QueueClientMessage(currentClient, MsgBuilder.LoginRequired());
+                        if (!responseSuccess)
                         {
-                            #region Null-GUID-and-Not-Login
-
-                            Log("*** MessageProcessor received message from client with no GUID");
-                            responseSuccess = QueueClientMessage(currentClient, MsgBuilder.LoginRequired());
-                            if (!responseSuccess)
-                            {
-                                Log("*** MessageProcessor unable to queue login required message to client " + currentClient.IpPort());
-                            }
-                            return responseSuccess;
-
-                            #endregion
+                            Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue login required message to client " + currentClient.IpPort);
                         }
+                        return responseSuccess;
+
+                        #endregion
                     }
                 }
-                else
-                {
-                    #region Ensure-GUID-Exists
-
-                    if (String.Compare(currentClient.ClientGUID, ServerGUID) != 0)
-                    {
-                        //
-                        // All zeros is the BigQ server
-                        //
-                        Client verifyClient = ConnMgr.GetClientByGUID(currentClient.ClientGUID);
-                        if (verifyClient == null)
-                        {
-                            Log("*** MessageProcessor received message from unknown client GUID " + currentClient.ClientGUID + " from " + currentClient.IpPort());
-                            responseSuccess = QueueClientMessage(currentClient, MsgBuilder.LoginRequired());
-                            if (!responseSuccess)
-                            {
-                                Log("*** MessageProcessor unable to queue login required message to client " + currentClient.IpPort());
-                            }
-                            return responseSuccess;
-                        }
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-
-                #region Verify-Transport-Objects-Present
+            }
+            else
+            {
+                #region Ensure-GUID-Exists
 
                 if (String.Compare(currentClient.ClientGUID, ServerGUID) != 0)
                 {
                     //
-                    // all zeros is the server
+                    // All zeros is the BigQ server
                     //
-                    if (currentClient.IsTCP)
+                    Client verifyClient = ConnMgr.GetClientByGUID(currentClient.ClientGUID);
+                    if (verifyClient == null)
                     {
-                        #region TCP
-
-                        if (currentClient.ClientTCPInterface == null)
-                        {
-                            Log("*** MessageProcessor null TCP client within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (currentClient.IsTCPSSL)
-                    {
-                        #region TCP-SSL
-
-                        if (currentClient.ClientTCPSSLInterface == null)
-                        {
-                            Log("*** MessageProcessor null TCP SSL client within supplied client");
-                            return false;
-                        }
-
-                        if (currentClient.ClientSSLStream == null)
-                        {
-                            Log("*** MessageProcessor null SSL stream within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (currentClient.IsWebsocket)
-                    {
-                        #region Websocket
-
-                        if (currentClient.ClientHTTPContext == null)
-                        {
-                            Log("*** MessageProcessor null HTTP context within supplied client");
-                            return false;
-                        }
-
-                        if (currentClient.ClientWSContext == null)
-                        {
-                            Log("*** MessageProcessor null websocket context witin supplied client");
-                            return false;
-                        }
-
-                        if (currentClient.ClientWSInterface == null)
-                        {
-                            Log("*** MessageProcessor null websocket object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (currentClient.IsWebsocketSSL)
-                    {
-                        #region Websocket-SSL
-
-                        if (currentClient.ClientHTTPSSLContext == null)
-                        {
-                            Log("*** MessageProcessor null HTTP SSL context within supplied client");
-                            return false;
-                        }
-
-                        if (currentClient.ClientWSSSLContext == null)
-                        {
-                            Log("*** MessageProcessor null websocket SSL context witin supplied client");
-                            return false;
-                        }
-
-                        if (currentClient.ClientWSSSLInterface == null)
-                        {
-                            Log("*** MessageProcessor null websocket SSL object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Unknown
-
-                        Log("*** MessageProcessor unknown transport for supplied client " + currentClient.IpPort() + " " + currentClient.ClientGUID);
-                        return false;
-
-                        #endregion
-                    }
-                }
-
-                #endregion
-
-                #region Authorize-Message
-
-                if (!AuthorizeMessage(currentMessage))
-                {
-                    if (String.IsNullOrEmpty(currentMessage.Command))
-                    {
-                        Log("*** MessageProcessor unable to authenticate or authorize message from " + currentMessage.Email + " " + currentMessage.SenderGUID);
-                    }
-                    else
-                    {
-                        Log("*** MessageProcessor unable to authenticate or authorize message of type " + currentMessage.Command + " from " + currentMessage.Email + " " + currentMessage.SenderGUID);
-                    }
-
-                    responseMessage = MsgBuilder.AuthorizationFailed(currentMessage);
-                    responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** MessageProcessor unable to queue authorization failed message to client " + currentClient.IpPort());
-                    }
-                    return responseSuccess;
-                }
-
-                #endregion
-
-                #region Process-Administrative-Messages
-
-                if (!String.IsNullOrEmpty(currentMessage.Command))
-                {
-                    Log("MessageProcessor processing administrative message of type " + currentMessage.Command + " from client " + currentClient.IpPort());
-
-                    switch (currentMessage.Command.ToLower())
-                    {
-                        case "echo":
-                            responseMessage = ProcessEchoMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "login":
-                            responseMessage = ProcessLoginMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "heartbeatrequest":
-                            // no need to send response
-                            return true;
-
-                        case "joinchannel":
-                            responseMessage = ProcessJoinChannelMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "leavechannel":
-                            responseMessage = ProcessLeaveChannelMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "subscribechannel":
-                            responseMessage = ProcessSubscribeChannelMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "unsubscribechannel":
-                            responseMessage = ProcessUnsubscribeChannelMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "createchannel":
-                            responseMessage = ProcessCreateChannelMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "deletechannel":
-                            responseMessage = ProcessDeleteChannelMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "listchannels":
-                            responseMessage = ProcessListChannelsMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "listchannelmembers":
-                            responseMessage = ProcessListChannelMembersMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "listchannelsubscribers":
-                            responseMessage = ProcessListChannelSubscribersMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "listclients":
-                            responseMessage = ProcessListClientsMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        case "isclientconnected":
-                            responseMessage = ProcessIsClientConnectedMessage(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-
-                        default:
-                            responseMessage = MsgBuilder.UnknownCommand(currentClient, currentMessage);
-                            responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                            return responseSuccess;
-                    }
-                }
-
-                #endregion
-
-                #region Get-Recipient-or-Channel
-
-                if (!String.IsNullOrEmpty(currentMessage.RecipientGUID))
-                {
-                    currentRecipient = ConnMgr.GetClientByGUID(currentMessage.RecipientGUID);
-                }
-                else if (!String.IsNullOrEmpty(currentMessage.ChannelGUID))
-                {
-                    currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                }
-                else
-                {
-                    #region Recipient-Not-Supplied
-
-                    Log("MessageProcessor no recipient specified either by RecipientGUID or ChannelGUID");
-                    responseMessage = MsgBuilder.RecipientNotFound(currentClient, currentMessage);
-                    responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** MessageProcessor unable to queue recipient not found message to " + currentClient.IpPort());
-                    }
-                    return false;
-
-                    #endregion
-                }
-
-                #endregion
-
-                #region Process-Recipient-Messages
-
-                if (currentRecipient != null)
-                {
-                    #region Send-to-Recipient
-
-                    responseSuccess = QueueClientMessage(currentRecipient, currentMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** MessageProcessor unable to queue to recipient " + currentRecipient.ClientGUID + ", sent failure notification to sender");
-                    }
-
-                    return responseSuccess;
-
-                    #endregion
-                }
-                else if (currentChannel != null)
-                {
-                    #region Send-to-Channel
-
-                    if (Helper.IsTrue(currentChannel.Broadcast))
-                    {
-                        #region Broadcast-Message
-
-                        responseSuccess = SendChannelMembersMessage(currentClient, currentChannel, currentMessage);
+                        Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor received message from unknown client GUID " + currentClient.ClientGUID + " from " + currentClient.IpPort);
+                        responseSuccess = QueueClientMessage(currentClient, MsgBuilder.LoginRequired());
                         if (!responseSuccess)
                         {
-                            Log("*** MessageProcessor unable to send to members in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
+                            Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue login required message to client " + currentClient.IpPort);
                         }
-
                         return responseSuccess;
-
-                        #endregion
                     }
-                    else if (Helper.IsTrue(currentChannel.Multicast))
-                    {
-                        #region Multicast-Message-to-Subscribers
-
-                        responseSuccess = SendChannelSubscribersMessage(currentClient, currentChannel, currentMessage);
-                        if (!responseSuccess)
-                        {
-                            Log("*** MessageProcessor unable to send to subscribers in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
-                        }
-
-                        return responseSuccess;
-
-                        #endregion
-                    }
-                    else if (Helper.IsTrue(currentChannel.Unicast))
-                    {
-                        #region Unicast-Message-to-One-Subscriber
-
-                        responseSuccess = SendChannelSubscriberMessage(currentClient, currentChannel, currentMessage);
-                        if (!responseSuccess)
-                        {
-                            Log("*** MessageProcessor unable to send to subscriber in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
-                        }
-
-                        return responseSuccess;
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Unknown-Channel-Type
-
-                        Log("*** MessageProcessor channel " + currentChannel.ChannelGUID + " not marked as broadcast, multicast, or unicast, deleting");
-                        if (!RemoveChannel(currentChannel))
-                        {
-                            Log("*** MessageProcessor unable to remove channel " + currentChannel.ChannelGUID);
-                        }
-
-                        return false;
-
-                        #endregion
-                    }
-
-                    #endregion
-                }
-                else
-                {
-                    #region Recipient-Not-Found
-
-                    Log("MessageProcessor unable to find either recipient or channel");
-                    responseMessage = MsgBuilder.RecipientNotFound(currentClient, currentMessage);
-                    responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** MessageProcessor unable to queue recipient not found message to client " + currentClient.IpPort());
-                    }
-                    return false;
-
-                    #endregion
                 }
 
                 #endregion
             }
-            finally
+
+            #endregion
+            
+            #region Authorize-Message
+
+            if (!AuthorizeMessage(currentMessage))
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("MessageProcessor " + currentMessage.Command + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                if (String.IsNullOrEmpty(currentMessage.Command))
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to authenticate or authorize message from " + currentMessage.Email + " " + currentMessage.SenderGUID);
+                }
+                else
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to authenticate or authorize message of type " + currentMessage.Command + " from " + currentMessage.Email + " " + currentMessage.SenderGUID);
+                }
+
+                responseMessage = MsgBuilder.AuthorizationFailed(currentMessage);
+                responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue authorization failed message to client " + currentClient.IpPort);
+                }
+                return responseSuccess;
             }
+
+            #endregion
+
+            #region Process-Administrative-Messages
+
+            if (!String.IsNullOrEmpty(currentMessage.Command))
+            {
+                Logging.Log(LoggingModule.Severity.Debug, "MessageProcessor processing administrative message of type " + currentMessage.Command + " from client " + currentClient.IpPort);
+
+                switch (currentMessage.Command.ToLower())
+                {
+                    case "echo":
+                        responseMessage = ProcessEchoMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "login":
+                        responseMessage = ProcessLoginMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "heartbeatrequest":
+                        // no need to send response
+                        return true;
+
+                    case "joinchannel":
+                        responseMessage = ProcessJoinChannelMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "leavechannel":
+                        responseMessage = ProcessLeaveChannelMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "subscribechannel":
+                        responseMessage = ProcessSubscribeChannelMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "unsubscribechannel":
+                        responseMessage = ProcessUnsubscribeChannelMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "createchannel":
+                        responseMessage = ProcessCreateChannelMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "deletechannel":
+                        responseMessage = ProcessDeleteChannelMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "listchannels":
+                        responseMessage = ProcessListChannelsMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "listchannelmembers":
+                        responseMessage = ProcessListChannelMembersMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "listchannelsubscribers":
+                        responseMessage = ProcessListChannelSubscribersMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "listclients":
+                        responseMessage = ProcessListClientsMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    case "isclientconnected":
+                        responseMessage = ProcessIsClientConnectedMessage(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+
+                    default:
+                        responseMessage = MsgBuilder.UnknownCommand(currentClient, currentMessage);
+                        responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                        return responseSuccess;
+                }
+            }
+
+            #endregion
+
+            #region Get-Recipient-or-Channel
+
+            if (!String.IsNullOrEmpty(currentMessage.RecipientGUID))
+            {
+                currentRecipient = ConnMgr.GetClientByGUID(currentMessage.RecipientGUID);
+            }
+            else if (!String.IsNullOrEmpty(currentMessage.ChannelGUID))
+            {
+                currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            }
+            else
+            {
+                #region Recipient-Not-Supplied
+
+                Logging.Log(LoggingModule.Severity.Debug, "MessageProcessor no recipient specified either by RecipientGUID or ChannelGUID");
+                responseMessage = MsgBuilder.RecipientNotFound(currentClient, currentMessage);
+                responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue recipient not found message to " + currentClient.IpPort);
+                }
+                return false;
+
+                #endregion
+            }
+
+            #endregion
+
+            #region Process-Recipient-Messages
+
+            if (currentRecipient != null)
+            {
+                #region Send-to-Recipient
+
+                responseSuccess = QueueClientMessage(currentRecipient, currentMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue to recipient " + currentRecipient.ClientGUID + ", sent failure notification to sender");
+                }
+
+                return responseSuccess;
+
+                #endregion
+            }
+            else if (currentChannel != null)
+            {
+                #region Send-to-Channel
+
+                if (Helper.IsTrue(currentChannel.Broadcast))
+                {
+                    #region Broadcast-Message
+
+                    responseSuccess = SendChannelMembersMessage(currentClient, currentChannel, currentMessage);
+                    if (!responseSuccess)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to send to members in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
+                    }
+
+                    return responseSuccess;
+
+                    #endregion
+                }
+                else if (Helper.IsTrue(currentChannel.Multicast))
+                {
+                    #region Multicast-Message-to-Subscribers
+
+                    responseSuccess = SendChannelSubscribersMessage(currentClient, currentChannel, currentMessage);
+                    if (!responseSuccess)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to send to subscribers in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
+                    }
+
+                    return responseSuccess;
+
+                    #endregion
+                }
+                else if (Helper.IsTrue(currentChannel.Unicast))
+                {
+                    #region Unicast-Message-to-One-Subscriber
+
+                    responseSuccess = SendChannelSubscriberMessage(currentClient, currentChannel, currentMessage);
+                    if (!responseSuccess)
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to send to subscriber in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
+                    }
+
+                    return responseSuccess;
+
+                    #endregion
+                }
+                else
+                {
+                    #region Unknown-Channel-Type
+
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor channel " + currentChannel.ChannelGUID + " not marked as broadcast, multicast, or unicast, deleting");
+                    if (!RemoveChannel(currentChannel))
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to remove channel " + currentChannel.ChannelGUID);
+                    }
+
+                    return false;
+
+                    #endregion
+                }
+
+                #endregion
+            }
+            else
+            {
+                #region Recipient-Not-Found
+
+                Logging.Log(LoggingModule.Severity.Debug, "MessageProcessor unable to find either recipient or channel");
+                responseMessage = MsgBuilder.RecipientNotFound(currentClient, currentMessage);
+                responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue recipient not found message to client " + currentClient.IpPort);
+                }
+                return false;
+
+                #endregion
+            }
+
+            #endregion 
         }
 
         private bool SendPrivateMessage(Client sender, Client rcpt, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (sender == null)
             {
-                #region Check-for-Null-Values
+                Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage null Sender supplied");
+                return false;
+            }
+             
+            if (rcpt == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage null Recipient supplied");
+                return false;
+            }
+             
+            if (currentMessage == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage null message supplied");
+                return false;
+            }
 
-                if (sender == null)
-                {
-                    Log("*** SendPrivateMessage null Sender supplied");
-                    return false;
-                }
+            #endregion
 
-                if (String.Compare(sender.ClientGUID, ServerGUID) != 0)
-                {
-                    // all zeros is the server
-                    if (sender.IsTCP)
-                    {
-                        if (sender.ClientTCPInterface == null)
-                        {
-                            Log("*** SendPrivateMessage null TCP client within supplied Sender");
-                            return false;
-                        }
-                    }
+            #region Variables
 
-                    if (sender.IsWebsocket)
-                    {
-                        if (sender.ClientHTTPContext == null)
-                        {
-                            Log("*** SendPrivateMessage null HTTP context within supplied Sender");
-                            return false;
-                        }
+            bool responseSuccess = false;
+            Message responseMessage = new Message();
 
-                        if (sender.ClientWSContext == null)
-                        {
-                            Log("*** SendPrivateMessage null websocket context within supplied Sender");
-                            return false;
-                        }
-                        if (sender.ClientWSInterface == null)
-                        {
-                            Log("*** SendPrivateMessage null websocket object within supplied Sender");
-                            return false;
-                        }
-                    }
-                }
+            #endregion
 
-                if (rcpt == null)
-                {
-                    Log("*** SendPrivateMessage null Recipient supplied");
-                    return false;
-                }
+            #region Send-to-Recipient
 
-                if (rcpt.IsTCP)
-                {
-                    if (rcpt.ClientTCPInterface == null)
-                    {
-                        Log("*** SendPrivateMessage null TCP client within supplied Recipient");
-                        return false;
-                    }
-                }
+            responseSuccess = QueueClientMessage(rcpt, currentMessage.Redact());
 
-                if (rcpt.IsWebsocket)
-                {
-                    if (rcpt.ClientHTTPContext == null)
-                    {
-                        Log("*** SendPrivateMessage null HTTP context within supplied Recipient");
-                        return false;
-                    }
+            #endregion
 
-                    if (rcpt.ClientWSContext == null)
-                    {
-                        Log("*** SendPrivateMessage null websocket context within supplied Recipient");
-                        return false;
-                    }
+            #region Send-Success-or-Failure-to-Sender
 
-                    if (rcpt.ClientWSInterface == null)
-                    {
-                        Log("*** SendPrivateMessage null websocket object within supplied Recipient");
-                        return false;
-                    }
-                }
+            if (currentMessage.SyncRequest != null && Convert.ToBoolean(currentMessage.SyncRequest))
+            {
+                #region Sync-Request
 
-                if (currentMessage == null)
-                {
-                    Log("*** SendPrivateMessage null message supplied");
-                    return false;
-                }
+                //
+                // do not send notifications for success/fail on a sync message
+                //
+
+                return true;
 
                 #endregion
+            }
+            else if (currentMessage.SyncRequest != null && Convert.ToBoolean(currentMessage.SyncResponse))
+            {
+                #region Sync-Response
 
-                #region Variables
+                //
+                // do not send notifications for success/fail on a sync message
+                //
 
-                bool responseSuccess = false;
-                Message responseMessage = new Message();
+                return true;
 
                 #endregion
+            }
+            else
+            {
+                #region Async
 
-                #region Send-to-Recipient
-
-                responseSuccess = QueueClientMessage(rcpt, currentMessage.Redact());
-
-                #endregion
-
-                #region Send-Success-or-Failure-to-Sender
-
-                if (currentMessage.SyncRequest != null && Convert.ToBoolean(currentMessage.SyncRequest))
+                if (responseSuccess)
                 {
-                    #region Sync-Request
-
-                    //
-                    // do not send notifications for success/fail on a sync message
-                    //
-
+                    if (Config.Notification.MsgAcknowledgement)
+                    {
+                        responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
+                        responseSuccess = QueueClientMessage(sender, responseMessage);
+                    }
                     return true;
-
-                    #endregion
-                }
-                else if (currentMessage.SyncRequest != null && Convert.ToBoolean(currentMessage.SyncResponse))
-                {
-                    #region Sync-Response
-
-                    //
-                    // do not send notifications for success/fail on a sync message
-                    //
-
-                    return true;
-
-                    #endregion
                 }
                 else
                 {
-                    #region Async
-
-                    if (responseSuccess)
-                    {
-                        if (Config.Notification.MsgAcknowledgement)
-                        {
-                            responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
-                            responseSuccess = QueueClientMessage(sender, responseMessage);
-                        }
-                        return true;
-                    }
-                    else
-                    {
-                        responseMessage = MsgBuilder.MessageQueueFailure(sender, currentMessage);
-                        responseSuccess = QueueClientMessage(sender, responseMessage);
-                        return false;
-                    }
-
-                    #endregion
+                    responseMessage = MsgBuilder.MessageQueueFailure(sender, currentMessage);
+                    responseSuccess = QueueClientMessage(sender, responseMessage);
+                    return false;
                 }
 
                 #endregion
             }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendPrivateMessage " + currentMessage.SenderGUID + " -> " + currentMessage.RecipientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+
+            #endregion 
         }
 
         private bool SendChannelMembersMessage(Client sender, Channel currentChannel, Message currentMessage)
-        {
-            //
-            // broadcast channel
-            //
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (sender == null)
             {
-                #region Check-for-Null-Values
-
-                if (sender == null)
-                {
-                    Log("*** SendChannelMembersMessage null Sender supplied");
-                    return false;
-                }
-
-                if (String.Compare(sender.ClientGUID, ServerGUID) != 0)
-                {
-                    //
-                    // all zeros is the server
-                    //
-                    if (sender.IsTCP)
-                    {
-                        #region TCP
-
-                        if (sender.ClientTCPInterface == null)
-                        {
-                            Log("*** SendChannelMembersMessage null TCP client within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsTCPSSL)
-                    {
-                        #region TCP-SSL
-
-                        if (sender.ClientTCPSSLInterface == null)
-                        {
-                            Log("*** SendChannelMembersMessage null TCP SSL client within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientSSLStream == null)
-                        {
-                            Log("*** SendChannelMembersMessage null SSL stream within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsWebsocket)
-                    {
-                        #region Websocket
-
-                        if (sender.ClientHTTPContext == null)
-                        {
-                            Log("*** SendChannelMembersMessage null HTTP context within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSContext == null)
-                        {
-                            Log("*** SendChannelMembersMessage null websocket context witin supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSInterface == null)
-                        {
-                            Log("*** SendChannelMembersMessage null websocket object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsWebsocketSSL)
-                    {
-                        #region Websocket-SSL
-
-                        if (sender.ClientHTTPSSLContext == null)
-                        {
-                            Log("*** SendChannelMembersMessage null HTTP SSL context within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSSSLContext == null)
-                        {
-                            Log("*** SendChannelMembersMessage null websocket SSL context witin supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSSSLInterface == null)
-                        {
-                            Log("*** SendChannelMembersMessage null websocket SSL object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Unknown
-
-                        Log("*** SendChannelMembersMessage unknown transport for supplied client " + sender.IpPort() + " " + sender.ClientGUID);
-                        return false;
-
-                        #endregion
-                    }
-                }
-
-                if (currentChannel == null)
-                {
-                    Log("*** SendChannelMembersMessage null channel supplied");
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** SendChannelMembersMessage null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Variables
-
-                bool responseSuccess = false;
-                Message responseMessage = new Message();
-
-                #endregion
-
-                #region Verify-Channel-Membership
-
-                if (!IsChannelMember(sender, currentChannel))
-                {
-                    responseMessage = MsgBuilder.NotChannelMember(sender, currentMessage, currentChannel);
-                    responseSuccess = QueueClientMessage(sender, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendChannelMembersMessage unable to queue not channel member message to " + sender.IpPort());
-                    }
-                    return false;
-                }
-
-                #endregion
-
-                #region Send-to-Channel-and-Return-Success
-
-                Task.Run(() =>
-                {
-                    responseSuccess = ChannelDataSender(sender, currentChannel, currentMessage.Redact());
-                });
-
-                if (Config.Notification.MsgAcknowledgement)
-                {
-                    responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
-                    responseSuccess = QueueClientMessage(sender, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendChannelMembersMessage unable to queue message queue success notification to " + sender.IpPort());
-                    }
-                }
-                return true;
-
-                #endregion
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage null Sender supplied");
+                return false;
             }
-            finally
+            
+            if (currentChannel == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelMembersMessage " + currentMessage.SenderGUID + " -> " + currentMessage.ChannelGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage null channel supplied");
+                return false;
             }
+
+            if (currentMessage == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage null message supplied");
+                return false;
+            }
+
+            #endregion
+
+            #region Variables
+
+            bool responseSuccess = false;
+            Message responseMessage = new Message();
+
+            #endregion
+
+            #region Verify-Channel-Membership
+
+            if (!IsChannelMember(sender, currentChannel))
+            {
+                responseMessage = MsgBuilder.NotChannelMember(sender, currentMessage, currentChannel);
+                responseSuccess = QueueClientMessage(sender, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage unable to queue not channel member message to " + sender.IpPort);
+                }
+                return false;
+            }
+
+            #endregion
+
+            #region Send-to-Channel-and-Return-Success
+
+            Task.Run(() =>
+            {
+                responseSuccess = ChannelDataSender(sender, currentChannel, currentMessage.Redact());
+            });
+
+            if (Config.Notification.MsgAcknowledgement)
+            {
+                responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
+                responseSuccess = QueueClientMessage(sender, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage unable to queue message queue success notification to " + sender.IpPort);
+                }
+            }
+            return true;
+
+            #endregion 
         }
 
         private bool SendChannelSubscribersMessage(Client sender, Channel currentChannel, Message currentMessage)
-        {
-            //
-            // multicast channel
-            //
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (sender == null)
             {
-                #region Check-for-Null-Values
-
-                if (sender == null)
-                {
-                    Log("*** SendChannelSubscribersMessage null Sender supplied");
-                    return false;
-                }
-
-                if (String.Compare(sender.ClientGUID, ServerGUID) != 0)
-                {
-                    //
-                    // all zeros is the server
-                    //
-                    if (sender.IsTCP)
-                    {
-                        #region TCP
-
-                        if (sender.ClientTCPInterface == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null TCP client within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsTCPSSL)
-                    {
-                        #region TCP-SSL
-
-                        if (sender.ClientTCPSSLInterface == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null TCP SSL client within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientSSLStream == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null SSL stream within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsWebsocket)
-                    {
-                        #region Websocket
-
-                        if (sender.ClientHTTPContext == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null HTTP context within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSContext == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null websocket context witin supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSInterface == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null websocket object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsWebsocketSSL)
-                    {
-                        #region Websocket-SSL
-
-                        if (sender.ClientHTTPSSLContext == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null HTTP SSL context within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSSSLContext == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null websocket SSL context witin supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSSSLInterface == null)
-                        {
-                            Log("*** SendChannelSubscribersMessage null websocket SSL object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Unknown
-
-                        Log("*** SendChannelSubscribersMessage unknown transport for supplied client " + sender.IpPort() + " " + sender.ClientGUID);
-                        return false;
-
-                        #endregion
-                    }
-                }
-
-                if (currentChannel == null)
-                {
-                    Log("*** SendChannelSubscribersMessage null channel supplied");
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** SendChannelSubscribersMessage null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Variables
-
-                bool responseSuccess = false;
-                Message responseMessage = new Message();
-
-                #endregion
-
-                #region Verify-Channel-Membership
-
-                if (!IsChannelMember(sender, currentChannel))
-                {
-                    responseMessage = MsgBuilder.NotChannelMember(sender, currentMessage, currentChannel);
-                    responseSuccess = QueueClientMessage(sender, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendChannelSubscribersMessage unable to queue not channel member message to " + sender.IpPort());
-                    }
-                    return false;
-                }
-
-                #endregion
-
-                #region Send-to-Channel-Subscribers-and-Return-Success
-
-                Task.Run(() =>
-                {
-                    responseSuccess = ChannelDataSender(sender, currentChannel, currentMessage.Redact());
-                });
-
-                if (Config.Notification.MsgAcknowledgement)
-                {
-                    responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
-                    responseSuccess = QueueClientMessage(sender, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendChannelSubscribersMessage unable to queue message queue success mesage to " + sender.IpPort());
-                    }
-                }
-                return true;
-
-                #endregion
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage null Sender supplied");
+                return false;
             }
-            finally
+            
+            if (currentChannel == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelSubscribersMessage " + currentMessage.SenderGUID + " -> " + currentMessage.ChannelGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage null channel supplied");
+                return false;
             }
+
+            if (currentMessage == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage null message supplied");
+                return false;
+            }
+
+            #endregion
+
+            #region Variables
+
+            bool responseSuccess = false;
+            Message responseMessage = new Message();
+
+            #endregion
+
+            #region Verify-Channel-Membership
+
+            if (!IsChannelMember(sender, currentChannel))
+            {
+                responseMessage = MsgBuilder.NotChannelMember(sender, currentMessage, currentChannel);
+                responseSuccess = QueueClientMessage(sender, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage unable to queue not channel member message to " + sender.IpPort);
+                }
+                return false;
+            }
+
+            #endregion
+
+            #region Send-to-Channel-Subscribers-and-Return-Success
+
+            Task.Run(() =>
+            {
+                responseSuccess = ChannelDataSender(sender, currentChannel, currentMessage.Redact());
+            });
+
+            if (Config.Notification.MsgAcknowledgement)
+            {
+                responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
+                responseSuccess = QueueClientMessage(sender, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage unable to queue message queue success mesage to " + sender.IpPort);
+                }
+            }
+            return true;
+
+            #endregion 
         }
         
         private bool SendChannelSubscriberMessage(Client sender, Channel currentChannel, Message currentMessage)
-        {
-            //
-            // unicast within a multicast channel
-            //
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (sender == null)
             {
-                #region Check-for-Null-Values
-
-                if (sender == null)
-                {
-                    Log("*** SendChannelSubscriberMessage null Sender supplied");
-                    return false;
-                }
-
-                if (String.Compare(sender.ClientGUID, ServerGUID) != 0)
-                {
-                    //
-                    // all zeros is the server
-                    //
-                    if (sender.IsTCP)
-                    {
-                        #region TCP
-
-                        if (sender.ClientTCPInterface == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null TCP client within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsTCPSSL)
-                    {
-                        #region TCP-SSL
-
-                        if (sender.ClientTCPSSLInterface == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null TCP SSL client within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientSSLStream == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null SSL stream within supplied client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsWebsocket)
-                    {
-                        #region Websocket
-
-                        if (sender.ClientHTTPContext == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null HTTP context within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSContext == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null websocket context witin supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSInterface == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null websocket object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else if (sender.IsWebsocketSSL)
-                    {
-                        #region Websocket-SSL
-
-                        if (sender.ClientHTTPSSLContext == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null HTTP SSL context within supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSSSLContext == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null websocket SSL context witin supplied client");
-                            return false;
-                        }
-
-                        if (sender.ClientWSSSLInterface == null)
-                        {
-                            Log("*** SendChannelSubscriberMessage null websocket SSL object within supplied websocket client");
-                            return false;
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Unknown
-
-                        Log("*** SendChannelSubscriberMessage unknown transport for supplied client " + sender.IpPort() + " " + sender.ClientGUID);
-                        return false;
-
-                        #endregion
-                    }
-                }
-
-                if (currentChannel == null)
-                {
-                    Log("*** SendChannelSubscriberMessage null channel supplied");
-                    return false;
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** SendChannelSubscriberMessage null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Variables
-
-                bool responseSuccess = false;
-                Message responseMessage = new Message();
-
-                #endregion
-
-                #region Verify-Channel-Membership
-
-                if (!IsChannelMember(sender, currentChannel))
-                {
-                    responseMessage = MsgBuilder.NotChannelMember(sender, currentMessage, currentChannel);
-                    responseSuccess = QueueClientMessage(sender, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendChannelSubscriberMessage unable to queue not channel member message to " + sender.IpPort());
-                    }
-                    return false;
-                }
-
-                #endregion
-
-                #region Send-to-Channel-Subscriber-and-Return-Success
-
-                Task.Run(() =>
-                {
-                    responseSuccess = ChannelDataSender(sender, currentChannel, currentMessage.Redact());
-                });
-
-                if (Config.Notification.MsgAcknowledgement)
-                {
-                    responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
-                    responseSuccess = QueueClientMessage(sender, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendChannelSubscriberMessage unable to queue message queue success mesage to " + sender.IpPort());
-                    }
-                }
-                return true;
-
-                #endregion
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage null Sender supplied");
+                return false;
             }
-            finally
+            
+            if (currentChannel == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendChannelSubscriberMessage " + currentMessage.SenderGUID + " -> " + currentMessage.ChannelGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage null channel supplied");
+                return false;
             }
+
+            if (currentMessage == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage null message supplied");
+                return false;
+            }
+
+            #endregion
+
+            #region Variables
+
+            bool responseSuccess = false;
+            Message responseMessage = new Message();
+
+            #endregion
+
+            #region Verify-Channel-Membership
+
+            if (!IsChannelMember(sender, currentChannel))
+            {
+                responseMessage = MsgBuilder.NotChannelMember(sender, currentMessage, currentChannel);
+                responseSuccess = QueueClientMessage(sender, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage unable to queue not channel member message to " + sender.IpPort);
+                }
+                return false;
+            }
+
+            #endregion
+
+            #region Send-to-Channel-Subscriber-and-Return-Success
+
+            Task.Run(() =>
+            {
+                responseSuccess = ChannelDataSender(sender, currentChannel, currentMessage.Redact());
+            });
+
+            if (Config.Notification.MsgAcknowledgement)
+            {
+                responseMessage = MsgBuilder.MessageQueueSuccess(sender, currentMessage);
+                responseSuccess = QueueClientMessage(sender, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage unable to queue message queue success mesage to " + sender.IpPort);
+                }
+            }
+            return true;
+
+            #endregion 
         }
 
         private bool SendSystemMessage(Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (currentMessage == null)
             {
-                #region Check-for-Null-Values
+                Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage null message supplied");
+                return false;
+            }
 
-                if (currentMessage == null)
-                {
-                    Log("*** SendSystemMessage null message supplied");
-                    return false;
-                }
+            #endregion
+
+            #region Create-System-Client-Object
+
+            Client currentClient = new Client();
+            currentClient.Email = null;
+            currentClient.Password = null;
+            currentClient.ClientGUID = ServerGUID;
+            currentClient.IpPort = "127.0.0.1:0";
+            currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+            currentClient.UpdatedUtc = currentClient.CreatedUtc;
+
+            #endregion
+
+            #region Variables
+
+            Client currentRecipient = new Client();
+            Channel currentChannel = new Channel();
+            Message responseMessage = new Message();
+            bool responseSuccess = false;
+
+            #endregion
+
+            #region Get-Recipient-or-Channel
+
+            if (!String.IsNullOrEmpty(currentMessage.RecipientGUID))
+            {
+                currentRecipient = ConnMgr.GetClientByGUID(currentMessage.RecipientGUID);
+            }
+            else if (!String.IsNullOrEmpty(currentMessage.ChannelGUID))
+            {
+                currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            }
+            else
+            {
+                #region Recipient-Not-Supplied
+
+                Logging.Log(LoggingModule.Severity.Debug, "SendSystemMessage no recipient specified either by RecipientGUID or ChannelGUID");
+                return false;
 
                 #endregion
+            }
 
-                #region Create-System-Client-Object
+            #endregion
 
-                Client currentClient = new Client();
-                currentClient.Email = null;
-                currentClient.Password = null;
-                currentClient.ClientGUID = ServerGUID;
-                currentClient.SourceIP = "127.0.0.1";
-                currentClient.SourcePort = 0;
-                currentClient.ServerIP = currentClient.SourceIP;
-                currentClient.ServerPort = currentClient.SourcePort;
-                currentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                currentClient.UpdatedUTC = currentClient.CreatedUTC;
+            #region Process-Recipient-Messages
 
-                #endregion
+            if (currentRecipient != null)
+            {
+                #region Send-to-Recipient
 
-                #region Variables
-
-                Client currentRecipient = new Client();
-                Channel currentChannel = new Channel();
-                Message responseMessage = new Message();
-                bool responseSuccess = false;
-
-                #endregion
-
-                #region Get-Recipient-or-Channel
-
-                if (!String.IsNullOrEmpty(currentMessage.RecipientGUID))
+                responseSuccess = QueueClientMessage(currentRecipient, currentMessage.Redact());
+                if (responseSuccess)
                 {
-                    currentRecipient = ConnMgr.GetClientByGUID(currentMessage.RecipientGUID);
-                }
-                else if (!String.IsNullOrEmpty(currentMessage.ChannelGUID))
-                {
-                    currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+                    Logging.Log(LoggingModule.Severity.Debug, "SendSystemMessage successfully queued message to recipient " + currentRecipient.ClientGUID);
+                    return true;
                 }
                 else
                 {
-                    #region Recipient-Not-Supplied
-
-                    Log("SendSystemMessage no recipient specified either by RecipientGUID or ChannelGUID");
+                    Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage unable to queue message to recipient " + currentRecipient.ClientGUID);
                     return false;
-
-                    #endregion
-                }
-
-                #endregion
-
-                #region Process-Recipient-Messages
-
-                if (currentRecipient != null)
-                {
-                    #region Send-to-Recipient
-
-                    responseSuccess = QueueClientMessage(currentRecipient, currentMessage.Redact());
-                    if (responseSuccess)
-                    {
-                        Log("SendSystemMessage successfully queued message to recipient " + currentRecipient.ClientGUID);
-                        return true;
-                    }
-                    else
-                    {
-                        Log("*** SendSystemMessage unable to queue message to recipient " + currentRecipient.ClientGUID);
-                        return false;
-                    }
-
-                    #endregion
-                }
-                else if (currentChannel != null)
-                {
-                    #region Send-to-Channel-and-Return-Success
-
-                    responseSuccess = ChannelDataSender(currentClient, currentChannel, currentMessage.Redact());
-                    if (responseSuccess)
-                    {
-                        Log("SendSystemMessage successfully sent message to channel " + currentChannel.ChannelGUID);
-                        return true;
-                    }
-                    else
-                    {
-                        Log("*** SendSystemMessage unable to send message to channel " + currentChannel.ChannelGUID);
-                        return false;
-                    }
-
-                    #endregion
-                }
-                else
-                {
-                    #region Recipient-Not-Found
-
-                    Log("Unable to find either recipient or channel");
-                    responseMessage = MsgBuilder.RecipientNotFound(currentClient, currentMessage);
-                    responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                    if (!responseSuccess)
-                    {
-                        Log("*** SendSystemMessage unable to queue recipient not found message to " + currentClient.IpPort());
-                    }
-                    return false;
-
-                    #endregion
                 }
 
                 #endregion
             }
-            finally
+            else if (currentChannel != null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendSystemMessage " + currentMessage.SenderGUID + " -> " + currentMessage.RecipientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                #region Send-to-Channel-and-Return-Success
+
+                responseSuccess = ChannelDataSender(currentClient, currentChannel, currentMessage.Redact());
+                if (responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Debug, "SendSystemMessage successfully sent message to channel " + currentChannel.ChannelGUID);
+                    return true;
+                }
+                else
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage unable to send message to channel " + currentChannel.ChannelGUID);
+                    return false;
+                }
+
+                #endregion
             }
+            else
+            {
+                #region Recipient-Not-Found
+
+                Logging.Log(LoggingModule.Severity.Debug, "Unable to find either recipient or channel");
+                responseMessage = MsgBuilder.RecipientNotFound(currentClient, currentMessage);
+                responseSuccess = QueueClientMessage(currentClient, responseMessage);
+                if (!responseSuccess)
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage unable to queue recipient not found message to " + currentClient.IpPort);
+                }
+                return false;
+
+                #endregion
+            }
+
+                    #endregion
         }
 
         private bool SendSystemPrivateMessage(Client rcpt, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (rcpt == null)
             {
-                #region Check-for-Null-Values
-
-                if (rcpt == null)
-                {
-                    Log("*** SendSystemPrivateMessage null recipient supplied");
-                    return false;
-                }
-
-                if (rcpt.IsTCP)
-                {
-                    if (rcpt.ClientTCPInterface == null)
-                    {
-                        Log("*** SendSystemPrivateMessage null TCP client found within supplied recipient");
-                        return false;
-                    }
-                }
-
-                if (rcpt.IsWebsocket)
-                {
-                    if (rcpt.ClientHTTPContext == null)
-                    {
-                        Log("*** SendSystemPrivateMessage null HTTP context found within supplied recipient");
-                        return false;
-                    }
-
-                    if (rcpt.ClientWSContext == null)
-                    {
-                        Log("*** SendSystemPrivateMessage null websocket context found within supplied recipient");
-                        return false;
-                    }
-
-                    if (rcpt.ClientWSInterface == null)
-                    {
-                        Log("*** SendSystemPrivateMessage null websocket object found within supplied recipient");
-                        return false;
-                    }
-                }
-
-                if (currentMessage == null)
-                {
-                    Log("*** SendSystemPrivateMessage null message supplied");
-                    return false;
-                }
-
-                #endregion
-
-                #region Create-System-Client-Object
-
-                Client currentClient = new Client();
-                currentClient.Email = null;
-                currentClient.Password = null;
-                currentClient.ClientGUID = ServerGUID;
-
-                if (!String.IsNullOrEmpty(Config.TcpServer.IP)) currentClient.SourceIP = Config.TcpServer.IP;
-                else currentClient.SourceIP = "127.0.0.1";
-
-                currentClient.SourcePort = Config.TcpServer.Port;
-                currentClient.ServerIP = currentClient.SourceIP;
-                currentClient.ServerPort = currentClient.SourcePort;
-                currentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                currentClient.UpdatedUTC = currentClient.CreatedUTC;
-
-                #endregion
-
-                #region Variables
-
-                Channel currentChannel = new Channel();
-                bool responseSuccess = false;
-
-                #endregion
-
-                #region Process-Recipient-Messages
-
-                responseSuccess = QueueClientMessage(rcpt, currentMessage.Redact());
-                if (!responseSuccess)
-                {
-                    Log("*** SendSystemPrivateMessage unable to queue message to " + rcpt.IpPort());
-                }
-                return responseSuccess;
-
-                #endregion
+                Logging.Log(LoggingModule.Severity.Warn, "SendSystemPrivateMessage null recipient supplied");
+                return false;
             }
-            finally
+             
+            if (currentMessage == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendSystemPrivateMessage " + currentMessage.SenderGUID + " -> " + currentMessage.RecipientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "SendSystemPrivateMessage null message supplied");
+                return false;
             }
+
+            #endregion
+
+            #region Create-System-Client-Object
+
+            Client currentClient = new Client();
+            currentClient.Email = null;
+            currentClient.Password = null;
+            currentClient.ClientGUID = ServerGUID;
+            currentClient.IpPort = "127.0.0.1:0";
+            currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+            currentClient.UpdatedUtc = currentClient.CreatedUtc;
+
+            #endregion
+
+            #region Variables
+
+            Channel currentChannel = new Channel();
+            bool responseSuccess = false;
+
+            #endregion
+
+            #region Process-Recipient-Messages
+
+            responseSuccess = QueueClientMessage(rcpt, currentMessage.Redact());
+            if (!responseSuccess)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendSystemPrivateMessage unable to queue message to " + rcpt.IpPort);
+            }
+            return responseSuccess;
+
+            #endregion 
         }
 
         private bool SendSystemChannelMessage(Channel currentChannel, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            #region Check-for-Null-Values
 
-            try
+            if (currentChannel == null)
             {
-                #region Check-for-Null-Values
+                Logging.Log(LoggingModule.Severity.Warn, "SendSystemChannelMessage null channel supplied");
+                return false;
+            }
 
-                if (currentChannel == null)
-                {
-                    Log("*** SendSystemChannelMessage null channel supplied");
-                    return false;
-                }
+            if (currentChannel.Subscribers == null || currentChannel.Subscribers.Count < 1)
+            {
+                Logging.Log(LoggingModule.Severity.Debug, "SendSystemChannelMessage no subscribers in channel " + currentChannel.ChannelGUID);
+                return true;
+            }
 
-                if (currentChannel.Subscribers == null || currentChannel.Subscribers.Count < 1)
-                {
-                    Log("SendSystemChannelMessage no subscribers in channel " + currentChannel.ChannelGUID);
-                    return true;
-                }
+            if (currentMessage == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "SendSystemPrivateMessage null message supplied");
+                return false;
+            }
 
-                if (currentMessage == null)
-                {
-                    Log("*** SendSystemPrivateMessage null message supplied");
-                    return false;
-                }
+            #endregion
 
-                #endregion
+            #region Create-System-Client-Object
 
-                #region Create-System-Client-Object
+            Client currentClient = new Client();
+            currentClient.Email = null;
+            currentClient.Password = null;
+            currentClient.ClientGUID = ServerGUID;
+            currentClient.IpPort = "127.0.0.1:0";
+            currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+            currentClient.UpdatedUtc = currentClient.CreatedUtc;
 
-                Client currentClient = new Client();
-                currentClient.Email = null;
-                currentClient.Password = null;
-                currentClient.ClientGUID = ServerGUID;
+            #endregion
 
-                if (!String.IsNullOrEmpty(Config.TcpServer.IP)) currentClient.SourceIP = Config.TcpServer.IP;
-                else currentClient.SourceIP = "127.0.0.1";
+            #region Override-Channel-Variables
 
-                currentClient.SourcePort = Config.TcpServer.Port;
-                currentClient.ServerIP = currentClient.SourceIP;
-                currentClient.ServerPort = currentClient.SourcePort;
-                currentClient.CreatedUTC = DateTime.Now.ToUniversalTime();
-                currentClient.UpdatedUTC = currentClient.CreatedUTC;
+            //
+            // This is necessary so the message goes to members instead of subscribers
+            // in case the channel is configured as a multicast channel
+            //
+            currentChannel.Broadcast = 1;
+            currentChannel.Multicast = 0;                
 
-                #endregion
-
-                #region Override-Channel-Variables
-
-                //
-                // This is necessary so the message goes to members instead of subscribers
-                // in case the channel is configured as a multicast channel
-                //
-                currentChannel.Broadcast = 1;
-                currentChannel.Multicast = 0;                
-
-                #endregion
+            #endregion
                 
-                #region Send-to-Channel
+            #region Send-to-Channel
 
-                bool responseSuccess = ChannelDataSender(currentClient, currentChannel, currentMessage);
-                return responseSuccess;
+            bool responseSuccess = ChannelDataSender(currentClient, currentChannel, currentMessage);
+            return responseSuccess;
 
-                #endregion
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("SendSystemChannelMessage " + currentMessage.SenderGUID + " -> " + currentMessage.ChannelGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+            #endregion 
         }
 
         #endregion
@@ -5560,32 +3234,19 @@ namespace BigQ
         #region Private-Message-Handlers
 
         private Message ProcessEchoMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                currentMessage = currentMessage.Redact();
-                currentMessage.SyncResponse = currentMessage.SyncRequest;
-                currentMessage.SyncRequest = null;
-                currentMessage.RecipientGUID = currentMessage.SenderGUID;
-                currentMessage.SenderGUID = ServerGUID;
-                currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                currentMessage.Success = true;
-                return currentMessage;
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessEchoMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+        { 
+            currentMessage = currentMessage.Redact();
+            currentMessage.SyncResponse = currentMessage.SyncRequest;
+            currentMessage.SyncRequest = null;
+            currentMessage.RecipientGUID = currentMessage.SenderGUID;
+            currentMessage.SenderGUID = ServerGUID;
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
+            currentMessage.Success = true;
+            return currentMessage; 
         }
 
         private Message ProcessLoginMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
             bool runClientLoginTask = false;
             bool runServerJoinNotification = false;
 
@@ -5596,7 +3257,7 @@ namespace BigQ
                 currentMessage.SyncRequest = null;
                 currentMessage.RecipientGUID = currentMessage.SenderGUID;
                 currentMessage.SenderGUID = ServerGUID;
-                currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
                 currentClient.ClientGUID = currentMessage.RecipientGUID;
                 currentClient.Email = currentMessage.Email;
                 if (String.IsNullOrEmpty(currentClient.Email)) currentClient.Email = currentClient.ClientGUID;
@@ -5605,8 +3266,8 @@ namespace BigQ
                 // start heartbeat
                 currentClient.HeartbeatTokenSource = new CancellationTokenSource();
                 currentClient.HeartbeatToken = currentClient.HeartbeatTokenSource.Token;
-                Log("ProcessLoginMessage starting heartbeat manager for " + currentClient.IpPort());
-                Task.Run(() => TCPHeartbeatManager(currentClient));
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessLoginMessage starting heartbeat manager for " + currentClient.IpPort);
+                Task.Run(() => HeartbeatManager(currentClient));
 
                 currentMessage = currentMessage.Redact();
                 runClientLoginTask = true;
@@ -5615,9 +3276,7 @@ namespace BigQ
                 return currentMessage;
             }
             finally
-            {
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessLoginMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.ElapsedMilliseconds + "ms (before tasks)");
-
+            { 
                 if (runClientLoginTask)
                 {
                     if (ClientLogin != null)
@@ -5632,235 +3291,131 @@ namespace BigQ
                     {
                         Task.Run(() => ServerJoinEvent(currentClient));
                     }
-                }
-
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessLoginMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.ElapsedMilliseconds + "ms (after tasks)");
+                } 
             }
         }
 
         private Message ProcessIsClientConnectedMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            currentMessage = currentMessage.Redact();
+            currentMessage.SyncResponse = currentMessage.SyncRequest;
+            currentMessage.SyncRequest = null;
+            currentMessage.RecipientGUID = currentMessage.SenderGUID;
+            currentMessage.SenderGUID = ServerGUID;
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
 
-            try
+            if (currentMessage.Data == null)
             {
-                currentMessage = currentMessage.Redact();
-                currentMessage.SyncResponse = currentMessage.SyncRequest;
-                currentMessage.SyncRequest = null;
-                currentMessage.RecipientGUID = currentMessage.SenderGUID;
-                currentMessage.SenderGUID = ServerGUID;
-                currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-
-                if (currentMessage.Data == null)
-                {
-                    currentMessage.Success = false;
-                    currentMessage.Data = FailureData.ToBytes(ErrorTypes.BadRequest, "Data does not include client GUID", null);
-                }
-                else
-                {
-                    currentMessage.Success = true;
-                    bool exists = ConnMgr.ClientExists(Encoding.UTF8.GetString(currentMessage.Data));
-                    currentMessage.Data = SuccessData.ToBytes(null, exists);
-                }
-
-                return currentMessage;
+                currentMessage.Success = false;
+                currentMessage.Data = FailureData.ToBytes(ErrorTypes.BadRequest, "Data does not include client GUID", null);
             }
-            finally
+            else
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessIsClientConnectedMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                currentMessage.Success = true;
+                bool exists = ConnMgr.ClientExists(Encoding.UTF8.GetString(currentMessage.Data));
+                currentMessage.Data = SuccessData.ToBytes(null, exists);
             }
+
+            return currentMessage; 
         }
 
         private Message ProcessJoinChannelMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = null;
 
-            try
+            if (currentChannel == null)
             {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = null;
-
-                if (currentChannel == null)
-                {
-                    Log("*** ProcessJoinChannelMessage unable to find channel " + currentChannel.ChannelGUID);
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
-                }
-                else
-                {
-                    Log("ProcessJoinChannelMessage adding client " + currentClient.IpPort() + " as member to channel " + currentChannel.ChannelGUID);
-                    if (!AddChannelMember(currentClient, currentChannel))
-                    {
-                        Log("*** ProcessJoinChannelMessage error while adding " + currentClient.IpPort() + " " + currentClient.ClientGUID + " as member of channel " + currentChannel.ChannelGUID);
-                        responseMessage = MsgBuilder.ChannelJoinFailure(currentClient, currentMessage, currentChannel);
-                        return responseMessage;
-                    }
-                    else
-                    {
-                        responseMessage = MsgBuilder.ChannelJoinSuccess(currentClient, currentMessage, currentChannel);
-                        return responseMessage;
-                    }
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessJoinChannelMessage unable to find channel " + currentChannel.ChannelGUID);
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
+                return responseMessage;
             }
-            finally
+            else
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessJoinChannelMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
-        }
-
-        private Message ProcessSubscribeChannelMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = null;
-
-                if (currentChannel == null)
-                {
-                    Log("*** ProcessSubscribeChannelMessage unable to find channel " + currentChannel.ChannelGUID);
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
-                }
-
-                if (currentChannel.Broadcast == 1)
-                {
-                    Log("ProcessSubscribeChannelMessage channel marked as broadcast, calling ProcessJoinChannelMessage");
-                    return ProcessJoinChannelMessage(currentClient, currentMessage);
-                }
-                
-                #region Add-Member
-
-                Log("ProcessSubscribeChannelMessage adding client " + currentClient.IpPort() + " as subscriber to channel " + currentChannel.ChannelGUID);
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessJoinChannelMessage adding client " + currentClient.IpPort + " as member to channel " + currentChannel.ChannelGUID);
                 if (!AddChannelMember(currentClient, currentChannel))
                 {
-                    Log("*** ProcessSubscribeChannelMessage error while adding " + currentClient.IpPort() + " " + currentClient.ClientGUID + " as member of channel " + currentChannel.ChannelGUID);
+                    Logging.Log(LoggingModule.Severity.Warn, "ProcessJoinChannelMessage error while adding " + currentClient.IpPort + " " + currentClient.ClientGUID + " as member of channel " + currentChannel.ChannelGUID);
                     responseMessage = MsgBuilder.ChannelJoinFailure(currentClient, currentMessage, currentChannel);
                     return responseMessage;
                 }
-
-                #endregion
-
-                #region Add-Subscriber
-
-                if (!AddChannelSubscriber(currentClient, currentChannel))
+                else
                 {
-                    Log("*** ProcessSubscribeChannelMessage error while adding " + currentClient.IpPort() + " " + currentClient.ClientGUID + " as subscriber to channel " + currentChannel.ChannelGUID);
-                    responseMessage = MsgBuilder.ChannelSubscribeFailure(currentClient, currentMessage, currentChannel);
+                    responseMessage = MsgBuilder.ChannelJoinSuccess(currentClient, currentMessage, currentChannel);
                     return responseMessage;
                 }
+            } 
+        }
 
-                #endregion
+        private Message ProcessSubscribeChannelMessage(Client currentClient, Message currentMessage)
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = null;
 
-                #region Return
-
-                responseMessage = MsgBuilder.ChannelSubscribeSuccess(currentClient, currentMessage, currentChannel);
-                return responseMessage;
-
-                #endregion
-            }
-            finally
+            if (currentChannel == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessJoinChannelMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessSubscribeChannelMessage unable to find channel " + currentChannel.ChannelGUID);
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
+                return responseMessage;
             }
+
+            if (currentChannel.Broadcast == 1)
+            {
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessSubscribeChannelMessage channel marked as broadcast, calling ProcessJoinChannelMessage");
+                return ProcessJoinChannelMessage(currentClient, currentMessage);
+            }
+                
+            #region Add-Member
+
+            Logging.Log(LoggingModule.Severity.Debug, "ProcessSubscribeChannelMessage adding client " + currentClient.IpPort + " as subscriber to channel " + currentChannel.ChannelGUID);
+            if (!AddChannelMember(currentClient, currentChannel))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessSubscribeChannelMessage error while adding " + currentClient.IpPort + " " + currentClient.ClientGUID + " as member of channel " + currentChannel.ChannelGUID);
+                responseMessage = MsgBuilder.ChannelJoinFailure(currentClient, currentMessage, currentChannel);
+                return responseMessage;
+            }
+
+            #endregion
+
+            #region Add-Subscriber
+
+            if (!AddChannelSubscriber(currentClient, currentChannel))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessSubscribeChannelMessage error while adding " + currentClient.IpPort + " " + currentClient.ClientGUID + " as subscriber to channel " + currentChannel.ChannelGUID);
+                responseMessage = MsgBuilder.ChannelSubscribeFailure(currentClient, currentMessage, currentChannel);
+                return responseMessage;
+            }
+
+            #endregion
+
+            #region Return
+
+            responseMessage = MsgBuilder.ChannelSubscribeSuccess(currentClient, currentMessage, currentChannel);
+            return responseMessage;
+
+            #endregion 
         }
 
         private Message ProcessLeaveChannelMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = new Message();
 
-            try
+            if (currentChannel == null)
             {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = new Message();
-
-                if (currentChannel == null)
-                {
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
-                }
-                else
-                {
-                    if (String.Compare(currentClient.ClientGUID, currentChannel.OwnerGUID) == 0)
-                    {
-                        #region Owner-Abandoning-Channel
-
-                        if (!RemoveChannel(currentChannel))
-                        {
-                            Log("*** ProcessLeaveChannelMessage unable to remove owner " + currentClient.IpPort() + " from channel " + currentMessage.ChannelGUID);
-                            return MsgBuilder.ChannelLeaveFailure(currentClient, currentMessage, currentChannel);
-                        }
-                        else
-                        {
-                            return MsgBuilder.ChannelDeleteSuccess(currentClient, currentMessage, currentChannel);
-                        }
-
-                        #endregion
-                    }
-                    else
-                    {
-                        #region Member-Leaving-Channel
-
-                        if (!RemoveChannelMember(currentClient, currentChannel))
-                        {
-                            Log("*** ProcessLeaveChannelMessage unable to remove member " + currentClient.IpPort() + " " + currentClient.ClientGUID + " from channel " + currentMessage.ChannelGUID);
-                            return MsgBuilder.ChannelLeaveFailure(currentClient, currentMessage, currentChannel);
-                        }
-                        else
-                        {
-                            if (Config.Notification.ChannelJoinNotification) ChannelLeaveEvent(currentClient, currentChannel);
-                            return MsgBuilder.ChannelLeaveSuccess(currentClient, currentMessage, currentChannel);
-                        }
-
-                        #endregion
-                    }
-                }
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
+                return responseMessage;
             }
-            finally
+            else
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessLeaveChannelMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
-        }
-
-        private Message ProcessUnsubscribeChannelMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = new Message();
-
-                if (currentChannel == null)
-                {
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
-                }
-                
-                if (currentChannel.Broadcast == 1)
-                {
-                    Log("ProcessUnsubscribeChannelMessage channel marked as broadcast, calling ProcessLeaveChannelMessage");
-                    return ProcessLeaveChannelMessage(currentClient, currentMessage);
-                }
-                
                 if (String.Compare(currentClient.ClientGUID, currentChannel.OwnerGUID) == 0)
                 {
                     #region Owner-Abandoning-Channel
 
                     if (!RemoveChannel(currentChannel))
                     {
-                        Log("*** ProcessUnsubscribeChannelMessage unable to remove owner " + currentClient.IpPort() + " from channel " + currentMessage.ChannelGUID);
-                        return MsgBuilder.ChannelUnsubscribeFailure(currentClient, currentMessage, currentChannel);
+                        Logging.Log(LoggingModule.Severity.Warn, "ProcessLeaveChannelMessage unable to remove owner " + currentClient.IpPort + " from channel " + currentMessage.ChannelGUID);
+                        return MsgBuilder.ChannelLeaveFailure(currentClient, currentMessage, currentChannel);
                     }
                     else
                     {
@@ -5871,488 +3426,386 @@ namespace BigQ
                 }
                 else
                 {
-                    #region Subscriber-Leaving-Channel
+                    #region Member-Leaving-Channel
 
-                    if (!RemoveChannelSubscriber(currentClient, currentChannel))
+                    if (!RemoveChannelMember(currentClient, currentChannel))
                     {
-                        Log("*** ProcessUnsubscribeChannelMessage unable to remove subscrber " + currentClient.IpPort() + " " + currentClient.ClientGUID + " from channel " + currentMessage.ChannelGUID);
-                        return MsgBuilder.ChannelUnsubscribeFailure(currentClient, currentMessage, currentChannel);
+                        Logging.Log(LoggingModule.Severity.Warn, "ProcessLeaveChannelMessage unable to remove member " + currentClient.IpPort + " " + currentClient.ClientGUID + " from channel " + currentMessage.ChannelGUID);
+                        return MsgBuilder.ChannelLeaveFailure(currentClient, currentMessage, currentChannel);
                     }
                     else
                     {
                         if (Config.Notification.ChannelJoinNotification) ChannelLeaveEvent(currentClient, currentChannel);
-                        return MsgBuilder.ChannelUnsubscribeSuccess(currentClient, currentMessage, currentChannel);
+                        return MsgBuilder.ChannelLeaveSuccess(currentClient, currentMessage, currentChannel);
                     }
 
                     #endregion
                 }
-            }
-            finally
+            } 
+        }
+
+        private Message ProcessUnsubscribeChannelMessage(Client currentClient, Message currentMessage)
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = new Message();
+
+            if (currentChannel == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessUnsubscribeChannelMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
+                return responseMessage;
             }
+                
+            if (currentChannel.Broadcast == 1)
+            {
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessUnsubscribeChannelMessage channel marked as broadcast, calling ProcessLeaveChannelMessage");
+                return ProcessLeaveChannelMessage(currentClient, currentMessage);
+            }
+                
+            if (String.Compare(currentClient.ClientGUID, currentChannel.OwnerGUID) == 0)
+            {
+                #region Owner-Abandoning-Channel
+
+                if (!RemoveChannel(currentChannel))
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "ProcessUnsubscribeChannelMessage unable to remove owner " + currentClient.IpPort + " from channel " + currentMessage.ChannelGUID);
+                    return MsgBuilder.ChannelUnsubscribeFailure(currentClient, currentMessage, currentChannel);
+                }
+                else
+                {
+                    return MsgBuilder.ChannelDeleteSuccess(currentClient, currentMessage, currentChannel);
+                }
+
+                #endregion
+            }
+            else
+            {
+                #region Subscriber-Leaving-Channel
+
+                if (!RemoveChannelSubscriber(currentClient, currentChannel))
+                {
+                    Logging.Log(LoggingModule.Severity.Warn, "ProcessUnsubscribeChannelMessage unable to remove subscrber " + currentClient.IpPort + " " + currentClient.ClientGUID + " from channel " + currentMessage.ChannelGUID);
+                    return MsgBuilder.ChannelUnsubscribeFailure(currentClient, currentMessage, currentChannel);
+                }
+                else
+                {
+                    if (Config.Notification.ChannelJoinNotification) ChannelLeaveEvent(currentClient, currentChannel);
+                    return MsgBuilder.ChannelUnsubscribeSuccess(currentClient, currentMessage, currentChannel);
+                }
+
+                #endregion
+            } 
         }
 
         private Message ProcessCreateChannelMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = new Message();
 
-            try
+            if (currentChannel == null)
             {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = new Message();
-
-                if (currentChannel == null)
+                Channel requestChannel = BuildChannelFromMessageData(currentClient, currentMessage);
+                if (requestChannel == null)
                 {
-                    Channel requestChannel = BuildChannelFromMessageData(currentClient, currentMessage);
-                    if (requestChannel == null)
+                    Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage unable to build Channel from Message data");
+                    responseMessage = MsgBuilder.DataError(currentClient, currentMessage, "unable to create Channel from supplied message data");
+                    return responseMessage;
+                }
+                else
+                {
+                    currentChannel = ChannelMgr.GetChannelByName(requestChannel.ChannelName);
+                    if (currentChannel != null)
                     {
-                        Log("*** ProcessCreateChannelMessage unable to build Channel from Message data");
-                        responseMessage = MsgBuilder.DataError(currentClient, currentMessage, "unable to create Channel from supplied message data");
+                        responseMessage = MsgBuilder.ChannelAlreadyExists(currentClient, currentMessage, currentChannel);
                         return responseMessage;
                     }
                     else
                     {
-                        currentChannel = ChannelMgr.GetChannelByName(requestChannel.ChannelName);
-                        if (currentChannel != null)
+                        if (String.IsNullOrEmpty(requestChannel.ChannelGUID))
                         {
-                            responseMessage = MsgBuilder.ChannelAlreadyExists(currentClient, currentMessage, currentChannel);
+                            requestChannel.ChannelGUID = Guid.NewGuid().ToString();
+                            Logging.Log(LoggingModule.Severity.Debug, "ProcessCreateChannelMessage adding GUID " + requestChannel.ChannelGUID + " to request (not supplied by requestor)");
+                        }
+
+                        requestChannel.OwnerGUID = currentClient.ClientGUID;
+
+                        if (!AddChannel(currentClient, requestChannel))
+                        {
+                            Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage error while adding channel " + currentChannel.ChannelGUID);
+                            responseMessage = MsgBuilder.ChannelCreateFailure(currentClient, currentMessage);
                             return responseMessage;
                         }
                         else
                         {
-                            if (String.IsNullOrEmpty(requestChannel.ChannelGUID))
-                            {
-                                requestChannel.ChannelGUID = Guid.NewGuid().ToString();
-                                Log("ProcessCreateChannelMessage adding GUID " + requestChannel.ChannelGUID + " to request (not supplied by requestor)");
-                            }
+                            ChannelCreateEvent(currentClient, requestChannel);
+                        }
 
-                            requestChannel.OwnerGUID = currentClient.ClientGUID;
-
-                            if (!AddChannel(currentClient, requestChannel))
-                            {
-                                Log("*** ProcessCreateChannelMessage error while adding channel " + currentChannel.ChannelGUID);
-                                responseMessage = MsgBuilder.ChannelCreateFailure(currentClient, currentMessage);
-                                return responseMessage;
-                            }
-                            else
-                            {
-                                ChannelCreateEvent(currentClient, requestChannel);
-                            }
-
-                            if (!AddChannelSubscriber(currentClient, requestChannel))
-                            {
-                                Log("*** ProcessCreateChannelMessage error while adding channel member " + currentClient.IpPort() + " to channel " + currentChannel.ChannelGUID);
-                                responseMessage = MsgBuilder.ChannelJoinFailure(currentClient, currentMessage, currentChannel);
-                                return responseMessage;
-                            }
-
-                            responseMessage = MsgBuilder.ChannelCreateSuccess(currentClient, currentMessage, requestChannel);
+                        if (!AddChannelSubscriber(currentClient, requestChannel))
+                        {
+                            Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage error while adding channel member " + currentClient.IpPort + " to channel " + currentChannel.ChannelGUID);
+                            responseMessage = MsgBuilder.ChannelJoinFailure(currentClient, currentMessage, currentChannel);
                             return responseMessage;
                         }
+
+                        responseMessage = MsgBuilder.ChannelCreateSuccess(currentClient, currentMessage, requestChannel);
+                        return responseMessage;
                     }
                 }
-                else
-                {
-                    responseMessage = MsgBuilder.ChannelAlreadyExists(currentClient, currentMessage, currentChannel);
-                    return responseMessage;
-                }
             }
-            finally
+            else
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessCreateChannelMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
+                responseMessage = MsgBuilder.ChannelAlreadyExists(currentClient, currentMessage, currentChannel);
+                return responseMessage;
+            } 
         }
 
         private Message ProcessDeleteChannelMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = new Message();
 
-            try
+            if (currentChannel == null)
             {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = new Message();
-
-                if (currentChannel == null)
-                {
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
-                }
-
-                if (String.Compare(currentChannel.OwnerGUID, currentClient.ClientGUID) != 0)
-                {
-                    responseMessage = MsgBuilder.ChannelDeleteFailure(currentClient, currentMessage, currentChannel);
-                    return responseMessage;
-                }
-
-                if (!RemoveChannel(currentChannel))
-                {
-                    Log("*** ProcessDeleteChannelMessage unable to remove channel " + currentChannel.ChannelGUID);
-                    responseMessage = MsgBuilder.ChannelDeleteFailure(currentClient, currentMessage, currentChannel);
-                }
-                else
-                {
-                    responseMessage = MsgBuilder.ChannelDeleteSuccess(currentClient, currentMessage, currentChannel);
-                    ChannelDestroyEvent(currentClient, currentChannel);
-                }
-
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
                 return responseMessage;
             }
-            finally
+
+            if (String.Compare(currentChannel.OwnerGUID, currentClient.ClientGUID) != 0)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessDeleteChannelMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                responseMessage = MsgBuilder.ChannelDeleteFailure(currentClient, currentMessage, currentChannel);
+                return responseMessage;
             }
+
+            if (!RemoveChannel(currentChannel))
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessDeleteChannelMessage unable to remove channel " + currentChannel.ChannelGUID);
+                responseMessage = MsgBuilder.ChannelDeleteFailure(currentClient, currentMessage, currentChannel);
+            }
+            else
+            {
+                responseMessage = MsgBuilder.ChannelDeleteSuccess(currentClient, currentMessage, currentChannel);
+                ChannelDestroyEvent(currentClient, currentChannel);
+            }
+
+            return responseMessage; 
         }
 
         private Message ProcessListChannelsMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            List<Channel> ret = new List<Channel>();
+            List<Channel> filtered = new List<Channel>();
+            Channel currentChannel = new Channel();
 
-            try
+            ret = ChannelMgr.GetChannels();
+            if (ret == null || ret.Count < 1)
             {
-                List<Channel> ret = new List<Channel>();
-                List<Channel> filtered = new List<Channel>();
-                Channel currentChannel = new Channel();
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessListChannelsMessage no channels retrieved");
 
-                ret = ChannelMgr.GetChannels();
-                if (ret == null || ret.Count < 1)
-                {
-                    Log("*** ProcessListChannelsMessage no channels retrieved");
-
-                    currentMessage = currentMessage.Redact();
-                    currentMessage.SyncResponse = currentMessage.SyncRequest;
-                    currentMessage.SyncRequest = null;
-                    currentMessage.RecipientGUID = currentMessage.SenderGUID;
-                    currentMessage.SenderGUID = ServerGUID;
-                    currentMessage.ChannelGUID = null;
-                    currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    currentMessage.Success = true;
-                    currentMessage.Data = SuccessData.ToBytes(null, new List<Channel>());
-                    return currentMessage;
-                }
-                else
-                {
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelsMessage retrieved GetAllChannels after " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    foreach (Channel curr in ret)
-                    {
-                        currentChannel = new Channel();
-                        currentChannel.Subscribers = null;
-                        currentChannel.ChannelGUID = curr.ChannelGUID;
-                        currentChannel.ChannelName = curr.ChannelName;
-                        currentChannel.OwnerGUID = curr.OwnerGUID;
-                        currentChannel.CreatedUTC = curr.CreatedUTC;
-                        currentChannel.UpdatedUTC = curr.UpdatedUTC;
-                        currentChannel.Private = curr.Private;
-                        currentChannel.Broadcast = curr.Broadcast;
-                        currentChannel.Multicast = curr.Multicast;
-                        currentChannel.Unicast = curr.Unicast;
-
-                        if (String.Compare(currentChannel.OwnerGUID, currentClient.ClientGUID) == 0)
-                        {
-                            filtered.Add(currentChannel);
-                            continue;
-                        }
-
-                        if (currentChannel.Private == 0)
-                        {
-                            filtered.Add(currentChannel);
-                            continue;
-                        }
-                    }
-
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelsMessage built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
-                }
-                
                 currentMessage = currentMessage.Redact();
                 currentMessage.SyncResponse = currentMessage.SyncRequest;
                 currentMessage.SyncRequest = null;
                 currentMessage.RecipientGUID = currentMessage.SenderGUID;
                 currentMessage.SenderGUID = ServerGUID;
                 currentMessage.ChannelGUID = null;
-                currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
                 currentMessage.Success = true;
-                currentMessage.Data = SuccessData.ToBytes(null, filtered);
+                currentMessage.Data = SuccessData.ToBytes(null, new List<Channel>());
                 return currentMessage;
             }
-            finally
+            else
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelsMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                foreach (Channel curr in ret)
+                {
+                    currentChannel = new Channel();
+                    currentChannel.Subscribers = null;
+                    currentChannel.ChannelGUID = curr.ChannelGUID;
+                    currentChannel.ChannelName = curr.ChannelName;
+                    currentChannel.OwnerGUID = curr.OwnerGUID;
+                    currentChannel.CreatedUtc = curr.CreatedUtc;
+                    currentChannel.UpdatedUtc = curr.UpdatedUtc;
+                    currentChannel.Private = curr.Private;
+                    currentChannel.Broadcast = curr.Broadcast;
+                    currentChannel.Multicast = curr.Multicast;
+                    currentChannel.Unicast = curr.Unicast;
+
+                    if (String.Compare(currentChannel.OwnerGUID, currentClient.ClientGUID) == 0)
+                    {
+                        filtered.Add(currentChannel);
+                        continue;
+                    }
+
+                    if (currentChannel.Private == 0)
+                    {
+                        filtered.Add(currentChannel);
+                        continue;
+                    }
+                } 
             }
+                
+            currentMessage = currentMessage.Redact();
+            currentMessage.SyncResponse = currentMessage.SyncRequest;
+            currentMessage.SyncRequest = null;
+            currentMessage.RecipientGUID = currentMessage.SenderGUID;
+            currentMessage.SenderGUID = ServerGUID;
+            currentMessage.ChannelGUID = null;
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
+            currentMessage.Success = true;
+            currentMessage.Data = SuccessData.ToBytes(null, filtered);
+            return currentMessage; 
         }
 
         private Message ProcessListChannelMembersMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = new Message();
+            List<Client> clients = new List<Client>();
+            List<Client> ret = new List<Client>();
 
-            try
+            if (currentChannel == null)
             {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = new Message();
-                List<Client> clients = new List<Client>();
-                List<Client> ret = new List<Client>();
-
-                if (currentChannel == null)
-                {
-                    Log("*** ProcessListChannelMembersMessage null channel after retrieval by GUID");
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
-                }
-
-                clients = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
-                if (clients == null || clients.Count < 1)
-                {
-                    Log("ProcessListChannelMembersMessage channel " + currentChannel.ChannelGUID + " has no members");
-                    responseMessage = MsgBuilder.ChannelNoMembers(currentClient, currentMessage, currentChannel);
-                    return responseMessage;
-                }
-                else
-                {
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelMembersMessage retrieved GetChannelMembers after " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    foreach (Client curr in clients)
-                    {
-                        Client temp = new Client();
-                        temp.Password = null;
-                        
-                        temp.ClientTCPInterface = null;
-                        temp.ClientHTTPContext = null;
-                        temp.ClientWSContext = null;
-                        temp.ClientWSInterface = null;
-
-                        temp.Email = curr.Email;
-                        temp.ClientGUID = curr.ClientGUID;
-                        temp.CreatedUTC = curr.CreatedUTC;
-                        temp.UpdatedUTC = curr.UpdatedUTC;
-                        temp.SourceIP = curr.SourceIP;
-                        temp.SourcePort = curr.SourcePort;
-                        temp.IsTCP = curr.IsTCP;
-                        temp.IsTCPSSL = curr.IsTCPSSL;
-                        temp.IsWebsocket = curr.IsWebsocket;
-                        temp.IsWebsocketSSL = curr.IsWebsocketSSL;
-
-                        ret.Add(temp);
-                    }
-
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelMembersMessage built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    currentMessage = currentMessage.Redact();
-                    currentMessage.SyncResponse = currentMessage.SyncRequest;
-                    currentMessage.SyncRequest = null;
-                    currentMessage.RecipientGUID = currentMessage.SenderGUID;
-                    currentMessage.SenderGUID = ServerGUID;
-                    currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-                    currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    currentMessage.Success = true;
-                    currentMessage.Data = SuccessData.ToBytes(null, ret);
-                    return currentMessage;
-                }
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessListChannelMembersMessage null channel after retrieval by GUID");
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
+                return responseMessage;
             }
-            finally
+
+            clients = ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
+            if (clients == null || clients.Count < 1)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelMembersMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessListChannelMembersMessage channel " + currentChannel.ChannelGUID + " has no members");
+                responseMessage = MsgBuilder.ChannelNoMembers(currentClient, currentMessage, currentChannel);
+                return responseMessage;
             }
-        }
-
-        private Message ProcessListChannelSubscribersMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
+            else
             {
-                Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
-                Message responseMessage = new Message();
-                List<Client> clients = new List<Client>();
-                List<Client> ret = new List<Client>();
-
-                if (currentChannel == null)
+                foreach (Client curr in clients)
                 {
-                    Log("*** ProcessListChannelSubscribersMessage null channel after retrieval by GUID");
-                    responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
-                    return responseMessage;
+                    Client temp = new Client();
+                    temp.Password = null;
+                         
+                    temp.Email = curr.Email;
+                    temp.ClientGUID = curr.ClientGUID;
+                    temp.CreatedUtc = curr.CreatedUtc;
+                    temp.UpdatedUtc = curr.UpdatedUtc;
+                    temp.IpPort = curr.IpPort;
+                    temp.IsTcp = curr.IsTcp;
+                    temp.IsWebsocket = curr.IsWebsocket;
+                    temp.IsSsl = curr.IsSsl;
+                    
+                    ret.Add(temp);
                 }
-
-                if (currentChannel.Broadcast == 1)
-                {
-                    Log("ProcessListChannelSubscribersMessage channel is broadcast, calling ProcessListChannelMembers");
-                    return ProcessListChannelMembersMessage(currentClient, currentMessage);
-                }
-
-                clients = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
-                if (clients == null || clients.Count < 1)
-                {
-                    Log("ProcessListChannelSubscribersMessage channel " + currentChannel.ChannelGUID + " has no subscribers");
-                    responseMessage = MsgBuilder.ChannelNoSubscribers(currentClient, currentMessage, currentChannel);
-                    return responseMessage;
-                }
-                else
-                {
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelSubscribersMessage retrieved GetChannelSubscribers after " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    foreach (Client curr in clients)
-                    {
-                        Client temp = new Client();
-                        temp.Password = null;
-                        
-                        temp.ClientTCPInterface = null;
-                        temp.ClientHTTPContext = null;
-                        temp.ClientWSContext = null;
-                        temp.ClientWSInterface = null;
-
-                        temp.Email = curr.Email;
-                        temp.ClientGUID = curr.ClientGUID;
-                        temp.CreatedUTC = curr.CreatedUTC;
-                        temp.UpdatedUTC = curr.UpdatedUTC;
-                        temp.SourceIP = curr.SourceIP;
-                        temp.SourcePort = curr.SourcePort;
-                        temp.IsTCP = curr.IsTCP;
-                        temp.IsTCPSSL = curr.IsTCPSSL;
-                        temp.IsWebsocket = curr.IsWebsocket;
-                        temp.IsWebsocketSSL = curr.IsWebsocketSSL;
-
-                        ret.Add(temp);
-                    }
-
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelSubscribers built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    currentMessage = currentMessage.Redact();
-                    currentMessage.SyncResponse = currentMessage.SyncRequest;
-                    currentMessage.SyncRequest = null;
-                    currentMessage.RecipientGUID = currentMessage.SenderGUID;
-                    currentMessage.SenderGUID = ServerGUID;
-                    currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-                    currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
-                    currentMessage.Success = true;
-                    currentMessage.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(ret));
-                    return currentMessage;
-                }
-            }
-            finally
-            {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListChannelSubscribersMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
-            }
-        }
-
-        private Message ProcessListClientsMessage(Client currentClient, Message currentMessage)
-        {
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                List<Client> clients = new List<Client>();
-                List<Client> ret = new List<Client>();
-
-                clients = ConnMgr.GetClients();
-                if (clients == null || clients.Count < 1)
-                {
-                    Log("*** ProcessListClientsMessage no clients retrieved");
-                    return null;
-                }
-                else
-                {
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListClientsMessage retrieved GetAllClients after " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                    foreach (Client curr in clients)
-                    {
-                        Client temp = new Client();
-                        temp.SourceIP = curr.SourceIP;
-                        temp.SourcePort = curr.SourcePort;
-                        temp.IsTCP = curr.IsTCP;
-                        temp.IsTCPSSL = curr.IsTCPSSL;
-                        temp.IsWebsocket = curr.IsWebsocket;
-                        temp.IsWebsocketSSL = curr.IsWebsocketSSL;
-
-                        //
-                        // contexts will not serialize
-                        //
-                        temp.ClientTCPInterface = null;
-                        temp.ClientTCPSSLInterface = null;
-                        temp.ClientSSLStream = null;
-                        temp.ClientHTTPContext = null;
-                        temp.ClientWSContext = null;
-                        temp.ClientWSInterface = null;
-                        temp.ClientWSSSLContext = null;
-                        temp.ClientWSSSLInterface = null;
-                        
-                        temp.Email = curr.Email;
-                        temp.Password = null;
-                        temp.ClientGUID = curr.ClientGUID;
-                        temp.CreatedUTC = curr.CreatedUTC;
-                        temp.UpdatedUTC = curr.UpdatedUTC;
-
-                        ret.Add(temp);
-                    }
-
-                    if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListClientsMessage built response list after " + sw.Elapsed.TotalMilliseconds + "ms");
-                }
-
+                 
                 currentMessage = currentMessage.Redact();
                 currentMessage.SyncResponse = currentMessage.SyncRequest;
                 currentMessage.SyncRequest = null;
                 currentMessage.RecipientGUID = currentMessage.SenderGUID;
                 currentMessage.SenderGUID = ServerGUID;
-                currentMessage.ChannelGUID = null;
-                currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+                currentMessage.ChannelGUID = currentChannel.ChannelGUID;
+                currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
                 currentMessage.Success = true;
                 currentMessage.Data = SuccessData.ToBytes(null, ret);
                 return currentMessage;
-            }
-            finally
+            } 
+        }
+
+        private Message ProcessListChannelSubscribersMessage(Client currentClient, Message currentMessage)
+        { 
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(currentMessage.ChannelGUID);
+            Message responseMessage = new Message();
+            List<Client> clients = new List<Client>();
+            List<Client> ret = new List<Client>();
+
+            if (currentChannel == null)
             {
-                sw.Stop();
-                if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Log("ProcessListClientsMessage " + currentClient.IpPort() + " " + currentClient.ClientGUID + " " + sw.Elapsed.TotalMilliseconds + "ms");
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessListChannelSubscribersMessage null channel after retrieval by GUID");
+                responseMessage = MsgBuilder.ChannelNotFound(currentClient, currentMessage);
+                return responseMessage;
             }
-        }
 
-        #endregion
-        
-        #region Private-Logging-Methods
-
-        private void Log(string message)
-        {
-            if (LogMessage != null) LogMessage(message);
-            if (Config.Debug.Enable && Config.Debug.ConsoleLogging)
+            if (currentChannel.Broadcast == 1)
             {
-                Console.WriteLine(message);
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessListChannelSubscribersMessage channel is broadcast, calling ProcessListChannelMembers");
+                return ProcessListChannelMembersMessage(currentClient, currentMessage);
             }
+
+            clients = ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
+            if (clients == null || clients.Count < 1)
+            {
+                Logging.Log(LoggingModule.Severity.Debug, "ProcessListChannelSubscribersMessage channel " + currentChannel.ChannelGUID + " has no subscribers");
+                responseMessage = MsgBuilder.ChannelNoSubscribers(currentClient, currentMessage, currentChannel);
+                return responseMessage;
+            }
+            else
+            { 
+                foreach (Client curr in clients)
+                {
+                    Client temp = new Client();
+                    temp.Password = null;
+                         
+                    temp.Email = curr.Email;
+                    temp.ClientGUID = curr.ClientGUID;
+                    temp.CreatedUtc = curr.CreatedUtc;
+                    temp.UpdatedUtc = curr.UpdatedUtc;
+                    temp.IpPort = curr.IpPort;
+                    temp.IsTcp = curr.IsTcp;
+                    temp.IsWebsocket = curr.IsWebsocket;
+                    temp.IsSsl = curr.IsSsl;
+                    
+                    ret.Add(temp);
+                }
+                 
+                currentMessage = currentMessage.Redact();
+                currentMessage.SyncResponse = currentMessage.SyncRequest;
+                currentMessage.SyncRequest = null;
+                currentMessage.RecipientGUID = currentMessage.SenderGUID;
+                currentMessage.SenderGUID = ServerGUID;
+                currentMessage.ChannelGUID = currentChannel.ChannelGUID;
+                currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
+                currentMessage.Success = true;
+                currentMessage.Data = Encoding.UTF8.GetBytes(Helper.SerializeJson(ret));
+                return currentMessage;
+            } 
         }
 
-        private void LogException(string method, Exception e)
-        {
-            Log("================================================================================");
-            Log(" = Method: " + method);
-            Log(" = Exception Type: " + e.GetType().ToString());
-            Log(" = Exception Data: " + e.Data);
-            Log(" = Inner Exception: " + e.InnerException);
-            Log(" = Exception Message: " + e.Message);
-            Log(" = Exception Source: " + e.Source);
-            Log(" = Exception StackTrace: " + e.StackTrace);
-            Log("================================================================================");
-        }
+        private Message ProcessListClientsMessage(Client currentClient, Message currentMessage)
+        { 
+            List<Client> clients = new List<Client>();
+            List<Client> ret = new List<Client>();
 
-        private void PrintException(string method, Exception e)
-        {
-            Console.WriteLine("================================================================================");
-            Console.WriteLine(" = Method: " + method);
-            Console.WriteLine(" = Exception Type: " + e.GetType().ToString());
-            Console.WriteLine(" = Exception Data: " + e.Data);
-            Console.WriteLine(" = Inner Exception: " + e.InnerException);
-            Console.WriteLine(" = Exception Message: " + e.Message);
-            Console.WriteLine(" = Exception Source: " + e.Source);
-            Console.WriteLine(" = Exception StackTrace: " + e.StackTrace);
-            Console.WriteLine("================================================================================");
+            clients = ConnMgr.GetClients();
+            if (clients == null || clients.Count < 1)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "ProcessListClientsMessage no clients retrieved");
+                return null;
+            }
+            else
+            { 
+                foreach (Client curr in clients)
+                {
+                    Client temp = new Client();
+                    temp.IpPort = curr.IpPort;
+                    temp.IsTcp = curr.IsTcp;
+                    temp.IsWebsocket = curr.IsWebsocket;
+                    temp.IsSsl = curr.IsSsl;
+                     
+                    temp.Email = curr.Email;
+                    temp.Password = null;
+                    temp.ClientGUID = curr.ClientGUID;
+                    temp.CreatedUtc = curr.CreatedUtc;
+                    temp.UpdatedUtc = curr.UpdatedUtc;
+
+                    ret.Add(temp);
+                } 
+            }
+
+            currentMessage = currentMessage.Redact();
+            currentMessage.SyncResponse = currentMessage.SyncRequest;
+            currentMessage.SyncRequest = null;
+            currentMessage.RecipientGUID = currentMessage.SenderGUID;
+            currentMessage.SenderGUID = ServerGUID;
+            currentMessage.ChannelGUID = null;
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
+            currentMessage.Success = true;
+            currentMessage.Data = SuccessData.ToBytes(null, ret);
+            return currentMessage; 
         }
 
         #endregion

@@ -41,7 +41,7 @@ namespace BigQ
             Message ResponseMessage = new Message();
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
@@ -53,7 +53,7 @@ namespace BigQ
         {
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncRequest = null;
             currentMessage.SyncResponse = null;
@@ -68,7 +68,7 @@ namespace BigQ
             ResponseMessage.RecipientGUID = currentClient.ClientGUID;
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.Command = "HeartbeatRequest";
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Data = null;
             return ResponseMessage;
         }
@@ -78,7 +78,7 @@ namespace BigQ
             Message ResponseMessage = new Message();
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
@@ -92,7 +92,7 @@ namespace BigQ
             Message ResponseMessage = new Message();
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
@@ -109,7 +109,7 @@ namespace BigQ
         {
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -123,7 +123,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -148,7 +148,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -161,7 +161,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -178,7 +178,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -216,7 +216,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -233,7 +233,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -247,7 +247,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -261,7 +261,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -274,7 +274,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -288,7 +288,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -301,7 +301,7 @@ namespace BigQ
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -315,7 +315,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -329,7 +329,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -343,7 +343,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -357,7 +357,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -371,7 +371,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -385,7 +385,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -399,7 +399,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -413,7 +413,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -427,7 +427,7 @@ namespace BigQ
             ResponseMessage.RecipientGUID = currentClient.ClientGUID;
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
             ResponseMessage.SyncRequest = null;
@@ -441,7 +441,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -455,7 +455,7 @@ namespace BigQ
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.ChannelGUID = currentChannel.ChannelGUID;
-            currentMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = null;
@@ -469,7 +469,7 @@ namespace BigQ
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
@@ -484,7 +484,7 @@ namespace BigQ
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.Command = "Event";
             ResponseMessage.Data = EventData.ToBytes(EventTypes.ClientLeftChannel, leavingClient.ClientGUID);
@@ -497,7 +497,7 @@ namespace BigQ
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.SyncRequest = null;
             ResponseMessage.SyncResponse = null;
@@ -512,7 +512,7 @@ namespace BigQ
             ResponseMessage.RecipientGUID = null;
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            ResponseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.Command = "Event";
             ResponseMessage.Data = EventData.ToBytes(EventTypes.SubscriberLeftChannel, leavingClient.ClientGUID);
@@ -525,7 +525,7 @@ namespace BigQ
             responseMessage.RecipientGUID = currentClient.ClientGUID;
             responseMessage.SenderGUID = ServerGUID;
             responseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            responseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            responseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             responseMessage.Success = true;
             responseMessage.SyncResponse = false;
             responseMessage.SyncRequest = false;
@@ -540,7 +540,7 @@ namespace BigQ
             responseMessage.RecipientGUID = currentClient.ClientGUID;
             responseMessage.SenderGUID = ServerGUID;
             responseMessage.ChannelGUID = currentChannel.ChannelGUID;
-            responseMessage.CreatedUTC = DateTime.Now.ToUniversalTime();
+            responseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             responseMessage.Success = true;
             responseMessage.SyncResponse = false;
             responseMessage.SyncRequest = false;

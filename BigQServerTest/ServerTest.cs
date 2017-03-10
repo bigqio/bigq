@@ -40,12 +40,15 @@ namespace BigQServerTest
                 {
                     case "?":
                         // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
-                        Console.WriteLine("Available Commands:");
-                        Console.WriteLine("  q  quit  cls  debugon  debugoff");
+                        Console.WriteLine("General Commands:");
+                        Console.WriteLine("  q  quit  cls  listusersfile  listpermissionsfile");
+                        Console.WriteLine("");
+                        Console.WriteLine("Channel Commands:");
                         Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
+                        Console.WriteLine("");
+                        Console.WriteLine("Client Commands:");
                         Console.WriteLine("  listclients  listclientguidmaps");
                         Console.WriteLine("  listclientactivesend  clearclientactivesend");
-                        Console.WriteLine("  listusersfile  listpermissionsfile  connectioncount");
                         Console.WriteLine("");
                         break;
 
@@ -58,19 +61,7 @@ namespace BigQServerTest
                     case "cls":
                         Console.Clear();
                         break;
-
-                    case "debugon":
-                        server.Config.Debug.Enable = true;
-                        server.Config.Debug.ConsoleLogging = true;
-                        server.Config.Debug.MsgResponseTime = true;
-                        break;
-
-                    case "debugoff":
-                        server.Config.Debug.Enable = false;
-                        server.Config.Debug.ConsoleLogging = false;
-                        server.Config.Debug.MsgResponseTime = false;
-                        break;
-
+                         
                     case "listchannels":
                         channels = server.ListChannels();
                         if (channels != null)
@@ -102,13 +93,11 @@ namespace BigQServerTest
                         {
                             foreach (Client curr in members)
                             {
-                                string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                if (curr.IsTCP) line += "TCP ";
-                                else if (curr.IsTCPSSL) line += "TCPSSL ";
-                                else if (curr.IsWebsocket) line += "WS ";
-                                else if (curr.IsWebsocketSSL) line += "WSSSL ";
-                                else line += "unknown ";
-
+                                string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                if (curr.IsTcp) line += "TCP ";
+                                if (curr.IsWebsocket) line += "WS ";
+                                if (curr.IsSsl) line += "SSL ";
+                                
                                 Console.WriteLine(line);
                             }
                         }
@@ -126,13 +115,11 @@ namespace BigQServerTest
                         {
                             foreach (Client curr in subscribers)
                             {
-                                string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                if (curr.IsTCP) line += "TCP ";
-                                else if (curr.IsTCPSSL) line += "TCPSSL ";
-                                else if (curr.IsWebsocket) line += "WS ";
-                                else if (curr.IsWebsocketSSL) line += "WSSSL ";
-                                else line += "unknown ";
-
+                                string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                if (curr.IsTcp) line += "TCP ";
+                                if (curr.IsWebsocket) line += "WS ";
+                                if (curr.IsSsl) line += "SSL "; 
+                                
                                 Console.WriteLine(line);
                             }
                         }
@@ -148,13 +135,11 @@ namespace BigQServerTest
                         {
                             foreach (Client curr in clients)
                             {
-                                string line = "  " + curr.IpPort() + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                if (curr.IsTCP) line += "TCP ";
-                                else if (curr.IsTCPSSL) line += "TCPSSL ";
-                                else if (curr.IsWebsocket) line += "WS ";
-                                else if (curr.IsWebsocketSSL) line += "WSSSL ";
-                                else line += "unknown ";
-
+                                string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                if (curr.IsTcp) line += "TCP ";
+                                if (curr.IsWebsocket) line += "WS ";
+                                if (curr.IsSsl) line += "SSL "; 
+                                
                                 Console.WriteLine(line);
                             }
                         }
@@ -197,11 +182,7 @@ namespace BigQServerTest
                     case "clearclientactivesend":
                         server.ClearClientActiveSend();
                         break;
-
-                    case "connectioncount":
-                        Console.WriteLine("Active connection count: " + server.ConnectionCount());
-                        break;
-
+                         
                     case "listusersfile":
                         users = server.ListCurrentUsersFile();
                         if (users != null && users.Count > 0)
@@ -268,7 +249,7 @@ namespace BigQServerTest
             // restart
             //
             Console.WriteLine("Attempting to start/restart server");
-            if (server != null) server.Close();
+            if (server != null) server.Dispose();
             server = null;
 
             //
@@ -277,8 +258,6 @@ namespace BigQServerTest
             server = new Server(null);
 
             server.Config.Debug.Enable = true;
-            server.Config.Debug.ConsoleLogging = true;
-            server.Config.Debug.MsgResponseTime = false;
             server.Config.Debug.ConnectionMgmt = false;
             server.Config.Debug.ChannelMgmt = false;
             server.Config.Debug.SendHeartbeat = true;
@@ -289,8 +268,6 @@ namespace BigQServerTest
             server.ClientConnected = ClientConnected;
             server.ClientLogin = ClientLogin;
             server.ClientDisconnected = ClientDisconnected;
-            server.LogMessage = LogMessage;
-            server.LogMessage = null;
 
             return true;
         }
@@ -303,19 +280,19 @@ namespace BigQServerTest
 
         static bool ClientConnected(Client client)
         {
-            Console.WriteLine("ClientConnected received notice of connect from " + client.IpPort());
+            Console.WriteLine("ClientConnected received notice of client connect from " + client.IpPort);
             return true;
         }
 
         static bool ClientLogin(Client client)
         {
-            Console.WriteLine("ClientConnected received notice of connect of client GUID " + client.ClientGUID + " from " + client.IpPort());
+            Console.WriteLine("ClientConnected received notice of client login GUID " + client.ClientGUID + " from " + client.IpPort);
             return true;
         }
 
         static bool ClientDisconnected(Client client)
         {
-            Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGUID + " from " + client.IpPort());
+            Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGUID + " from " + client.IpPort);
             return true;
         }
 

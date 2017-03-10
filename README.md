@@ -12,11 +12,11 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 ## help or feedback
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
-## new in v1.6.0
-- forced use of heartbeats, moved disconnect detect into heartbeat manager
-- major refactor (connection manager, channel manager, variable naming consistency) 
-- new events for public channel creation and destroy operations 
-- many bugfixes
+## new in v1.7.0
+- further refactoring
+- bugfixes
+- performance improvements
+- reduced CPU utilization
 
 ## description
 bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.  bigq is tested and compatible with Mono.
@@ -50,7 +50,7 @@ Refer to the BigQServerTest project for a thorough example.
 using BigQ;
 ...
 // start the server
-Server server = new Server(null);			// with a default configuration
+Server server = new Server(null);		// with a default configuration
 Server server = new Server("server.json");	// with a configuration file
 
 // set callbacks
@@ -75,7 +75,7 @@ Refer to the BigQClientTest project for a thorough example.
 using BigQ;
 
 // start the client and connect to the server
-Client client = new Client(null);			// with a default configuration
+Client client = new Client(null);		// with a default configuration
 Client client = new Client("client.json");	// with a configuration file
 
 // set callbacks
@@ -166,7 +166,7 @@ if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle
 please refer to the sample Javascript chat application on github.
 
 ## connecting using SSL
-when connecting using SSL, if you are using self-signed certificates, be sure to set 'AcceptInvalidSSLCerts' to true in the config file on both the server and client, and enable the TcpSSLServer (and configure it accordingly).  If this value is left to false, you will encounter exceptions if a node attempts to connect using a certificate that cannot be validated.  Be sure to use PFX files for your client and server certificates!
+when connecting using SSL, if you are using self-signed certificates, be sure to set 'AcceptInvalidSSLCerts' to true in the config file on both the server and client.  Use PFX files for certificates.  Note that for Websockets and SSL, the certificate must be bound to the port in the operating system.
 
 ## authorization
 bigq uses two filesystem files (defined in the server configuration file) to determine if messages should be authorized.  Please refer to the sample files in the project for their structure.  It is important to note that using this feature can and will affect performance.
@@ -181,105 +181,6 @@ ContentLength: 22
 { first_name: 'joel' }
 ```
 
-## sample server configuration file
-multiple servers can be set to enabled at any given time.  Values for servers can NOT be changed while BigQ is running.  If you wish to start another server, or change a server's settings, BigQ will have to be restarted for those changes to take affect.
-```
-{  
-   "Version":"1.0.0",
-   "AcceptInvalidSSLCerts":true,
-   "Files":{  
-      "UsersFile":"users.json",
-      "PermissionsFile":"permissions.json"
-   },
-   "Heartbeat":{  
-      "Enable":false,
-      "IntervalMs":1000,
-      "MaxFailures":5
-   },
-   "Notification":{  
-      "MsgAcknowledgement":false,
-      "ServerJoinNotification":true,
-      "ChannelJoinNotification":true
-   },
-   "Debug":{  
-      "Enable":true,
-      "LockMethodResponseTime":true,
-      "MsgResponseTime":true,
-      "ConsoleLogging":true
-   },
-   "TcpServer":{  
-      "Enable":true,
-      "IP":"0.0.0.0",
-      "Port":8000
-   },
-   "TcpSSLServer":{  
-      "Enable":true,
-      "IP":"127.0.0.1",
-      "Port":8001,
-      "P12CertFile":"server.pfx",
-      "P12CertPassword":"password"
-   },
-   "WebsocketServer":{  
-      "Enable":false,
-      "IP":"0.0.0.0",
-      "Port":8002
-   },
-   "WebsocketSSLServer":{  
-      "Enable":false,
-      "IP":"0.0.0.0",
-      "Port":8003,
-      "P12CertFile":"server.pfx",
-      "P12CertPassword":"password"
-   },
-   "ServerChannels": [
-      {
-         "Broadcast": 1,
-         "Multicast": 0,
-         "Unicast": 0,
-         "ChannelName": "Default server channel",
-         "Private": 0
-      }
-   ]
-}
-
-```
-
-## sample client configuration file
-note: only one server can be set as enabled at a time!
-```
-{  
-   "Version":"1.0.0",
-   "GUID":"01234567-0123-0123-0123-012345678901",
-   "Email":"",
-   "Password":"",
-   "AcceptInvalidSSLCerts":true,
-   "SyncTimeoutMs":10000,
-   "Heartbeat":{  
-      "Enable":false,
-      "IntervalMs":1000,
-      "MaxFailures":5
-   },
-   "Debug":{  
-      "Enable":true,
-      "MsgResponseTime":true,
-      "ConsoleLogging":true
-   },
-   "TcpServer":{  
-      "Enable":true,
-      "IP":"0.0.0.0",
-      "Port":8000
-   },
-   "TcpSSLServer":{  
-      "Enable":false,
-      "IP":"0.0.0.0",
-      "Port":8001,
-      "P12CertFile":"client.pfx",
-      "P12CertPassword":"password"
-   }
-}
-
-```
-
 ## running under Mono
 BigQ works well in Mono environments to the extent that we have tested it.  It is recommended that when running under Mono, you execute the containing EXE using --server and after using the Mono Ahead-of-Time Compiler (AOT).
 ```
@@ -289,6 +190,12 @@ mono --server myapp.exe
 
 ## version history
 notes from previous versions (starting with v1.5.0) will be moved here.
+v1.6.0
+- forced use of heartbeats, moved disconnect detect into heartbeat manager
+- major refactor (connection manager, channel manager, variable naming consistency) 
+- new events for public channel creation and destroy operations 
+- many bugfixes
+
 v1.5.1
 - bugfix for disconnect detect
 

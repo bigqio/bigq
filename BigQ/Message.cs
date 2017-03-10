@@ -39,7 +39,7 @@ namespace BigQ
         /// <summary>
         /// Timestamp indicating when the message was created.
         /// </summary>
-        public DateTime? CreatedUTC;                    // message timestamp in UTC time
+        public DateTime? CreatedUtc;                    // message timestamp in UTC time
 
         /// <summary>
         /// Contained in a response message to indicate if the request message was successful.
@@ -129,33 +129,28 @@ namespace BigQ
         /// <param name="bytes">The byte array containing the message data.</param>
         public Message(byte[] bytes)
         {
-            //
-            //
-            // used by TCPMessageRead to populate metadata fields
-            //
-            //
-
             #region Check-for-Null-Values
 
-            if (bytes == null || bytes.Length < 1) throw new ArgumentNullException("bytes");
+            if (bytes == null || bytes.Length < 1) throw new ArgumentNullException(nameof(bytes));
 
             #endregion
-
+             
             #region Parse-to-String-Array
 
             string headerString = Encoding.UTF8.GetString(bytes);
-            string[] headers = headerString.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-            if (headers == null || headers.Length < 1) throw new ArgumentException("Unable to derive headers from supplied data");
+            string[] lines = headerString.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
+            
+            if (lines == null || lines.Length < 1) throw new ArgumentException("Unable to derive headers from supplied data");
+            int numLines = lines.Length;
 
             #endregion
 
             #region Initialize-Values
-            
+
             Email = null;
             Password = null;
             Command = null;
-            CreatedUTC = DateTime.Now.ToUniversalTime();
+            CreatedUtc = DateTime.Now.ToUniversalTime();
             Success = null;
             SyncRequest = null;
             SyncResponse = null;
@@ -172,13 +167,14 @@ namespace BigQ
 
             #endregion
 
-            #region Process
+            #region Process-Headers
 
-            foreach (string header in headers)
+            for (int i = 0; i < numLines; i++)
             {
-                #region Check-for-Null-Values
+                #region Initialize
 
-                if (String.IsNullOrEmpty(header)) continue;
+                string currLine = lines[i]; 
+                if (String.IsNullOrEmpty(currLine)) break; 
 
                 #endregion
 
@@ -193,16 +189,16 @@ namespace BigQ
 
                 #region Parse-into-Key-Value-Pair
                 
-                if (header.Contains(":"))
+                if (currLine.Contains(":"))
                 {
-                    headerLength = header.Length;
-                    colonPosition = header.IndexOf(":");
-                    key = header.Substring(0, colonPosition).Trim();
-                    val = header.Substring((colonPosition + 1), (headerLength - colonPosition - 1)).Trim();
+                    headerLength = currLine.Length;
+                    colonPosition = currLine.IndexOf(":");
+                    key = currLine.Substring(0, colonPosition).Trim();
+                    val = currLine.Substring((colonPosition + 1), (headerLength - colonPosition - 1)).Trim();
                 }
                 else
                 {
-                    key = header.Trim();
+                    key = currLine.Trim();
                     val = null;
                 }
 
@@ -237,11 +233,11 @@ namespace BigQ
                     case "createdutc":
                         try
                         {
-                            CreatedUTC = DateTime.ParseExact(val, "MM/dd/yyyy HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
+                            CreatedUtc = DateTime.ParseExact(val, "MM/dd/yyyy HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
                         }
                         catch (Exception)
                         {
-                            throw new ArgumentException("CreatedUTC must be in the format MM/dd/yyyy HH:mm:ss.fffffff");
+                            throw new ArgumentException("CreatedUtc must be in the format MM/dd/yyyy HH:mm:ss.fffffff");
                         }
                         break;
 
@@ -334,12 +330,22 @@ namespace BigQ
                 #endregion
             }
 
+            #endregion\
+
+            #region Get-Data
+
+            if (ContentLength != null && ContentLength > 0 && ContentLength < bytes.Length)
+            {
+                Data = new byte[Convert.ToInt32(ContentLength)];
+                Buffer.BlockCopy(bytes, (bytes.Length - Convert.ToInt32(ContentLength)), Data, 0, Convert.ToInt32(ContentLength));
+            }
+
             #endregion
         }
         
         #endregion
 
-        #region Public-Instance-Methods
+        #region Public-Methods
 
         /// <summary>
         /// Indicates whether or not the message is sufficiently configured to be sent to a recipient.
@@ -350,7 +356,7 @@ namespace BigQ
             List<string> errors = new List<string>();
             if (String.IsNullOrEmpty(MessageID)) errors.Add("MessageId is missing");
             if (String.IsNullOrEmpty(SenderGUID)) errors.Add("SenderGUID is missing");
-            if (CreatedUTC == null) errors.Add("CreatedUTC is missing");
+            if (CreatedUtc == null) errors.Add("CreatedUtc is missing");
 
             if (Data != null)
             {
@@ -387,7 +393,7 @@ namespace BigQ
 
             if (!String.IsNullOrEmpty(MessageID))
             {
-                ret += " | Message ID " + MessageID + " Created " + Convert.ToDateTime(CreatedUTC).ToString("MM/dd/yyyy HH:mm:ss.fffffff") + Environment.NewLine;
+                ret += " | Message ID " + MessageID + " Created " + Convert.ToDateTime(CreatedUtc).ToString("MM/dd/yyyy HH:mm:ss.fffffff") + Environment.NewLine;
             }
 
             if (!String.IsNullOrEmpty(ChannelGUID))
@@ -491,10 +497,10 @@ namespace BigQ
                 }
             }
             
-            if (CreatedUTC != null)
+            if (CreatedUtc != null)
             {
-                string sanitizedCreatedUTC = Convert.ToDateTime(CreatedUTC).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.fffffff");
-                headerSb.Append("CreatedUTC: " + sanitizedCreatedUTC);
+                string sanitizedCreatedUtc = Convert.ToDateTime(CreatedUtc).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.fffffff");
+                headerSb.Append("CreatedUtc: " + sanitizedCreatedUtc);
                 headerSb.Append("\r\n");
             }
 
@@ -597,10 +603,10 @@ namespace BigQ
                     headerSb.Append("\r\n");
                 }
             }
-
-            if (ContentLength != null)
+            
+            if (Data != null && Data.Length > 0)
             {
-                headerSb.Append("ContentLength: " + ContentLength);
+                headerSb.Append("ContentLength: " + Data.Length);
                 headerSb.Append("\r\n");
             }
 

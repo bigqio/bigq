@@ -10,21 +10,46 @@
       "IntervalMs":1000,
       "MaxFailures":5
    },
+   "Logging":{
+      "ConsoleLogging":true,
+      "SyslogLogging":true,
+      "SyslogServerIp":"127.0.0.1",
+      "SyslogServerPort":514,
+      "MinimumSeverity":1
+   },
    "Debug":{  
       "Enable":false,
       "MsgResponseTime":true,
       "ConsoleLogging":true
    },
    "TcpServer":{  
-      "Enable":false,
-      "IP":"0.0.0.0",
-      "Port":8000
-   },
-   "TcpSSLServer":{  
       "Enable":true,
       "IP":"127.0.0.1",
+      "Port":8000,
+      "Debug":false
+   },
+   "TcpSslServer":{  
+      "Enable":false,
+      "IP":"127.0.0.1",
       "Port":8001,
-      "P12CertFile":"client.pfx",
-      "P12CertPassword":"password"
+      "PfxCertFile":"test.pfx",
+      "PfxCertPassword":"password",
+      "AcceptInvalidCerts":true,
+      "Debug":false
+   },
+   "WebsocketServer":{  
+      "Enable":false,
+      "IP":"127.0.0.1",
+      "Port":8002,
+      "Debug":false
+   },
+   "WebsocketSslServer":{  
+      "Enable":false,
+      "IP":"127.0.0.1",
+      "Port":8003,
+      "PfxCertFile":"test.pfx",
+      "PfxCertPassword":"password",
+      "AcceptInvalidCerts":true,
+      "Debug":false
    }
 }
