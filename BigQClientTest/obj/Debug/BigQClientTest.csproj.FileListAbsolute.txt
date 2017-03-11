@@ -119,3 +119,12 @@ D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Debug\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQWatson\BigQClientTest\obj\Debug\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\Code\BigQ\BigQWatson\BigQClientTest\obj\Debug\BigQClientTest.exe
 D:\Code\BigQ\BigQWatson\BigQClientTest\obj\Debug\BigQClientTest.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\test-certificate.txt
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\client.json
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\test.pfx
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\SyslogLogging.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\WatsonTcp.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\WatsonWebsocket.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\SyslogLogging.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\WatsonTcp.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Debug\WatsonWebsocket.pdb

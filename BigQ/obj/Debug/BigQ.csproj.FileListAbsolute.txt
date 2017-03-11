@@ -102,3 +102,9 @@ D:\Code\BigQ\BigQWatson\BigQ\bin\Debug\WatsonWebsocket.pdb
 D:\Code\BigQ\BigQWatson\BigQ\obj\Debug\BigQ.dll
 D:\Code\BigQ\BigQWatson\BigQ\obj\Debug\BigQ.pdb
 D:\Code\BigQ\BigQWatson\BigQ\obj\Debug\BigQ.csprojResolveAssemblyReference.cache
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\SyslogLogging.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\WatsonTcp.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\WatsonWebsocket.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\SyslogLogging.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\WatsonTcp.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Debug\WatsonWebsocket.pdb

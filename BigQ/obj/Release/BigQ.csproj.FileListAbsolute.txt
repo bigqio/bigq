@@ -68,3 +68,9 @@ D:\Code\BigQ\BigQWatson\BigQ\bin\Release\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQWatson\BigQ\bin\Release\SyslogLogging.pdb
 D:\Code\BigQ\BigQWatson\BigQ\bin\Release\WatsonTcp.pdb
 D:\Code\BigQ\BigQWatson\BigQ\bin\Release\WatsonWebsocket.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Release\SyslogLogging.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonTcp.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonWebsocket.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\SyslogLogging.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonTcp.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonWebsocket.pdb

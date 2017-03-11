@@ -99,3 +99,12 @@ D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\Newtonsoft.Json.xml
 D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\test-certificate.txt
 D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\client.json
 D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\test.pfx
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\test-certificate.txt
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\client.json
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\test.pfx
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\SyslogLogging.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonTcp.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonWebsocket.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\SyslogLogging.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonTcp.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonWebsocket.pdb

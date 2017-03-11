@@ -1,6 +1,6 @@
 {  
    "Version":"1.0.0",
-   "GUID":"01234567-0123-0123-0123-012345678901",
+   "GUID":"joel",
    "Email":"",
    "Password":"",
    "AcceptInvalidSSLCerts":true,
@@ -24,7 +24,7 @@
    },
    "TcpServer":{  
       "Enable":true,
-      "IP":"127.0.0.1",
+      "IP":"jchristn-iis.cloudapp.net",
       "Port":8000,
       "Debug":false
    },

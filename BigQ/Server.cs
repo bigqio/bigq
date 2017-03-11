@@ -830,20 +830,37 @@ namespace BigQ
                     Message currMessage = currentClient.MessageQueue.Take(currentClient.ProcessClientQueueToken);
                     if (currMessage != null)
                     {
-                        bool success = SendMessage(currentClient, currMessage);
-                        if (!success)
+                        if (String.IsNullOrEmpty(currMessage.RecipientGUID))
                         {
-                            Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing");
-                            currentClient.MessageQueue.Add(currMessage);
+                            Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue unable to deliver message " + currMessage.MessageID + " from " + currMessage.SenderGUID + " (empty recipient), discarding");
                         }
                         else
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
+                            bool success = SendMessage(currentClient, currMessage);
+                            if (!success)
+                            {
+                                Client tempClient = ConnMgr.GetClientByGUID(currMessage.RecipientGUID);
+                                if (tempClient == null)
+                                {
+                                    Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue recipient " + currMessage.RecipientGUID + " no longer exists, disposing");
+                                    currentClient.Dispose();
+                                    return false;
+                                }
+                                else
+                                {
+                                    Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing (client still exists)");
+                                    currentClient.MessageQueue.Add(currMessage);
+                                }
+                            }
+                            else
+                            {
+                                Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
+                            }
                         }
                     }
                     else
                     {
-                        Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue received null message from queue for client " + currentClient.ClientGUID);
+                        Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue received null message from queue for client " + currentClient.ClientGUID + ", discarding");
                     }
                 }
 
