@@ -74,3 +74,4 @@ D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonWebsocket.dll
 D:\Code\BigQ\BigQ\BigQ\bin\Release\SyslogLogging.pdb
 D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonTcp.pdb
 D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonWebsocket.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Release\WatsonWebsocket.dll.config

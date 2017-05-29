@@ -108,3 +108,4 @@ D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonWebsocket.dll
 D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\SyslogLogging.pdb
 D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonTcp.pdb
 D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonWebsocket.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\WatsonWebsocket.dll.config

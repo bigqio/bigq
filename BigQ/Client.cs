@@ -318,6 +318,7 @@ namespace BigQ
                     Config.TcpSslServer.PfxCertFile,
                     Config.TcpSslServer.PfxCertPassword,
                     Config.TcpSslServer.AcceptInvalidCerts,
+                    false,
                     WTcpSslServerConnected,
                     WTcpSslServerDisconnected,
                     WTcpSslMessageReceived,

@@ -16,6 +16,7 @@ namespace BigQClientTest
 
         static void Main(string[] args)
         {
+            string configFile = null;
             bool runForever = true;
             string guid = "";
             string msg = "";
@@ -26,10 +27,19 @@ namespace BigQClientTest
             Dictionary<string, DateTime> pendingRequests;
             
             Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            Console.WriteLine("Use '--cfg=<filename>' to start with a configuration file");
             Console.WriteLine("Starting BigQ client at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss"));
             Console.WriteLine("");
 
-            ConnectToServer();
+            if (args != null && args.Length > 0)
+            {
+                foreach (string curr in args)
+                {
+                    if (curr.StartsWith("--cfg=")) configFile = curr.Substring(6);
+                }
+            }
+
+            ConnectToServer(configFile);
             
             while (runForever)
             {
@@ -424,36 +434,50 @@ namespace BigQClientTest
 
         static bool ConnectToServer()
         {
+            return ConnectToServer(null);
+        }
+
+        static bool ConnectToServer(string configFile)
+        {
             try
             {
-                Console.WriteLine("Attempting to connect to server");
-                if (client != null) client.Dispose();
-                client = null;
-                client = new Client(null);
-                client.Config.Heartbeat.IntervalMs = 1000;
-                client.AsyncMessageReceived = AsyncMessageReceived;
-                client.SyncMessageReceived = SyncMessageReceived;
-                // client.ServerDisconnected = ServerDisconnected;
-                client.ServerDisconnected = ConnectToServer;
-                client.ServerConnected = ServerConnected;
-                client.ClientJoinedServer = ClientJoinedServer;
-                client.ClientLeftServer = ClientLeftServer;
-                client.ClientJoinedChannel = ClientJoinedChannel;
-                client.ClientLeftChannel = ClientLeftChannel;
-                client.SubscriberJoinedChannel = SubscriberJoinedChannel;
-                client.SubscriberLeftChannel = SubscriberLeftChannel;
-                client.ChannelCreated = ChannelCreated;
-                client.ChannelDestroyed = ChannelDestroyed;
-                client.LogMessage = LogMessage;
-                client.LogMessage = null;
-
-                Console.WriteLine("Client connected, logging in");
-                Message response;
-                if (!client.Login(out response))
+                if (String.IsNullOrEmpty(configFile))
                 {
-                    Console.WriteLine("Unable to login, retrying in five seconds");
-                    Task.Delay(5000).Wait();
-                    return ConnectToServer();
+                    Console.WriteLine("Attempting to connect to server using default configuration");
+                    if (client != null) client.Dispose();
+                    client = null;
+                    client = new Client(null);
+                    client.Config.Heartbeat.IntervalMs = 1000;
+                    client.AsyncMessageReceived = AsyncMessageReceived;
+                    client.SyncMessageReceived = SyncMessageReceived;
+                    // client.ServerDisconnected = ServerDisconnected;
+                    client.ServerDisconnected = ConnectToServer;
+                    client.ServerConnected = ServerConnected;
+                    client.ClientJoinedServer = ClientJoinedServer;
+                    client.ClientLeftServer = ClientLeftServer;
+                    client.ClientJoinedChannel = ClientJoinedChannel;
+                    client.ClientLeftChannel = ClientLeftChannel;
+                    client.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                    client.SubscriberLeftChannel = SubscriberLeftChannel;
+                    client.ChannelCreated = ChannelCreated;
+                    client.ChannelDestroyed = ChannelDestroyed;
+                    client.LogMessage = LogMessage;
+                    client.LogMessage = null;
+
+                    Console.WriteLine("Client connected, logging in");
+                    Message response;
+                    if (!client.Login(out response))
+                    {
+                        Console.WriteLine("Unable to login, retrying in five seconds");
+                        Task.Delay(5000).Wait();
+                        return ConnectToServer(null);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Attempting to connect to server using " + configFile);
+                    if (client != null) client.Dispose();
+                    client = new Client(configFile);
                 }
 
                 Console.WriteLine("Successfully logged into server");

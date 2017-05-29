@@ -263,6 +263,7 @@ namespace BigQ
                     Config.TcpSslServer.PfxCertFile,
                     Config.TcpSslServer.PfxCertPassword,
                     Config.TcpSslServer.AcceptInvalidCerts,
+                    false,
                     WTcpSslClientConnected,
                     WTcpSslClientDisconnected,
                     WTcpSslMessageReceived,
@@ -3275,6 +3276,7 @@ namespace BigQ
                 currentMessage.RecipientGUID = currentMessage.SenderGUID;
                 currentMessage.SenderGUID = ServerGUID;
                 currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
+                currentMessage.Success = true;
                 currentClient.ClientGUID = currentMessage.RecipientGUID;
                 currentClient.Email = currentMessage.Email;
                 if (String.IsNullOrEmpty(currentClient.Email)) currentClient.Email = currentClient.ClientGUID;

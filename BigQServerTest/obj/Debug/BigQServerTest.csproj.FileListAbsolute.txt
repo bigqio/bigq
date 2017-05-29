@@ -161,3 +161,4 @@ D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\WatsonWebsocket.dll
 D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\SyslogLogging.pdb
 D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\WatsonTcp.pdb
 D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\WatsonWebsocket.pdb
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Debug\WatsonWebsocket.dll.config

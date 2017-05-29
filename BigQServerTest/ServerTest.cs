@@ -13,6 +13,7 @@ namespace BigQServerTest
 
         static void Main(string[] args)
         {
+            string configFile = null;
             bool runForever = true;
             string guid = "";
             List<Client> clients = new List<Client>();
@@ -25,10 +26,19 @@ namespace BigQServerTest
             List<Permission> perms = new List<Permission>();
 
             Console.WriteLine("BigQ Server Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            Console.WriteLine("Use '--cfg=<filename>' to start with a configuration file");
             Console.WriteLine("Starting BigQ server at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss") + " UTC");
             Console.WriteLine("");
             
-            StartServer();
+            if (args != null && args.Length > 0)
+            {
+                foreach (string curr in args)
+                {
+                    if (curr.StartsWith("--cfg=")) configFile = curr.Substring(6);
+                }
+            }
+
+            StartServer(configFile);
 
             while (runForever)
             {
@@ -245,29 +255,43 @@ namespace BigQServerTest
 
         static bool StartServer()
         {
+            return StartServer(null);
+        }
+
+        static bool StartServer(string configFile)
+        {
             //
             // restart
             //
-            Console.WriteLine("Attempting to start/restart server");
-            if (server != null) server.Dispose();
-            server = null;
+            if (String.IsNullOrEmpty(configFile))
+            {
+                Console.WriteLine("Attempting to start/restart server using default configuration");
+                if (server != null) server.Dispose();
+                server = null;
 
-            //
-            // initialize with default configuration
-            //
-            server = new Server(null);
+                //
+                // initialize with default configuration
+                //
+                server = new Server(null);
 
-            server.Config.Debug.Enable = true;
-            server.Config.Debug.ConnectionMgmt = false;
-            server.Config.Debug.ChannelMgmt = false;
-            server.Config.Debug.SendHeartbeat = true;
-            server.Config.Heartbeat.IntervalMs = 1000;
+                server.Config.Debug.Enable = true;
+                server.Config.Debug.ConnectionMgmt = false;
+                server.Config.Debug.ChannelMgmt = false;
+                server.Config.Debug.SendHeartbeat = true;
+                server.Config.Heartbeat.IntervalMs = 1000;
 
-            server.MessageReceived = MessageReceived;
-            server.ServerStopped = StartServer;
-            server.ClientConnected = ClientConnected;
-            server.ClientLogin = ClientLogin;
-            server.ClientDisconnected = ClientDisconnected;
+                server.MessageReceived = MessageReceived;
+                server.ServerStopped = StartServer;
+                server.ClientConnected = ClientConnected;
+                server.ClientLogin = ClientLogin;
+                server.ClientDisconnected = ClientDisconnected;
+            }
+            else
+            {
+                Console.WriteLine("Attempting to start/restart server using " + configFile);
+                if (server != null) server.Dispose();
+                server = new Server(configFile);
+            }
 
             return true;
         }

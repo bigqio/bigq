@@ -330,7 +330,7 @@ namespace BigQ
                 #endregion
             }
 
-            #endregion\
+            #endregion
 
             #region Get-Data
 
