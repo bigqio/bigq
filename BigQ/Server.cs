@@ -957,7 +957,7 @@ namespace BigQ
                         numConsecutiveFailures++;
                         lastFailure = DateTime.Now;
 
-                        Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager failed to send heartbeat to client " + currentClient.IpPort + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
+                        Logging.Log(LoggingModule.Severity.Debug, "HeartbeatManager failed to send heartbeat to client " + currentClient.IpPort + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
 
                         if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
                         {
