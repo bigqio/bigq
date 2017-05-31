@@ -38,7 +38,7 @@
       "Debug":false
    },
    "WebsocketServer":{  
-      "Enable":true,
+      "Enable":false,
       "IP":"127.0.0.1",
       "Port":8002,
       "Debug":false
