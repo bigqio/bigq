@@ -25,11 +25,6 @@ namespace BigQClientTest
             List<Channel> channels = new List<Channel>();
             Message response = new Message();
             Dictionary<string, DateTime> pendingRequests;
-            
-            Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
-            Console.WriteLine("Use '--cfg=<filename>' to start with a configuration file");
-            Console.WriteLine("Starting BigQ client at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss"));
-            Console.WriteLine("");
 
             if (args != null && args.Length > 0)
             {
@@ -38,6 +33,12 @@ namespace BigQClientTest
                     if (curr.StartsWith("--cfg=")) configFile = curr.Substring(6);
                 }
             }
+
+            Console.WriteLine("");
+            Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            if (String.IsNullOrEmpty(configFile)) Console.WriteLine("|  Use '--cfg=<filename>' to start with a configuration file");
+            Console.WriteLine("|  You must manually issue the 'login' command after connecting!");
+            Console.WriteLine("");
 
             ConnectToServer(configFile);
             
@@ -497,7 +498,7 @@ namespace BigQClientTest
                     client.LogMessage = null; 
                 }
 
-                Console.WriteLine("Successfully logged into server");
+                Console.WriteLine("Successfully connected to server");
                 return true;
             }
             catch (SocketException)

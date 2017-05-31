@@ -25,11 +25,6 @@ namespace BigQServerTest
             List<User> users = new List<User>();
             List<Permission> perms = new List<Permission>();
 
-            Console.WriteLine("BigQ Server Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
-            Console.WriteLine("Use '--cfg=<filename>' to start with a configuration file");
-            Console.WriteLine("Starting BigQ server at " + DateTime.Now.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss") + " UTC");
-            Console.WriteLine("");
-            
             if (args != null && args.Length > 0)
             {
                 foreach (string curr in args)
@@ -37,6 +32,11 @@ namespace BigQServerTest
                     if (curr.StartsWith("--cfg=")) configFile = curr.Substring(6);
                 }
             }
+
+            Console.WriteLine("");
+            Console.WriteLine("BigQ Server Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
+            if (String.IsNullOrEmpty(configFile)) Console.WriteLine("|  Use '--cfg=<filename>' to start with a configuration file");
+            Console.WriteLine("");
 
             StartServer(configFile);
 

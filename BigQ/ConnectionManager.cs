@@ -220,6 +220,7 @@ namespace BigQ
             }
 
             bool found = false;
+            bool replace = false;
 
             lock (ClientsLock)
             {
@@ -228,9 +229,15 @@ namespace BigQ
                     if (String.Compare(curr.Key, currClient.IpPort) == 0)
                     {
                         Logging.Log(LoggingModule.Severity.Debug, "AddClient found existing entry for client IP:port " + currClient.IpPort);
-                        found = true;
+                        replace = true;
                         break;
                     }
+                }
+
+                if (replace)
+                {
+                    if (Clients.ContainsKey(currClient.IpPort)) Clients.Remove(currClient.IpPort);
+                    Clients.Add(currClient.IpPort, currClient);
                 }
 
                 if (!found)
