@@ -45,13 +45,13 @@
    },
    "WebsocketServer":{  
       "Enable":false,
-      "IP":"0.0.0.0",
+      "IP":"127.0.0.1",
       "Port":8002,
       "Debug":false
    },
    "WebsocketSslServer":{  
       "Enable":false,
-      "IP":"0.0.0.0",
+      "IP":"127.0.0.1",
       "Port":8003,
       "PfxCertFile":"server.pfx",
       "PfxCertPassword":"password",

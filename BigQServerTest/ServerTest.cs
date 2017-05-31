@@ -291,6 +291,12 @@ namespace BigQServerTest
                 Console.WriteLine("Attempting to start/restart server using " + configFile);
                 if (server != null) server.Dispose();
                 server = new Server(configFile);
+
+                server.MessageReceived = MessageReceived;
+                server.ServerStopped = StartServer;
+                server.ClientConnected = ClientConnected;
+                server.ClientLogin = ClientLogin;
+                server.ClientDisconnected = ClientDisconnected;
             }
 
             return true;

@@ -447,6 +447,7 @@ namespace BigQClientTest
                     if (client != null) client.Dispose();
                     client = null;
                     client = new Client(null);
+
                     client.Config.Heartbeat.IntervalMs = 1000;
                     client.AsyncMessageReceived = AsyncMessageReceived;
                     client.SyncMessageReceived = SyncMessageReceived;
@@ -478,6 +479,22 @@ namespace BigQClientTest
                     Console.WriteLine("Attempting to connect to server using " + configFile);
                     if (client != null) client.Dispose();
                     client = new Client(configFile);
+
+                    client.AsyncMessageReceived = AsyncMessageReceived;
+                    client.SyncMessageReceived = SyncMessageReceived;
+                    // client.ServerDisconnected = ServerDisconnected;
+                    client.ServerDisconnected = ConnectToServer;
+                    client.ServerConnected = ServerConnected;
+                    client.ClientJoinedServer = ClientJoinedServer;
+                    client.ClientLeftServer = ClientLeftServer;
+                    client.ClientJoinedChannel = ClientJoinedChannel;
+                    client.ClientLeftChannel = ClientLeftChannel;
+                    client.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                    client.SubscriberLeftChannel = SubscriberLeftChannel;
+                    client.ChannelCreated = ChannelCreated;
+                    client.ChannelDestroyed = ChannelDestroyed;
+                    client.LogMessage = LogMessage;
+                    client.LogMessage = null; 
                 }
 
                 Console.WriteLine("Successfully logged into server");
