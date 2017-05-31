@@ -533,7 +533,7 @@ namespace BigQClientTest
 
         static bool ServerConnected()
         {
-            Console.WriteLine("Server connected");
+            Console.WriteLine("Server connected and logged in");
             return true;
         }
 
