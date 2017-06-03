@@ -409,6 +409,124 @@ namespace BigQ
             return GetCurrentPermissionsFile();
         }
 
+        /// <summary>
+        /// Create a broadcast channel owned by the server.
+        /// </summary>
+        /// <param name="name">The name of the channel.</param>
+        /// <param name="guid">The GUID of the channel.  If null, a random GUID will be created.</param>
+        /// <param name="priv">Indicates whether or not the channel is private, i.e. hidden from list channel responses.</param>
+        public void CreateBroadcastChannel(string name, string guid, int priv)
+        {
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+
+            DateTime timestamp = DateTime.Now.ToUniversalTime();
+            Channel newChannel = new Channel();
+
+            if (!String.IsNullOrEmpty(guid)) newChannel.ChannelGUID = guid;
+            else newChannel.ChannelGUID = Guid.NewGuid().ToString();
+
+            newChannel.ChannelName = name;
+            newChannel.OwnerGUID = ServerGUID;
+            newChannel.CreatedUtc = timestamp;
+            newChannel.UpdatedUtc = timestamp;
+            newChannel.Private = priv;
+            newChannel.Broadcast = 1;
+            newChannel.Multicast = 0;
+            newChannel.Unicast = 0;
+            newChannel.Members = new List<Client>();
+            newChannel.Subscribers = new List<Client>();
+            
+            ChannelMgr.AddChannel(newChannel);
+
+            Logging.Log(LoggingModule.Severity.Debug, "CreateBroadcastChannel successfully added server channel with GUID " + newChannel.ChannelGUID);
+            return;
+        }
+
+        /// <summary>
+        /// Create a unicast channel owned by the server.
+        /// </summary>
+        /// <param name="name">The name of the channel.</param>
+        /// <param name="guid">The GUID of the channel.  If null, a random GUID will be created.</param>
+        /// <param name="priv">Indicates whether or not the channel is private, i.e. hidden from list channel responses.</param>
+        public void CreateUnicastChannel(string name, string guid, int priv)
+        {
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+
+            DateTime timestamp = DateTime.Now.ToUniversalTime();
+            Channel newChannel = new Channel();
+
+            if (!String.IsNullOrEmpty(guid)) newChannel.ChannelGUID = guid;
+            else newChannel.ChannelGUID = Guid.NewGuid().ToString();
+
+            newChannel.ChannelName = name;
+            newChannel.OwnerGUID = ServerGUID;
+            newChannel.CreatedUtc = timestamp;
+            newChannel.UpdatedUtc = timestamp;
+            newChannel.Private = priv;
+            newChannel.Broadcast = 0;
+            newChannel.Multicast = 0;
+            newChannel.Unicast = 1;
+            newChannel.Members = new List<Client>();
+            newChannel.Subscribers = new List<Client>();
+
+            ChannelMgr.AddChannel(newChannel);
+
+            Logging.Log(LoggingModule.Severity.Debug, "CreateUnicastChannel successfully added server channel with GUID " + newChannel.ChannelGUID);
+            return;
+        }
+
+        /// <summary>
+        /// Create a multicast channel owned by the server.
+        /// </summary>
+        /// <param name="name">The name of the channel.</param>
+        /// <param name="guid">The GUID of the channel.  If null, a random GUID will be created.</param>
+        /// <param name="priv">Indicates whether or not the channel is private, i.e. hidden from list channel responses.</param>
+        public void CreateMulticastChannel(string name, string guid, int priv)
+        {
+            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
+
+            DateTime timestamp = DateTime.Now.ToUniversalTime();
+            Channel newChannel = new Channel();
+
+            if (!String.IsNullOrEmpty(guid)) newChannel.ChannelGUID = guid;
+            else newChannel.ChannelGUID = Guid.NewGuid().ToString();
+
+            newChannel.ChannelName = name;
+            newChannel.OwnerGUID = ServerGUID;
+            newChannel.CreatedUtc = timestamp;
+            newChannel.UpdatedUtc = timestamp;
+            newChannel.Private = priv;
+            newChannel.Broadcast = 0;
+            newChannel.Multicast = 1;
+            newChannel.Unicast = 0;
+            newChannel.Members = new List<Client>();
+            newChannel.Subscribers = new List<Client>();
+
+            ChannelMgr.AddChannel(newChannel);
+
+            Logging.Log(LoggingModule.Severity.Debug, "CreateMulticastChannel successfully added server channel with GUID " + newChannel.ChannelGUID);
+            return;
+        }
+
+        /// <summary>
+        /// Delete a channel from the server.
+        /// </summary>
+        /// <param name="guid">The GUID of the channel.</param>
+        /// <returns>Boolean indicating success.</returns>
+        public bool DeleteChannel(string guid)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+
+            Channel currentChannel = ChannelMgr.GetChannelByGUID(guid);
+            if (currentChannel == null)
+            {
+                Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel unable to find specified channel");
+                return false;
+            }
+
+            return RemoveChannel(currentChannel);
+        }
+
         #endregion
 
         #region Private-Watson-Methods

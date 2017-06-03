@@ -14,8 +14,7 @@ namespace BigQServerTest
         static void Main(string[] args)
         {
             string configFile = null;
-            bool runForever = true;
-            string guid = "";
+            bool runForever = true; 
             List<Client> clients = new List<Client>();
             List<Client> members = new List<Client>();
             List<Client> subscribers = new List<Client>();
@@ -55,6 +54,8 @@ namespace BigQServerTest
                         Console.WriteLine("");
                         Console.WriteLine("Channel Commands:");
                         Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
+                        Console.WriteLine("  createbcastchanel  createucastchannel  createmcastchannel");
+                        Console.WriteLine("  deletechannel");
                         Console.WriteLine("");
                         Console.WriteLine("Client Commands:");
                         Console.WriteLine("  listclients  listclientguidmaps");
@@ -96,9 +97,8 @@ namespace BigQServerTest
                         break;
 
                     case "listchannelmembers":
-                        Console.Write("Channel GUID: ");
-                        guid = Console.ReadLine();
-                        members = server.ListChannelMembers(guid);
+                        members = server.ListChannelMembers(
+                            Helper.InputString("Channel GUID:", null, false));
                         if (members != null)
                         {
                             foreach (Client curr in members)
@@ -117,10 +117,9 @@ namespace BigQServerTest
                         }
                         break;
 
-                    case "listchannelsubscribers":
-                        Console.Write("Channel GUID: ");
-                        guid = Console.ReadLine();
-                        subscribers = server.ListChannelSubscribers(guid);
+                    case "listchannelsubscribers": 
+                        subscribers = server.ListChannelSubscribers(
+                            Helper.InputString("Channel GUID:", null, false));
                         if (subscribers != null)
                         {
                             foreach (Client curr in subscribers)
@@ -139,6 +138,38 @@ namespace BigQServerTest
                         }
                         break;
 
+                    case "createbcastchannel":
+                        server.CreateBroadcastChannel(
+                            Helper.InputString("Channel name:", null, false),
+                            Helper.InputString("Channel GUID:", null, true),
+                            Helper.InputInteger("Private:", 0, true, true));
+                        break;
+
+                    case "createucastchannel":
+                        server.CreateUnicastChannel(
+                            Helper.InputString("Channel name:", null, false),
+                            Helper.InputString("Channel GUID:", null, true),
+                            Helper.InputInteger("Private:", 0, true, true)); break;
+
+                    case "createmcastchannel":
+                        server.CreateMulticastChannel(
+                            Helper.InputString("Channel name:", null, false),
+                            Helper.InputString("Channel GUID:", null, true),
+                            Helper.InputInteger("Private:", 0, true, true));  
+                        break;
+
+                    case "deletechannel":
+                        if (server.DeleteChannel(
+                            Helper.InputString("Channel GUID:", null, false)))
+                        {
+                            Console.WriteLine("Success");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed");
+                        }
+                        break;
+                        
                     case "listclients":
                         clients = server.ListClients();
                         if (clients != null)

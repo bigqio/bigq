@@ -14,11 +14,7 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
 ## New in v1.7.0
-
-- further refactoring
-- bugfixes
-- performance improvements
-- reduced CPU utilization
+- create and delete channels from the server
 
 ## Description
 
@@ -206,16 +202,20 @@ mono --server myapp.exe
 ## Version History
 
 Notes from previous versions (starting with v1.5.0) will be moved here.
-v1.6.0
+v1.7.x
+- further refactoring
+- bugfixes
+- performance improvements
+- reduced CPU utilization
+
+v1.6.x
 - forced use of heartbeats, moved disconnect detect into heartbeat manager
 - major refactor (connection manager, channel manager, variable naming consistency) 
 - new events for public channel creation and destroy operations 
 - many bugfixes
 
-v1.5.1
+v1.5.x
 - bugfix for disconnect detect
-
-v1.5.0
 - synchronous and asynchronous channels (previously only async, APIs have changed)
 - unicast channels (random single recipient)
 - server channels (started on server startup)

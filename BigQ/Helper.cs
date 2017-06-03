@@ -1112,6 +1112,8 @@ namespace BigQ
 
         #endregion
 
+        #region Conversion-and-Serialization
+
         public static object BytesToObject(byte[] Data)
         {
             using (var ms = new MemoryStream())
@@ -1184,38 +1186,182 @@ namespace BigQ
             T ret = DeserializeJson<T>(json);
             return ret;
         }
-         
-        private static bool SanitizeString(string dirty, out string clean)
+
+        public static List<object> ObjectToList(object o)
         {
-            clean = null;
-
-            try
+            if (o == null) return null;
+            List<object> ret = new List<object>();
+            var enumerator = ((IEnumerable)o).GetEnumerator();
+            while (enumerator.MoveNext())
             {
-                if (String.IsNullOrEmpty(dirty)) return true;
+                ret.Add(enumerator.Current);
+            }
+            return ret;
+        }
 
-                // null, below ASCII range, above ASCII range
-                for (int i = 0; i < dirty.Length; i++)
+        #endregion
+
+        #region Input
+
+        public static bool InputBoolean(string question, bool yesDefault)
+        {
+            Console.Write(question);
+
+            if (yesDefault) Console.Write(" [Y/n]? ");
+            else Console.Write(" [y/N]? ");
+
+            string userInput = Console.ReadLine();
+
+            if (String.IsNullOrEmpty(userInput))
+            {
+                if (yesDefault) return true;
+                return false;
+            }
+
+            userInput = userInput.ToLower();
+
+            if (yesDefault)
+            {
+                if (
+                    (String.Compare(userInput, "n") == 0)
+                    || (String.Compare(userInput, "no") == 0)
+                   )
                 {
-                    if (((int)(dirty[i]) == 0) ||    // null
-                        ((int)(dirty[i]) < 32) ||    // below ASCII range
-                        ((int)(dirty[i]) > 126)      // above ASCII range
-                        )
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        clean += dirty[i];
-                    }
+                    return false;
                 }
 
                 return true;
             }
-            catch (Exception)
+            else
             {
+                if (
+                    (String.Compare(userInput, "y") == 0)
+                    || (String.Compare(userInput, "yes") == 0)
+                   )
+                {
+                    return true;
+                }
+
                 return false;
             }
         }
+
+        public static List<string> InputStringList(string question)
+        {
+            Console.WriteLine("Press ENTER with no data to end");
+            List<string> ret = new List<string>();
+            while (true)
+            {
+                Console.Write(question + " ");
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput)) break;
+                ret.Add(userInput);
+            }
+            return ret;
+        }
+
+        public static string InputString(string question, string defaultAnswer, bool allowNull)
+        {
+            while (true)
+            {
+                Console.Write(question);
+
+                if (!String.IsNullOrEmpty(defaultAnswer))
+                {
+                    Console.Write(" [" + defaultAnswer + "]");
+                }
+
+                Console.Write(" ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    if (!String.IsNullOrEmpty(defaultAnswer)) return defaultAnswer;
+                    if (allowNull) return null;
+                    else continue;
+                }
+
+                return userInput;
+            }
+        }
+
+        public static int InputInteger(string question, int defaultAnswer, bool positiveOnly, bool allowZero)
+        {
+            while (true)
+            {
+                Console.Write(question);
+                Console.Write(" [" + defaultAnswer + "] ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    return defaultAnswer;
+                }
+
+                int ret;
+                if (!Int32.TryParse(userInput, out ret))
+                {
+                    Console.WriteLine("Please enter a valid integer.");
+                    continue;
+                }
+
+                if (ret == 0 && allowZero)
+                {
+                    return 0;
+                }
+
+                if (ret < 0 && positiveOnly)
+                {
+                    Console.WriteLine("Please enter a value greater than zero.");
+                    continue;
+                }
+
+                return ret;
+            }
+        }
+
+        public static decimal InputDecimal(string question, decimal defaultAnswer, bool positiveOnly, bool allowZero)
+        {
+            while (true)
+            {
+                Console.Write(question);
+                Console.Write(" [" + defaultAnswer + "] ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    return defaultAnswer;
+                }
+
+                decimal ret;
+                if (!Decimal.TryParse(userInput, out ret))
+                {
+                    Console.WriteLine("Please enter a valid decimal.");
+                    continue;
+                }
+
+                if (ret == 0 && allowZero)
+                {
+                    return 0;
+                }
+
+                if (ret < 0 && positiveOnly)
+                {
+                    Console.WriteLine("Please enter a value greater than zero.");
+                    continue;
+                }
+
+                return ret;
+            }
+        }
+
+        #endregion
+
+        #region Is-True
 
         public static bool IsTrue(int? val)
         {
@@ -1258,17 +1404,7 @@ namespace BigQ
                    o.GetType().IsGenericType &&
                    o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>));
         }
-        
-        public static List<object> ObjectToList(object o)
-        {
-            if (o == null) return null;
-            List<object> ret = new List<object>();
-            var enumerator = ((IEnumerable)o).GetEnumerator();
-            while (enumerator.MoveNext())
-            {
-                ret.Add(enumerator.Current);
-            }
-            return ret;
-        }
+
+        #endregion
     }
 }
