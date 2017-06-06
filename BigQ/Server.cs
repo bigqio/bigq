@@ -2356,12 +2356,12 @@ namespace BigQ
 
                     Task.Run(() =>
                     {
-                        foreach (Client Client in tempMembers)
+                        foreach (Client currentClient in tempMembers)
                         {
-                            if (String.Compare(Client.ClientGUID, currentChannel.OwnerGUID) != 0)
+                            if (String.Compare(currentClient.ClientGUID, currentChannel.OwnerGUID) != 0)
                             {
-                                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel notifying channel " + tempChannel.ChannelGUID + " member " + Client.ClientGUID + " of channel deletion by owner");
-                                SendSystemMessage(MsgBuilder.ChannelDeletedByOwner(Client, tempChannel));
+                                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel notifying channel " + tempChannel.ChannelGUID + " member " + currentClient.ClientGUID + " of channel deletion by owner");
+                                SendSystemMessage(MsgBuilder.ChannelDeletedByOwner(currentClient, tempChannel));
                             }
                         }
                     }
