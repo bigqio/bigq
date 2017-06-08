@@ -3928,7 +3928,7 @@ namespace BigQ
                     temp.ClientGUID = curr.ClientGUID;
                     temp.CreatedUtc = curr.CreatedUtc;
                     temp.UpdatedUtc = curr.UpdatedUtc;
-
+                    
                     ret.Add(temp);
                 } 
             }

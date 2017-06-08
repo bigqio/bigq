@@ -75,16 +75,16 @@ namespace BigQ
         /// <returns></returns>
         public static byte[] ToBytes(ErrorTypes error, string detail, object data)
         {
-            FailureData e = new FailureData();
-            e.Success = false;
-            e.ErrorDetail = detail;
-            e.ErrorType = error;
-            e.Data = data;
+            Dictionary<string, object> outer = new Dictionary<string, object>();
+            outer.Add("Success", false);
 
-            Dictionary<string, object> dict = new Dictionary<string, object>();
-            dict.Add("Error", e);
+            Dictionary<string, object> inner = new Dictionary<string, object>();
+            inner.Add("ErrorType", error.ToString());
+            if (!String.IsNullOrEmpty(detail)) inner.Add("ErrorDetail", detail);
+            if (data != null) inner.Add("Data", data);
 
-            return Encoding.UTF8.GetBytes(Helper.SerializeJson(dict));
+            outer.Add("Error", inner);
+            return Encoding.UTF8.GetBytes(Helper.SerializeJson(outer));
         }
 
         #endregion
