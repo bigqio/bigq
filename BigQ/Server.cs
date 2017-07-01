@@ -1712,6 +1712,10 @@ namespace BigQ
                     #endregion
                 }
             }
+            catch (ThreadAbortException)
+            {
+                // do nothing
+            }
             catch (Exception e)
             {
                 Logging.LogException("Server", "MonitorUsersFile", e);
@@ -1837,6 +1841,10 @@ namespace BigQ
 
                     #endregion
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                // do nothing
             }
             catch (Exception e)
             {
@@ -2264,6 +2272,10 @@ namespace BigQ
                     
                     #endregion
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                // do nothing
             }
             catch (Exception e)
             {
