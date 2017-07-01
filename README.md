@@ -13,8 +13,8 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
-## New in v1.7.5
-- Update to support changes in WatsonWebsocket
+## New in v1.7.6
+- Bugfixes
 
 ## Description
 
@@ -203,6 +203,7 @@ mono --server myapp.exe
 
 Notes from previous versions (starting with v1.5.0) will be moved here.
 v1.7.x
+- update to support changes in WatsonWebsocket
 - create and delete channels from the server
 - further refactoring
 - bugfixes
