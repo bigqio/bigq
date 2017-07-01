@@ -1094,6 +1094,10 @@ namespace BigQ
 
                 #endregion
             }
+            catch (ThreadAbortException)
+            {
+                // do nothing
+            }
             catch (Exception e)
             { 
                 Logging.LogException("Server", "HeartbeatManager " + currentClient.IpPort, e);
