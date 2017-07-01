@@ -607,7 +607,7 @@ namespace BigQ
             return true;
         }
 
-        private bool WWsClientConnected(string ipPort)
+        private bool WWsClientConnected(string ipPort, IDictionary<string, string> qs)
         {
             try
             {
@@ -662,7 +662,7 @@ namespace BigQ
             }
         }
 
-        private bool WWsSslClientConnected(string ipPort)
+        private bool WWsSslClientConnected(string ipPort, IDictionary<string, string> qs)
         {
             Logging.Log(LoggingModule.Severity.Debug, "WWsSslClientConnected new connection from " + ipPort);
             Client currentClient = new Client(ipPort, false, true, true);
@@ -3918,8 +3918,8 @@ namespace BigQ
                 foreach (Client curr in clients)
                 {
                     Client temp = new Client();
-                    temp.IpPort = curr.IpPort;
                     temp.IsTcp = curr.IsTcp;
+                    temp.IpPort = curr.IpPort;
                     temp.IsWebsocket = curr.IsWebsocket;
                     temp.IsSsl = curr.IsSsl;
                      
