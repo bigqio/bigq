@@ -315,6 +315,188 @@ namespace BigQ
             #endregion
         }
 
+        /// <summary>
+        /// Start an instance of the BigQ server process.
+        /// </summary>
+        /// <param name="config">Populated server configuration object.</param>
+        public Server(ServerConfiguration config)
+        {
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            config.ValidateConfig();
+            Config = config;
+
+            #region Initialize-Logging
+
+            Logging = new LoggingModule(
+                Config.Logging.SyslogServerIp,
+                Config.Logging.SyslogServerPort,
+                Config.Logging.ConsoleLogging,
+                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true);
+
+            #endregion
+
+            #region Set-Class-Variables
+
+            if (!String.IsNullOrEmpty(Config.GUID)) ServerGUID = Config.GUID;
+
+            MsgBuilder = new MessageBuilder(ServerGUID);
+            ConnMgr = new ConnectionManager(Logging, Config);
+            ChannelMgr = new ChannelManager(Logging, Config);
+            ClientActiveSendMap = new ConcurrentDictionary<string, DateTime>();
+
+            UsersLastModified = "";
+            UsersList = new ConcurrentList<User>();
+            PermissionsLastModified = "";
+            PermissionsList = new ConcurrentList<Permission>();
+
+            #endregion
+
+            #region Set-Delegates-to-Null
+
+            MessageReceived = null;
+            ServerStopped = null;
+            ClientConnected = null;
+            ClientLogin = null;
+            ClientDisconnected = null;
+
+            #endregion
+
+            #region Start-Users-and-Permissions-File-Monitor
+
+            UsersCancellationTokenSource = new CancellationTokenSource();
+            UsersCancellationToken = UsersCancellationTokenSource.Token;
+            Task.Run(() => MonitorUsersFile(), UsersCancellationToken);
+
+            PermissionsCancellationTokenSource = new CancellationTokenSource();
+            PermissionsCancellationToken = PermissionsCancellationTokenSource.Token;
+            Task.Run(() => MonitorPermissionsFile(), PermissionsCancellationToken);
+
+            #endregion
+
+            #region Start-Cleanup-Task
+
+            CleanupCancellationTokenSource = new CancellationTokenSource();
+            CleanupCancellationToken = CleanupCancellationTokenSource.Token;
+            Task.Run(() => CleanupTask(), CleanupCancellationToken);
+
+            #endregion
+
+            #region Start-Server-Channels
+
+            if (Config.ServerChannels != null && Config.ServerChannels.Count > 0)
+            {
+                Client CurrentClient = new Client();
+                CurrentClient.Email = null;
+                CurrentClient.Password = null;
+                CurrentClient.ClientGUID = ServerGUID;
+                CurrentClient.IpPort = "127.0.0.1:0";
+                CurrentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+                CurrentClient.UpdatedUtc = CurrentClient.CreatedUtc;
+
+                foreach (Channel curr in Config.ServerChannels)
+                {
+                    if (!AddChannel(CurrentClient, curr))
+                    {
+                        Logging.Log(LoggingModule.Severity.Warn, "Unable to add server channel " + curr.ChannelName);
+                    }
+                    else
+                    {
+                        Logging.Log(LoggingModule.Severity.Debug, "Added server channel " + curr.ChannelName);
+                    }
+                }
+            }
+
+            #endregion
+
+            #region Start-Watson-Servers
+
+            if (Config.TcpServer.Enable)
+            {
+                #region Start-TCP-Server
+
+                Logging.Log(LoggingModule.Severity.Debug, "Starting TCP server: " + Config.TcpServer.Ip + ":" + Config.TcpServer.Port);
+
+                WTcpServer = new WatsonTcpServer(
+                    Config.TcpServer.Ip,
+                    Config.TcpServer.Port,
+                    WTcpClientConnected,
+                    WTcpClientDisconnected,
+                    WTcpMessageReceived,
+                    Config.TcpServer.Debug);
+
+                #endregion
+            }
+
+            if (Config.TcpSslServer.Enable)
+            {
+                #region Start-TCP-SSL-Server
+
+                Logging.Log(LoggingModule.Severity.Debug, "Starting TCP SSL server: " + Config.TcpSslServer.Ip + ":" + Config.TcpSslServer.Port);
+
+                WTcpSslServer = new WatsonTcpSslServer(
+                    Config.TcpSslServer.Ip,
+                    Config.TcpSslServer.Port,
+                    Config.TcpSslServer.PfxCertFile,
+                    Config.TcpSslServer.PfxCertPassword,
+                    Config.TcpSslServer.AcceptInvalidCerts,
+                    false,
+                    WTcpSslClientConnected,
+                    WTcpSslClientDisconnected,
+                    WTcpSslMessageReceived,
+                    Config.TcpSslServer.Debug);
+
+                #endregion
+            }
+
+            if (Config.WebsocketServer.Enable)
+            {
+                #region Start-Websocket-Server
+
+                Logging.Log(LoggingModule.Severity.Debug, "Starting websocket server: " + Config.WebsocketServer.Ip + ":" + Config.WebsocketServer.Port);
+
+                WWsServer = new WatsonWsServer(
+                    Config.WebsocketServer.Ip,
+                    Config.WebsocketServer.Port,
+                    false,
+                    false,
+                    null,
+                    WWsClientConnected,
+                    WWsClientDisconnected,
+                    WWsMessageReceived,
+                    Config.WebsocketServer.Debug);
+
+                #endregion
+            }
+
+            if (Config.WebsocketSslServer.Enable)
+            {
+                #region Start-Websocket-SSL-Server
+
+                Logging.Log(LoggingModule.Severity.Debug, "Starting websocket SSL server: " + Config.WebsocketSslServer.Ip + ":" + Config.WebsocketSslServer.Port);
+
+                WWsSslServer = new WatsonWsServer(
+                    Config.WebsocketSslServer.Ip,
+                    Config.WebsocketSslServer.Port,
+                    true,
+                    Config.WebsocketSslServer.AcceptInvalidCerts,
+                    null,
+                    WWsSslClientConnected,
+                    WWsSslClientDisconnected,
+                    WWsSslMessageReceived,
+                    Config.WebsocketServer.Debug);
+
+                #endregion
+            }
+
+            #endregion
+        }
+
         #endregion
 
         #region Public-Methods
@@ -2510,58 +2692,7 @@ namespace BigQ
         #endregion
 
         #region Private-Message-Processing-Methods
-        
-        private Channel BuildChannelFromMessageData(Client currentClient, Message currentMessage)
-        {
-            if (currentClient == null)
-            {
-                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData null client supplied");
-                return null;
-            }
-
-            if (currentMessage == null)
-            {
-                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData null channel supplied");
-                return null;
-            }
-
-            if (currentMessage.Data == null)
-            {
-                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData null data supplied in message");
-                return null;
-            }
-
-            Channel ret = null;
-            try
-            {
-                ret = Helper.DeserializeJson<Channel>(currentMessage.Data);
-            }
-            catch (Exception e)
-            {
-                Logging.LogException("Server", "BuildChannelFromMessageData", e);
-                ret = null;
-            }
-
-            if (ret == null)
-            {
-                Logging.Log(LoggingModule.Severity.Warn, "BuildChannelFromMessageData unable to convert message body to Channel object");
-                return null;
-            }
-
-            // assume ret.Private is set in the request
-            if (ret.Private == default(int)) ret.Private = 0;
-
-            if (String.IsNullOrEmpty(ret.ChannelGUID)) ret.ChannelGUID = Guid.NewGuid().ToString();
-            if (String.IsNullOrEmpty(ret.ChannelName)) ret.ChannelName = ret.ChannelGUID;
-            ret.CreatedUtc = DateTime.Now.ToUniversalTime();
-            ret.UpdatedUtc = ret.CreatedUtc;
-            ret.OwnerGUID = currentClient.ClientGUID;
-            ret.Members = new List<Client>();
-            ret.Members.Add(currentClient);
-            ret.Subscribers = new List<Client>();
-            return ret;
-        }
-
+         
         private bool MessageProcessor(Client currentClient, Message currentMessage)
         {  
             #region Check-for-Null-Values
@@ -3656,7 +3787,7 @@ namespace BigQ
 
             if (currentChannel == null)
             {
-                Channel requestChannel = BuildChannelFromMessageData(currentClient, currentMessage);
+                Channel requestChannel = Channel.FromMessage(currentClient, currentMessage);
                 if (requestChannel == null)
                 {
                     Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage unable to build Channel from Message data");

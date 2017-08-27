@@ -303,7 +303,7 @@ namespace BigQServerTest
                 //
                 // initialize with default configuration
                 //
-                server = new Server(null);
+                server = new Server(ServerConfiguration.DefaultConfig());
 
                 server.Config.Debug.Enable = true;
                 server.Config.Debug.ConnectionMgmt = false;

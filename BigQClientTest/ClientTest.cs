@@ -447,7 +447,7 @@ namespace BigQClientTest
                     Console.WriteLine("Attempting to connect to server using default configuration");
                     if (client != null) client.Dispose();
                     client = null;
-                    client = new Client(null);
+                    client = new Client(ClientConfiguration.DefaultConfig());
 
                     client.Config.Heartbeat.IntervalMs = 1000;
                     client.AsyncMessageReceived = AsyncMessageReceived;

@@ -394,6 +394,169 @@ namespace BigQ
         }
 
         /// <summary>
+        /// Start an instance of the BigQ client process.
+        /// </summary>
+        /// <param name="config">Populated client configuration object.</param>
+        public Client(ClientConfiguration config)
+        {
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            config.ValidateConfig();
+            Config = config;
+
+            #region Initialize-Logging
+
+            Logging = new LoggingModule(
+                Config.Logging.SyslogServerIp,
+                Config.Logging.SyslogServerPort,
+                Config.Logging.ConsoleLogging,
+                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true);
+
+            #endregion
+
+            #region Set-Class-Variables
+
+            if (String.IsNullOrEmpty(Config.GUID)) Config.GUID = Guid.NewGuid().ToString();
+            if (String.IsNullOrEmpty(Config.Email)) Config.Email = Config.GUID;
+            if (String.IsNullOrEmpty(Config.Password)) Config.Password = Config.GUID;
+            if (String.IsNullOrEmpty(Config.ServerGUID)) Config.ServerGUID = "00000000-0000-0000-0000-000000000000";
+
+            Email = Config.Email;
+            ClientGUID = Config.GUID;
+            ServerGuid = Config.ServerGUID;
+            Password = Config.Password;
+
+            SyncRequests = new ConcurrentDictionary<string, DateTime>();
+            SyncResponses = new ConcurrentDictionary<string, Message>();
+            Connected = false;
+            LoggedIn = false;
+
+            #endregion
+
+            #region Set-Delegates-to-Null
+
+            AsyncMessageReceived = null;
+            SyncMessageReceived = null;
+            ServerDisconnected = null;
+            ClientJoinedServer = null;
+            ClientLeftServer = null;
+            ClientJoinedChannel = null;
+            ClientLeftChannel = null;
+            ChannelCreated = null;
+            ChannelDestroyed = null;
+            LogMessage = null;
+
+            #endregion
+
+            #region Start-Client
+
+            if (Config.TcpServer.Enable)
+            {
+                #region Start-TCP-Client
+
+                WTcpClient = new WatsonTcpClient(
+                    Config.TcpServer.Ip,
+                    Config.TcpServer.Port,
+                    WTcpServerConnected,
+                    WTcpServerDisconnected,
+                    WTcpMessageReceived,
+                    Config.TcpServer.Debug);
+
+                Connected = true;
+
+                #endregion
+            }
+            else if (Config.TcpSslServer.Enable)
+            {
+                #region Start-TCP-SSL-Client
+
+                WTcpSslClient = new WatsonTcpSslClient(
+                    Config.TcpSslServer.Ip,
+                    Config.TcpSslServer.Port,
+                    Config.TcpSslServer.PfxCertFile,
+                    Config.TcpSslServer.PfxCertPassword,
+                    Config.TcpSslServer.AcceptInvalidCerts,
+                    false,
+                    WTcpSslServerConnected,
+                    WTcpSslServerDisconnected,
+                    WTcpSslMessageReceived,
+                    Config.TcpSslServer.Debug);
+
+                Connected = true;
+
+                #endregion
+            }
+            else if (Config.WebsocketServer.Enable)
+            {
+                #region Start-Websocket-Client
+
+                WWsClient = new WatsonWsClient(
+                    Config.WebsocketServer.Ip,
+                    Config.WebsocketServer.Port,
+                    false,
+                    false,
+                    WWsServerConnected,
+                    WWsServerDisconnected,
+                    WWsMessageReceived,
+                    Config.WebsocketServer.Debug);
+
+                Connected = true;
+
+                #endregion
+            }
+            else if (Config.WebsocketSslServer.Enable)
+            {
+                #region Start-Websocket-SSL-Client
+
+                WWsSslClient = new WatsonWsClient(
+                    Config.WebsocketSslServer.Ip,
+                    Config.WebsocketSslServer.Port,
+                    true,
+                    Config.WebsocketSslServer.AcceptInvalidCerts,
+                    WWsSslServerConnected,
+                    WWsSslServerDisconnected,
+                    WWsSslMessageReceived,
+                    Config.WebsocketSslServer.Debug);
+
+                Connected = true;
+
+                #endregion
+            }
+            else
+            {
+                #region Unknown-Server
+
+                throw new ArgumentException("Exactly one server must be enabled in the configuration file.");
+
+                #endregion
+            }
+
+            #endregion
+
+            #region Start-Tasks
+
+            CleanupSyncTokenSource = new CancellationTokenSource();
+            CleanupSyncToken = CleanupSyncTokenSource.Token;
+            Task.Run(() => CleanupSyncRequests(), CleanupSyncToken);
+
+            // do not start heartbeat until successful login
+            // design goal: server needs to free up connections fast
+            // client just needs to keep socket open
+
+            //
+            // HeartbeatTokenSource = new CancellationTokenSource();
+            // HeartbeatToken = HeartbeatTokenSource.Token;
+            // Task.Run(() => TCPHeartbeatManager());
+
+            #endregion
+        }
+
+        /// <summary>
         /// Used by the server, do not use!
         /// </summary>
         /// <param name="ipPort">The IP:port of the client.</param>

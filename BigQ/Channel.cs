@@ -12,7 +12,7 @@ namespace BigQ
     [Serializable]
     public class Channel
     {
-        #region Class-Members
+        #region Public-Members
 
         /// <summary>
         /// The GUID of the channel.
@@ -71,6 +71,10 @@ namespace BigQ
 
         #endregion
 
+        #region Private-Members
+
+        #endregion
+
         #region Constructor
 
         public Channel()
@@ -81,6 +85,49 @@ namespace BigQ
             Members = new List<Client>();
             Subscribers = new List<Client>();
         }
+
+        #endregion
+
+        #region Public-Methods
+
+        public static Channel FromMessage(Client currentClient, Message currentMessage)
+        {
+            if (currentClient == null) throw new ArgumentNullException(nameof(currentClient));
+            if (currentMessage == null) throw new ArgumentNullException(nameof(currentMessage));
+            if (currentMessage.Data == null) throw new ArgumentException("Message data cannot be null.");
+
+            Channel ret = null;
+            try
+            {
+                ret = Helper.DeserializeJson<Channel>(currentMessage.Data);
+            }
+            catch (Exception)
+            { 
+                ret = null;
+            }
+
+            if (ret == null)
+            {
+                return null;
+            }
+
+            // assume ret.Private is set in the request
+            if (ret.Private == default(int)) ret.Private = 0;
+
+            if (String.IsNullOrEmpty(ret.ChannelGUID)) ret.ChannelGUID = Guid.NewGuid().ToString();
+            if (String.IsNullOrEmpty(ret.ChannelName)) ret.ChannelName = ret.ChannelGUID;
+            ret.CreatedUtc = DateTime.Now.ToUniversalTime();
+            ret.UpdatedUtc = ret.CreatedUtc;
+            ret.OwnerGUID = currentClient.ClientGUID;
+            ret.Members = new List<Client>();
+            ret.Members.Add(currentClient);
+            ret.Subscribers = new List<Client>();
+            return ret;
+        }
+
+        #endregion
+
+        #region Private-Methods
 
         #endregion
     }
