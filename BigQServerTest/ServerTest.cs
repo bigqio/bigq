@@ -305,8 +305,10 @@ namespace BigQServerTest
                 //
                 server = new Server(ServerConfiguration.DefaultConfig());
 
+                server.Config.Logging.MinimumSeverity = 0;
+                server.Config.Logging.ConsoleLogging = true;
                 server.Config.Debug.Enable = true;
-                server.Config.Debug.ConnectionMgmt = false;
+                server.Config.Debug.ConnectionMgmt = true;
                 server.Config.Debug.ChannelMgmt = false;
                 server.Config.Debug.SendHeartbeat = true;
                 server.Config.Heartbeat.IntervalMs = 1000;

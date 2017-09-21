@@ -34,27 +34,27 @@ namespace BigQ
         /// <summary>
         /// Command issued by the sender.  Primarily used in messages directed toward the server or events.
         /// </summary>
-        public string Command;                          // used for server messaging
+        public string Command;
 
         /// <summary>
         /// Timestamp indicating when the message was created.
         /// </summary>
-        public DateTime? CreatedUtc;                    // message timestamp in UTC time
+        public DateTime? CreatedUtc;
 
         /// <summary>
         /// Contained in a response message to indicate if the request message was successful.
         /// </summary>
-        public bool? Success;                           // set by receiver when responding
+        public bool? Success;
 
         /// <summary>
         /// Set by the sender to indicate if the message should be handled synchronously by the receiver (i.e. the sender is blocking while waiting for a response).
         /// </summary>
-        public bool? SyncRequest;                       // set by receiver when sending
+        public bool? SyncRequest;
 
         /// <summary>
         /// Set by the recipient to indicate that the message is a response to a synchronous request message.
         /// </summary>
-        public bool? SyncResponse;                      // set by receiver when responding
+        public bool? SyncResponse;
         
         /// <summary>
         /// The amount of time in milliseconds to wait to receive a response to this message, if synchronous.  This parameter will override the value in the client configuration. 
@@ -64,37 +64,47 @@ namespace BigQ
         /// <summary>
         /// Unique identifier for the message.
         /// </summary>
-        public string MessageID;                        // GUID
+        public string MessageID;
 
         /// <summary>
         /// Reserved for future use.
         /// </summary>
-        public string ConversationID;                   // can be used for grouping messages into conversation
+        public string ConversationID;
 
         /// <summary>
         /// Reserved for future use.
         /// </summary>
-        public long? MessageSeqnum;             // can be used to indicate message ordering
+        public long? MessageSeqnum;
 
         /// <summary>
         /// Unique identifier for the sender.
         /// </summary>
-        public string SenderGUID;                       // sender's GUID
+        public string SenderGUID;
+
+        /// <summary>
+        /// The name of the sender.
+        /// </summary>
+        public string SenderName;
 
         /// <summary>
         /// Unique identifier for the recipient.
         /// </summary>
-        public string RecipientGUID;                    // recipient's GUID
+        public string RecipientGUID;
 
         /// <summary>
         /// Unique identifier for the channel.
         /// </summary>
-        public string ChannelGUID;                      // channel's GUID or null
+        public string ChannelGUID;
 
         /// <summary>
-        /// Dictionary containing key/value pairs for user-supplied headers.
+        /// The name of the channel.
         /// </summary>
-        public Dictionary<string, string> UserHeaders;  // anything starting with x-
+        public string ChannelName;
+
+        /// <summary>
+        /// Dictionary containing key/value pairs for user-supplied headers (anything starting with x-).
+        /// </summary>
+        public Dictionary<string, string> UserHeaders;
 
         /// <summary>
         /// Contains the content-type of the message data; specified by the sender.
@@ -297,12 +307,20 @@ namespace BigQ
                         SenderGUID = val;
                         break;
 
+                    case "sendername":
+                        SenderName = val;
+                        break;
+
                     case "recipientguid":
                         RecipientGUID = val;
                         break;
 
                     case "channelguid":
                         ChannelGUID = val;
+                        break;
+
+                    case "channelname":
+                        ChannelName = val;
                         break;
 
                     case "contenttype":
@@ -398,11 +416,11 @@ namespace BigQ
 
             if (!String.IsNullOrEmpty(ChannelGUID))
             {
-                ret += " | " + SenderGUID + " -> Channel " + ChannelGUID + Environment.NewLine;
+                ret += " | Sender name " + SenderName + " GUID " + SenderGUID + " -> Channel " + ChannelGUID + Environment.NewLine;
             }
             else
             {
-                ret += " | " + SenderGUID + " -> " + RecipientGUID + Environment.NewLine;
+                ret += " | Sender name " + SenderName + " GUID " + SenderGUID + " -> " + RecipientGUID + Environment.NewLine;
             }
             
             if (!String.IsNullOrEmpty(Email)
@@ -574,6 +592,16 @@ namespace BigQ
                 }
             }
 
+            if (!String.IsNullOrEmpty(SenderName))
+            {
+                string sanitizedSenderName;
+                if (SanitizeString(SenderName, out sanitizedSenderName))
+                {
+                    headerSb.Append("SenderName: " + sanitizedSenderName);
+                    headerSb.Append("\r\n");
+                }
+            }
+
             if (!String.IsNullOrEmpty(RecipientGUID))
             {
                 string sanitizedRecipientGuid;
@@ -590,6 +618,16 @@ namespace BigQ
                 if (SanitizeString(ChannelGUID, out sanitizedChannelGuid))
                 {
                     headerSb.Append("ChannelGUID: " + sanitizedChannelGuid);
+                    headerSb.Append("\r\n");
+                }
+            }
+
+            if (!String.IsNullOrEmpty(ChannelName))
+            {
+                string sanitizedChannelName;
+                if (SanitizeString(ChannelName, out sanitizedChannelName))
+                {
+                    headerSb.Append("ChannelName: " + sanitizedChannelName);
                     headerSb.Append("\r\n");
                 }
             }

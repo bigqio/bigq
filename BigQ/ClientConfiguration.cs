@@ -31,10 +31,15 @@ namespace BigQ
         public string Email;
 
         /// <summary>
+        /// The client name to appear in sent messages.  If null, a ranodm one will be supplied.
+        /// </summary>
+        public string Name;
+
+        /// <summary>
         /// The password to use in authentication.
         /// </summary>
         public string Password;
-         
+
         /// <summary>
         /// The amount of time in milliseconds to wait to receive a response to a synchronous messages sent by this client if not explicitly set in a sent message.
         /// </summary>
@@ -303,7 +308,7 @@ namespace BigQ
                 if (TcpSslServer.Port < 1) throw new ArgumentOutOfRangeException("TcpSslServer.Port must be greater than or equal to 1.");
                 if (String.IsNullOrEmpty(TcpSslServer.PfxCertFile)) throw new ArgumentException("TcpSslServer.PfxCertFile must not be null.");
             }
-             
+
             if (WebsocketServer.Enable)
             {
                 if (String.IsNullOrEmpty(WebsocketServer.Ip)) throw new ArgumentException("WebsocketServer.IP must not be null.");
@@ -352,7 +357,8 @@ namespace BigQ
             ClientConfiguration ret = new ClientConfiguration();
             ret.Version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString();
             ret.GUID = Guid.NewGuid().ToString();
-            ret.Email = ret.GUID;
+            ret.Name = RandomName();
+            ret.Email = Guid.NewGuid().ToString();
             ret.Password = ret.GUID;
             ret.SyncTimeoutMs = 10000;
             ret.ServerGUID = "00000000-0000-0000-0000-000000000000";
@@ -399,6 +405,73 @@ namespace BigQ
             ret.WebsocketSslServer.Debug = false;
 
             return ret;
+        }
+
+        #endregion
+
+        #region Private-Static-Methods
+         
+        private static string RandomName()
+        {
+            Random _Random = new Random((int)DateTime.Now.Ticks);
+
+            string[] names = new string[]
+            {
+                "anthony",
+                "brian",
+                "chris",
+                "david",
+                "ed",
+                "fred",
+                "george",
+                "harry",
+                "isaac",
+                "joel",
+                "kevin",
+                "larry",
+                "mark",
+                "noah",
+                "oscar",
+                "pete",
+                "quentin",
+                "ryan",
+                "steve",
+                "uriah",
+                "victor",
+                "will",
+                "xavier",
+                "yair",
+                "zachary",
+                "ashley",
+                "brianna",
+                "chloe",
+                "daisy",
+                "emma",
+                "fiona",
+                "grace",
+                "hannah",
+                "isabella",
+                "jenny",
+                "katie",
+                "lisa",
+                "maria",
+                "natalie",
+                "olivia",
+                "pearl",
+                "quinn",
+                "riley",
+                "sophia",
+                "tara",
+                "ulyssa",
+                "victoria",
+                "whitney",
+                "xena",
+                "yuri",
+                "zoey"
+            };
+
+            int selected = _Random.Next(0, names.Length - 1);
+            return names[selected];
         }
 
         #endregion

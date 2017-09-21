@@ -20,14 +20,14 @@ namespace BigQ
 
         #region Private-Members
 
-        private ServerConfiguration Config;
-        private LoggingModule Logging;
+        private ServerConfiguration _Config;
+        private LoggingModule _Logging;
 
-        private readonly object ClientsLock;
-        private Dictionary<string, Client> Clients;         // IpPort, Client
+        private readonly object _ClientsLock;
+        private Dictionary<string, Client> _Clients;         // IpPort, Client
         
-        private readonly object ClientGUIDMapLock;
-        private Dictionary<string, string> ClientGUIDMap;   // GUID, IpPort
+        private readonly object _ClientGUIDMapLock;
+        private Dictionary<string, string> _ClientGUIDMap;   // GUID, IpPort
 
         #endregion
 
@@ -38,12 +38,12 @@ namespace BigQ
             if (logging == null) throw new ArgumentNullException(nameof(logging));
             if (config == null) throw new ArgumentNullException(nameof(config));
 
-            Logging = logging;
-            Config = config;
-            ClientsLock = new object();
-            Clients = new Dictionary<string, Client>();
-            ClientGUIDMapLock = new object();
-            ClientGUIDMap = new Dictionary<string, string>();
+            _Logging = logging;
+            _Config = config;
+            _ClientsLock = new object();
+            _Clients = new Dictionary<string, Client>();
+            _ClientGUIDMapLock = new object();
+            _ClientGUIDMap = new Dictionary<string, string>();
         }
 
         #endregion
@@ -56,25 +56,25 @@ namespace BigQ
         /// <returns>A list of Client objects.</returns>
         public List<Client> GetClients()
         {
-            lock (ClientsLock)
+            lock (_ClientsLock)
             {
-                if (Clients == null || Clients.Count < 1)
+                if (_Clients == null || _Clients.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetClients no clients found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetClients no clients found");
                     return null;
                 }
 
                 List<Client> ret = new List<Client>();
 
-                if (Clients != null && Clients.Count > 0)
+                if (_Clients != null && _Clients.Count > 0)
                 {
-                    foreach (KeyValuePair<string, Client> curr in Clients)
+                    foreach (KeyValuePair<string, Client> curr in _Clients)
                     {
                         ret.Add(curr.Value);
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetClients returning " + ret.Count + " clients");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetClients returning " + ret.Count + " clients");
                 return ret;
             }
         }
@@ -85,25 +85,25 @@ namespace BigQ
         /// <returns>A list of Client objects.</returns>
         public Dictionary<string, string> GetGUIDMaps()
         {
-            lock (ClientGUIDMapLock)
+            lock (_ClientGUIDMapLock)
             {
-                if (ClientGUIDMap == null || ClientGUIDMap.Count < 1)
+                if (_ClientGUIDMap == null || _ClientGUIDMap.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetGUIDMaps no GUID maps found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetGUIDMaps no GUID maps found");
                     return null;
                 }
                 
                 Dictionary<string, string> ret = new Dictionary<string, string>();
 
-                if (ClientGUIDMap != null && ClientGUIDMap.Count > 0)
+                if (_ClientGUIDMap != null && _ClientGUIDMap.Count > 0)
                 {
-                    foreach (KeyValuePair<string, string> curr in ClientGUIDMap)
+                    foreach (KeyValuePair<string, string> curr in _ClientGUIDMap)
                     {
                         ret.Add(curr.Key, curr.Value);
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetGUIDMaps returning " + ret.Count + " GUID maps");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetGUIDMaps returning " + ret.Count + " GUID maps");
                 return ret;
             }
         }
@@ -117,28 +117,28 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID null GUID supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID null GUID supplied");
                 return null;
             }
 
-            lock (ClientsLock)
+            lock (_ClientsLock)
             {
-                if (Clients == null || Clients.Count < 1)
+                if (_Clients == null || _Clients.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID no clients found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID no clients found");
                     return null;
                 }
 
-                foreach (KeyValuePair<string, Client> curr in Clients)
+                foreach (KeyValuePair<string, Client> curr in _Clients)
                 {
                     if (String.Compare(curr.Value.ClientGUID, guid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID returning client for GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID returning client for GUID " + guid);
                         return curr.Value;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID unable to find client with GUID " + guid);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetClientByGUID unable to find client with GUID " + guid);
                 return null;
             }
         }
@@ -152,28 +152,28 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(ipPort))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort unable to find client with IP:port " + ipPort);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort unable to find client with IP:port " + ipPort);
                 return null;
             }
 
-            lock (ClientsLock)
+            lock (_ClientsLock)
             {
-                if (Clients == null || Clients.Count < 1)
+                if (_Clients == null || _Clients.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort no clients found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort no clients found");
                     return null;
                 }
                 
-                foreach (KeyValuePair<string, Client> curr in Clients)
+                foreach (KeyValuePair<string, Client> curr in _Clients)
                 {
                     if (String.Compare(curr.Key, ipPort) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort returning client for IP:port " + ipPort);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort returning client for IP:port " + ipPort);
                         return curr.Value;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort unable to find client with IP:port " + ipPort);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetByIpPort unable to find client with IP:port " + ipPort);
                 return null;
             }
         }
@@ -185,24 +185,24 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the client exists on the server.</returns>
         public bool ClientExists(string guid)
         {
-            lock (ClientGUIDMap)
+            lock (_ClientGUIDMap)
             {
-                if (ClientGUIDMap == null || ClientGUIDMap.Count < 1)
+                if (_ClientGUIDMap == null || _ClientGUIDMap.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "ClientExists no GUID maps exist");
+                    _Logging.Log(LoggingModule.Severity.Debug, "ClientExists no GUID maps exist");
                     return false;
                 }
 
-                foreach (KeyValuePair<string, string> curr in ClientGUIDMap)
+                foreach (KeyValuePair<string, string> curr in _ClientGUIDMap)
                 {
                     if (String.Compare(curr.Key, guid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "ClientExists client exists with GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "ClientExists client exists with GUID " + guid);
                         return true;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "ClientExists unable to find client with GUID " + guid);
+                _Logging.Log(LoggingModule.Severity.Debug, "ClientExists unable to find client with GUID " + guid);
                 return false;
             }
         }
@@ -215,20 +215,20 @@ namespace BigQ
         {
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddClient null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddClient null client supplied");
                 return;
             }
 
             bool found = false;
             bool replace = false;
 
-            lock (ClientsLock)
+            lock (_ClientsLock)
             {
-                foreach (KeyValuePair<string, Client> curr in Clients)
+                foreach (KeyValuePair<string, Client> curr in _Clients)
                 {
                     if (String.Compare(curr.Key, currClient.IpPort) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "AddClient found existing entry for client IP:port " + currClient.IpPort);
+                        _Logging.Log(LoggingModule.Severity.Debug, "AddClient found existing entry for client IP:port " + currClient.IpPort);
                         replace = true;
                         break;
                     }
@@ -236,20 +236,20 @@ namespace BigQ
 
                 if (replace)
                 {
-                    if (Clients.ContainsKey(currClient.IpPort)) Clients.Remove(currClient.IpPort);
-                    Clients.Add(currClient.IpPort, currClient);
+                    if (_Clients.ContainsKey(currClient.IpPort)) _Clients.Remove(currClient.IpPort);
+                    _Clients.Add(currClient.IpPort, currClient);
                 }
 
                 if (!found)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "AddClient adding client IP:port " + currClient.IpPort);
-                    Clients.Add(currClient.IpPort, currClient);
+                    _Logging.Log(LoggingModule.Severity.Debug, "AddClient adding client IP:port " + currClient.IpPort);
+                    _Clients.Add(currClient.IpPort, currClient);
                 }
             }
 
             if (!String.IsNullOrEmpty(currClient.ClientGUID))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddClient client has GUID, updating GUID map");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddClient client has GUID, updating GUID map");
                 RemoveGUIDMap(currClient.IpPort);
                 AddGUIDMap(currClient);
             }
@@ -265,29 +265,29 @@ namespace BigQ
         {
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap null client supplied");
                 return;
             }
 
             if (String.IsNullOrEmpty(currClient.ClientGUID))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap client has a null GUID");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap client has a null GUID");
                 return;
             }
              
-            lock (ClientGUIDMapLock)
+            lock (_ClientGUIDMapLock)
             {
                 Dictionary<string, string> updated = new Dictionary<string, string>();
 
-                if (ClientGUIDMap != null && ClientGUIDMap.Count > 0)
+                if (_ClientGUIDMap != null && _ClientGUIDMap.Count > 0)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap starting with " + ClientGUIDMap.Count + " entry(s)");
+                    _Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap starting with " + _ClientGUIDMap.Count + " entry(s)");
 
-                    foreach (KeyValuePair<string, string> curr in ClientGUIDMap)
+                    foreach (KeyValuePair<string, string> curr in _ClientGUIDMap)
                     {
                         if (String.Compare(curr.Key, currClient.ClientGUID) == 0)
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap map exists already for GUID " + currClient.ClientGUID + ", replacing");
+                            _Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap map exists already for GUID " + currClient.ClientGUID + ", replacing");
                             continue;
                         }
 
@@ -296,10 +296,10 @@ namespace BigQ
                 }
 
                 updated.Add(currClient.ClientGUID, currClient.IpPort);
-                ClientGUIDMap = updated;
+                _ClientGUIDMap = updated;
             }
 
-            Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap exiting with " + ClientGUIDMap.Count + " entry(s)");
+            _Logging.Log(LoggingModule.Severity.Debug, "AddGUIDMap exiting with " + _ClientGUIDMap.Count + " entry(s)");
         }
 
         /// <summary>
@@ -310,25 +310,25 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(ipPort))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveClient null IP:port supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveClient null IP:port supplied");
                 return;
             }
 
             Dictionary<string, Client> updated = new Dictionary<string, Client>();
-            lock (ClientsLock)
+            lock (_ClientsLock)
             {
-                foreach (KeyValuePair<string, Client> curr in Clients)
+                foreach (KeyValuePair<string, Client> curr in _Clients)
                 {
                     if (String.Compare(curr.Key, ipPort) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "RemoveClient map exists already for IP:port " + ipPort + ", skipping to remove");
+                        _Logging.Log(LoggingModule.Severity.Debug, "RemoveClient map exists already for IP:port " + ipPort + ", skipping to remove");
                         continue;
                     }
 
                     updated.Add(curr.Key, curr.Value);
                 }
 
-                Clients = updated;
+                _Clients = updated;
                 RemoveGUIDMap(ipPort);
                 return;
             }
@@ -342,26 +342,26 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(ipPort))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveGUIDMap null IP:port supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveGUIDMap null IP:port supplied");
                 return;
             }
 
             Dictionary<string, string> updated = new Dictionary<string, string>();
 
-            lock (ClientGUIDMapLock)
+            lock (_ClientGUIDMapLock)
             {
-                foreach (KeyValuePair<string, string> curr in ClientGUIDMap)
+                foreach (KeyValuePair<string, string> curr in _ClientGUIDMap)
                 {
                     if (String.Compare(curr.Value, ipPort) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "RemoveGUIDMap found map for IP:port " + ipPort + ", skipping to remove");
+                        _Logging.Log(LoggingModule.Severity.Debug, "RemoveGUIDMap found map for IP:port " + ipPort + ", skipping to remove");
                         continue;
                     }
 
                     updated.Add(curr.Key, curr.Value);
                 }
 
-                ClientGUIDMap = updated;
+                _ClientGUIDMap = updated;
                 return;
             }
         }
@@ -374,21 +374,21 @@ namespace BigQ
         {
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "UpdateClient null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "UpdateClient null client supplied");
                 return;
             }
 
             Dictionary<string, Client> updated = new Dictionary<string, Client>();
             
-            lock (ClientsLock)
+            lock (_ClientsLock)
             {
-                if (Clients != null && Clients.Count > 0)
+                if (_Clients != null && _Clients.Count > 0)
                 {
-                    foreach (KeyValuePair<string, Client> curr in Clients)
+                    foreach (KeyValuePair<string, Client> curr in _Clients)
                     {
                         if (String.Compare(currClient.IpPort, curr.Key) == 0)
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "UpdateClient found client to update on IP:port " + currClient.IpPort);
+                            _Logging.Log(LoggingModule.Severity.Debug, "UpdateClient found client to update on IP:port " + currClient.IpPort);
                             updated.Add(currClient.IpPort, currClient);
                             continue;
                         }
@@ -396,22 +396,22 @@ namespace BigQ
                         updated.Add(curr.Key, curr.Value);
                     }
 
-                    Clients = updated;
+                    _Clients = updated;
                 }
                 else
                 {
-                    Clients.Add(currClient.IpPort, currClient);
+                    _Clients.Add(currClient.IpPort, currClient);
                 }
 
                 if (!String.IsNullOrEmpty(currClient.ClientGUID))
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "UpdateClient found GUID in client, updating GUID map for IP:port " + currClient.IpPort);
+                    _Logging.Log(LoggingModule.Severity.Debug, "UpdateClient found GUID in client, updating GUID map for IP:port " + currClient.IpPort);
                     RemoveGUIDMap(currClient.IpPort);
                     AddGUIDMap(currClient);
                 }
                 else
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "UpdateClient no GUID in client IP:port " + currClient.IpPort);
+                    _Logging.Log(LoggingModule.Severity.Debug, "UpdateClient no GUID in client IP:port " + currClient.IpPort);
                 }
 
                 return;

@@ -59,7 +59,7 @@ namespace BigQClientTest
                         Console.WriteLine("");
                         Console.WriteLine("Channel Commands:");
                         Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
-                        Console.WriteLine("  createbroadcastchannel  createmulticastchannel  createunicastchannel");
+                        Console.WriteLine("  createbcastchannel  createmcastchannel  createucastchannel");
                         Console.WriteLine("  deletechannel  joinchannel  leavechannel");
                         Console.WriteLine("  subscribechannel  unsubscribechannel");
                         Console.WriteLine("  sendchannelasync  sendchannelsync");
@@ -107,7 +107,7 @@ namespace BigQClientTest
                             {
                                 foreach (Client curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
+                                    string line = "  " + curr.IpPort + " " + curr.Name + " " + curr.Email + " " + curr.ClientGUID + " ";
                                     if (curr.IsTcp) line += "TCP ";
                                     if (curr.IsWebsocket) line += "WS ";
                                     if (curr.IsSsl) line += "SSL ";
@@ -274,7 +274,7 @@ namespace BigQClientTest
                         }
                         break;
 
-                    case "createbroadcastchannel":
+                    case "createbcastchannel":
                         if (client == null) break;
                         Console.Write("Name          : ");
                         guid = Console.ReadLine();
@@ -290,7 +290,7 @@ namespace BigQClientTest
                         }
                         break;
 
-                    case "createmulticastchannel":
+                    case "createmcastchannel":
                         if (client == null) break;
                         Console.Write("Name          : ");
                         guid = Console.ReadLine();
@@ -306,7 +306,7 @@ namespace BigQClientTest
                         }
                         break;
 
-                    case "createunicastchannel":
+                    case "createucastchannel":
                         if (client == null) break;
                         Console.Write("Name          : ");
                         guid = Console.ReadLine();

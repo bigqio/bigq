@@ -18,11 +18,11 @@ namespace BigQ
 
         #region Private-Members
 
-        private ServerConfiguration Config;
-        private LoggingModule Logging;
+        private ServerConfiguration _Config;
+        private LoggingModule _Logging;
 
-        private readonly object ChannelsLock;
-        private Dictionary<string, Channel> Channels;         // GUID, Channel
+        private readonly object _ChannelsLock;
+        private Dictionary<string, Channel> _Channels;         // GUID, Channel
         
         #endregion
 
@@ -33,10 +33,10 @@ namespace BigQ
             if (logging == null) throw new ArgumentNullException(nameof(logging));
             if (config == null) throw new ArgumentNullException(nameof(config));
 
-            Logging = logging;
-            Config = config;
-            ChannelsLock = new object();
-            Channels = new Dictionary<string, Channel>();
+            _Logging = logging;
+            _Config = config;
+            _ChannelsLock = new object();
+            _Channels = new Dictionary<string, Channel>();
         }
 
         #endregion
@@ -49,21 +49,21 @@ namespace BigQ
         /// <returns>A list of Channel objects.</returns>
         public List<Channel> GetChannels()
         {
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                if (Channels == null || Channels.Count < 1)
+                if (_Channels == null || _Channels.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetChannels no channels found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetChannels no channels found");
                     return null;
                 }
                 
                 List<Channel> ret = new List<Channel>();
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     ret.Add(curr.Value);
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannels returning " + ret.Count + " channel(s)");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannels returning " + ret.Count + " channel(s)");
                 return ret;
             }
         }
@@ -77,28 +77,28 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID null GUID supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID null GUID supplied");
                 return null;
             }
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                if (Channels == null || Channels.Count < 1)
+                if (_Channels == null || _Channels.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID no channels found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID no channels found");
                     return null;
                 }
 
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Value.ChannelGUID, guid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID returning channel with GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID returning channel with GUID " + guid);
                         return curr.Value;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID no channel found with GUID " + guid);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByGUID no channel found with GUID " + guid);
                 return null;
             }
         }
@@ -112,28 +112,28 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(name))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName null name supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName null name supplied");
                 return null;
             }
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                if (Channels == null || Channels.Count < 1)
+                if (_Channels == null || _Channels.Count < 1)
                 {
-                    Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName no channels found");
+                    _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName no channels found");
                     return null;
                 }
 
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Value.ChannelName, name) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName returning channel with name " + name);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName returning channel with name " + name);
                         return curr.Value;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName no channel found with name " + name);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelByName no channel found with name " + name);
                 return null;
             }
         }
@@ -147,19 +147,19 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers null GUID supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers null GUID supplied");
                 return null;
             }
 
             List<Client> ret = new List<Client>();
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, guid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers found channel GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers found channel GUID " + guid);
 
                         if (curr.Value.Members != null && curr.Value.Members.Count > 0)
                         {
@@ -168,16 +168,16 @@ namespace BigQ
                                 ret.Add(currClient);
                             }
 
-                            Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers returning " + ret.Count + " member(s) for channel GUID " + guid);
+                            _Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers returning " + ret.Count + " member(s) for channel GUID " + guid);
                             return ret;
                         }
 
-                        Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers no members found for channel GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers no members found for channel GUID " + guid);
                         return null;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers unable to find channel GUID " + guid);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelMembers unable to find channel GUID " + guid);
                 return null;
             }
         }
@@ -191,19 +191,19 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers null GUID supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers null GUID supplied");
                 return null;
             }
 
             List<Client> ret = new List<Client>();
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, guid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers found channel GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers found channel GUID " + guid);
 
                         if (curr.Value.Subscribers != null && curr.Value.Subscribers.Count > 0)
                         {
@@ -212,16 +212,16 @@ namespace BigQ
                                 ret.Add(currClient);
                             }
 
-                            Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers returning " + ret.Count + " subscriber(s) for channel GUID " + guid);
+                            _Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers returning " + ret.Count + " subscriber(s) for channel GUID " + guid);
                             return ret;
                         }
 
-                        Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers no subscribers found for channel GUID " + guid);
+                        _Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers no subscribers found for channel GUID " + guid);
                         return null;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers unable to find channel GUID " + guid);
+                _Logging.Log(LoggingModule.Severity.Debug, "GetChannelSubscribers unable to find channel GUID " + guid);
                 return null;
             }
         }
@@ -236,23 +236,23 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember null client supplied");
                 return false;
             }
 
             if (currentChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember null channel supplied");
                 return false;
             }
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currentChannel.ChannelGUID) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember found channel GUID " + currentChannel.ChannelGUID);
+                        _Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember found channel GUID " + currentChannel.ChannelGUID);
 
                         if (curr.Value.Members != null && curr.Value.Members.Count > 0)
                         {
@@ -260,18 +260,18 @@ namespace BigQ
                             {
                                 if (String.Compare(currentClient.ClientGUID, currClient.ClientGUID) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember found channel GUID " + currentChannel.ChannelGUID + " member GUID " + currClient.ClientGUID);
+                                    _Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember found channel GUID " + currentChannel.ChannelGUID + " member GUID " + currClient.ClientGUID);
                                     return true;
                                 }
                             }
                         }
 
-                        Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember client GUID " + currentClient.ClientGUID + " is not a member of channel GUID " + currentChannel.ChannelGUID);
+                        _Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember client GUID " + currentClient.ClientGUID + " is not a member of channel GUID " + currentChannel.ChannelGUID);
                         return false;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember unable to find channel GUID " + currentChannel.ChannelGUID);
+                _Logging.Log(LoggingModule.Severity.Debug, "IsChannelMember unable to find channel GUID " + currentChannel.ChannelGUID);
                 return false;
             }
         }
@@ -286,23 +286,23 @@ namespace BigQ
         {
             if (currentClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber null client supplied");
                 return false;
             }
 
             if (currentChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber null channel supplied");
                 return false;
             }
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currentChannel.ChannelGUID) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber found channel GUID " + currentChannel.ChannelGUID);
+                        _Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber found channel GUID " + currentChannel.ChannelGUID);
 
                         if (curr.Value.Subscribers != null && curr.Value.Subscribers.Count > 0)
                         {
@@ -310,18 +310,18 @@ namespace BigQ
                             {
                                 if (String.Compare(currentClient.ClientGUID, currClient.ClientGUID) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber found channel GUID " + currentChannel.ChannelGUID + " subscriber GUID " + currClient.ClientGUID);
+                                    _Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber found channel GUID " + currentChannel.ChannelGUID + " subscriber GUID " + currClient.ClientGUID);
                                     return true;
                                 }
                             }
                         }
 
-                        Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber client GUID " + currentClient.ClientGUID + " is not a subscriber of channel GUID " + currentChannel.ChannelGUID);
+                        _Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber client GUID " + currentClient.ClientGUID + " is not a subscriber of channel GUID " + currentChannel.ChannelGUID);
                         return false;
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber unable to find channel GUID " + currentChannel.ChannelGUID);
+                _Logging.Log(LoggingModule.Severity.Debug, "IsChannelSubscriber unable to find channel GUID " + currentChannel.ChannelGUID);
                 return false;
             }
         }
@@ -333,15 +333,15 @@ namespace BigQ
         /// <returns>Boolean indicating whether or not the channel exists on the server.</returns>
         public bool ChannelExists(string guid)
         {
-            if (Channels == null || Channels.Count < 1)
+            if (_Channels == null || _Channels.Count < 1)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "ChannelExists no channels found");
+                _Logging.Log(LoggingModule.Severity.Debug, "ChannelExists no channels found");
                 return false;
             }
             
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (curr.Value != null)
                     {
@@ -349,14 +349,14 @@ namespace BigQ
                         {
                             if (String.Compare(curr.Value.ChannelGUID, guid) == 0)
                             {
-                                Logging.Log(LoggingModule.Severity.Debug, "ChannelExists found channel GUID " + guid);
+                                _Logging.Log(LoggingModule.Severity.Debug, "ChannelExists found channel GUID " + guid);
                                 return true;
                             }
                         }
                     }
                 }
 
-                Logging.Log(LoggingModule.Severity.Debug, "ChannelExists unable to find channel GUID " + guid);
+                _Logging.Log(LoggingModule.Severity.Debug, "ChannelExists unable to find channel GUID " + guid);
                 return false;
             }
         }
@@ -370,23 +370,23 @@ namespace BigQ
         {
             if (currChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddChannel null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddChannel null channel supplied");
                 return false;
             }
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currChannel.ChannelGUID) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "AddChannel channel GUID " + currChannel.ChannelGUID + " already exists");
+                        _Logging.Log(LoggingModule.Severity.Debug, "AddChannel channel GUID " + currChannel.ChannelGUID + " already exists");
                         return false;
                     }
                 }
 
-                Channels.Add(currChannel.ChannelGUID, currChannel);
-                Logging.Log(LoggingModule.Severity.Debug, "AddChannel added channel " + currChannel.ChannelGUID);
+                _Channels.Add(currChannel.ChannelGUID, currChannel);
+                _Logging.Log(LoggingModule.Severity.Debug, "AddChannel added channel " + currChannel.ChannelGUID);
                 return true;
             }
         }
@@ -401,25 +401,25 @@ namespace BigQ
         {
             if (currChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember null channel supplied");
                 return false;
             }
 
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember null client supplied");
                 return false;
             }
 
             bool matchFound = false;
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currChannel.ChannelGUID) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember successfully found channel " + currChannel.ChannelGUID);
+                        _Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember successfully found channel " + currChannel.ChannelGUID);
 
                         if (curr.Value.Members != null || curr.Value.Members.Count > 0)
                         {
@@ -427,7 +427,7 @@ namespace BigQ
                             {
                                 if (String.Compare(c.ClientGUID, currClient.ClientGUID) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember member GUID " + c.ClientGUID + " already exists in channel GUID " + currChannel.ChannelGUID);
+                                    _Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember member GUID " + c.ClientGUID + " already exists in channel GUID " + currChannel.ChannelGUID);
                                     matchFound = true;
                                 }
                             }
@@ -439,7 +439,7 @@ namespace BigQ
 
                         if (!matchFound)
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember adding member GUID " + currClient.ClientGUID + " to channel GUID " + currChannel.ChannelGUID);
+                            _Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember adding member GUID " + currClient.ClientGUID + " to channel GUID " + currChannel.ChannelGUID);
                             curr.Value.Members.Add(currClient);
                             return true;
                         }
@@ -451,7 +451,7 @@ namespace BigQ
                 }
             }
 
-            Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember unable to find channel GUID " + currChannel.ChannelGUID);
+            _Logging.Log(LoggingModule.Severity.Debug, "AddChannelMember unable to find channel GUID " + currChannel.ChannelGUID);
             return false;
         }
 
@@ -465,25 +465,25 @@ namespace BigQ
         {
             if (currChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber null channel supplied");
                 return false;
             }
 
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber null client supplied");
                 return false;
             }
 
             bool matchFound = false;
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currChannel.ChannelGUID) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber successfully found channel " + currChannel.ChannelGUID);
+                        _Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber successfully found channel " + currChannel.ChannelGUID);
 
                         if (curr.Value.Subscribers != null || curr.Value.Subscribers.Count > 0)
                         {
@@ -491,7 +491,7 @@ namespace BigQ
                             {
                                 if (String.Compare(c.ClientGUID, currClient.ClientGUID) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber subscriber GUID " + c.ClientGUID + " already exists in channel GUID " + currChannel.ChannelGUID);
+                                    _Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber subscriber GUID " + c.ClientGUID + " already exists in channel GUID " + currChannel.ChannelGUID);
                                     matchFound = true;
                                 }
                             }
@@ -503,7 +503,7 @@ namespace BigQ
 
                         if (!matchFound)
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber adding subscriber GUID " + currClient.ClientGUID + " to channel GUID " + currChannel.ChannelGUID);
+                            _Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber adding subscriber GUID " + currClient.ClientGUID + " to channel GUID " + currChannel.ChannelGUID);
                             curr.Value.Subscribers.Add(currClient);
                             return true;
                         }
@@ -515,7 +515,7 @@ namespace BigQ
                 }
             }
 
-            Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber unable to find channel GUID " + currChannel.ChannelGUID);
+            _Logging.Log(LoggingModule.Severity.Debug, "AddChannelSubscriber unable to find channel GUID " + currChannel.ChannelGUID);
             return false;
         }
 
@@ -528,20 +528,20 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(guid))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel null GUID supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel null GUID supplied");
                 return false;
             }
 
             bool found = false;
             Dictionary<string, Channel> updated = new Dictionary<string, Channel>();
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, guid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel found channel GUID " + guid + ", skipping to remove");
+                        _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel found channel GUID " + guid + ", skipping to remove");
                         found = true;
                         continue;
                     }
@@ -549,7 +549,7 @@ namespace BigQ
                     updated.Add(curr.Key, curr.Value);
                 }
 
-                Channels = updated;
+                _Channels = updated;
                 return found;
             }
         }
@@ -565,20 +565,20 @@ namespace BigQ
 
             if (String.IsNullOrEmpty(ownerGuid))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveClientChannels null GUID supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveClientChannels null GUID supplied");
                 return false;
             }
 
             bool found = false;
             Dictionary<string, Channel> updated = new Dictionary<string, Channel>();
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Value.OwnerGUID, ownerGuid) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "RemoveClientChannels found channel GUID " + curr.Value.ChannelGUID + " owned by GUID " + ownerGuid + ", skipping to remove");
+                        _Logging.Log(LoggingModule.Severity.Debug, "RemoveClientChannels found channel GUID " + curr.Value.ChannelGUID + " owned by GUID " + ownerGuid + ", skipping to remove");
                         affectedChannels.Add(curr.Value);
                         found = true;
                         continue;
@@ -587,7 +587,7 @@ namespace BigQ
                     updated.Add(curr.Key, curr.Value);
                 }
 
-                Channels = updated;
+                _Channels = updated;
                 return found;
             }
         }
@@ -602,29 +602,29 @@ namespace BigQ
         {
             if (currChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember null channel supplied");
                 return false;
             }
 
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember null client supplied");
                 return false;
             }
 
             bool matchFound = false;
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
                 Channel updatedChannel = null;
 
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currChannel.ChannelGUID) == 0)
                     {
                         #region Channel-Found
 
-                        Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember found channel GUID " + currChannel.ChannelGUID + " (" + curr.Value.Members.Count + ") members");
+                        _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember found channel GUID " + currChannel.ChannelGUID + " (" + curr.Value.Members.Count + ") members");
                         updatedChannel = currChannel;
                         List<Client> updatedMembers = new List<Client>();
 
@@ -634,7 +634,7 @@ namespace BigQ
                             {
                                 if (String.Compare(c.ClientGUID, currClient.ClientGUID) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember found member GUID " + c.ClientGUID + " in channel GUID " + currChannel.ChannelGUID + ", skipping to remove");
+                                    _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember found member GUID " + c.ClientGUID + " in channel GUID " + currChannel.ChannelGUID + ", skipping to remove");
                                     matchFound = true;
                                 }
                                 else
@@ -647,7 +647,7 @@ namespace BigQ
                         }
                         else
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember no channel members found");
+                            _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember no channel members found");
                         }
 
                         #endregion
@@ -658,7 +658,7 @@ namespace BigQ
                 {
                     Dictionary<string, Channel> updatedChannels = new Dictionary<string, Channel>();
 
-                    foreach (KeyValuePair<string, Channel> currKvp in Channels)
+                    foreach (KeyValuePair<string, Channel> currKvp in _Channels)
                     {
                         if (String.Compare(currKvp.Key, updatedChannel.ChannelGUID) != 0)
                         {
@@ -667,7 +667,7 @@ namespace BigQ
                     }
 
                     updatedChannels.Add(updatedChannel.ChannelGUID, updatedChannel);
-                    Channels = updatedChannels;
+                    _Channels = updatedChannels;
                 }
             }
 
@@ -684,29 +684,29 @@ namespace BigQ
         {
             if (currChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber null channel supplied");
                 return false;
             }
 
             if (currClient == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber null client supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber null client supplied");
                 return false;
             }
 
             bool matchFound = false;
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
                 Channel updatedChannel = null;
 
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(curr.Key, currChannel.ChannelGUID) == 0)
                     {
                         #region Channel-Found
 
-                        Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber found channel GUID " + currChannel.ChannelGUID + " (" + curr.Value.Subscribers.Count + ") subscribers");
+                        _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber found channel GUID " + currChannel.ChannelGUID + " (" + curr.Value.Subscribers.Count + ") subscribers");
 
                         updatedChannel = currChannel;
                         List<Client> updatedSubscribers = new List<Client>();
@@ -717,7 +717,7 @@ namespace BigQ
                             {
                                 if (String.Compare(c.ClientGUID, currClient.ClientGUID) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber found subscriber GUID " + c.ClientGUID + " in channel GUID " + currChannel.ChannelGUID + ", skipping to remove");
+                                    _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber found subscriber GUID " + c.ClientGUID + " in channel GUID " + currChannel.ChannelGUID + ", skipping to remove");
                                     matchFound = true;
                                 }
                                 else
@@ -730,7 +730,7 @@ namespace BigQ
                         }
                         else
                         {
-                            Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber no channel subscribers found");
+                            _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber no channel subscribers found");
                         }
 
                         #endregion
@@ -741,7 +741,7 @@ namespace BigQ
                 {
                     Dictionary<string, Channel> updatedChannels = new Dictionary<string, Channel>();
 
-                    foreach (KeyValuePair<string, Channel> currKvp in Channels)
+                    foreach (KeyValuePair<string, Channel> currKvp in _Channels)
                     {
                         if (String.Compare(currKvp.Key, updatedChannel.ChannelGUID) != 0)
                         {
@@ -750,7 +750,7 @@ namespace BigQ
                     }
 
                     updatedChannels.Add(updatedChannel.ChannelGUID, updatedChannel);
-                    Channels = updatedChannels;
+                    _Channels = updatedChannels;
                 }
             }
 
@@ -765,19 +765,19 @@ namespace BigQ
         {
             if (currChannel == null)
             {
-                Logging.Log(LoggingModule.Severity.Debug, "UpdateChannel null channel supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "UpdateChannel null channel supplied");
                 return;
             }
 
             Dictionary<string, Channel> updated = new Dictionary<string, Channel>();
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                foreach (KeyValuePair<string, Channel> curr in Channels)
+                foreach (KeyValuePair<string, Channel> curr in _Channels)
                 {
                     if (String.Compare(currChannel.ChannelGUID, curr.Key) == 0)
                     {
-                        Logging.Log(LoggingModule.Severity.Debug, "UpdateClient found channel GUID " + currChannel.ChannelGUID + ", updating");
+                        _Logging.Log(LoggingModule.Severity.Debug, "UpdateClient found channel GUID " + currChannel.ChannelGUID + ", updating");
                         updated.Add(currChannel.ChannelGUID, currChannel);
                         continue;
                     }
@@ -796,17 +796,17 @@ namespace BigQ
         {
             if (String.IsNullOrEmpty(ipPort))
             {
-                Logging.Log(LoggingModule.Severity.Debug, "RemoveClient null IP:port supplied");
+                _Logging.Log(LoggingModule.Severity.Debug, "RemoveClient null IP:port supplied");
                 return;
             }
 
-            lock (ChannelsLock)
+            lock (_ChannelsLock)
             {
-                if (Channels != null && Channels.Count > 0)
+                if (_Channels != null && _Channels.Count > 0)
                 {
                     Dictionary<string, Channel> updated = new Dictionary<string, Channel>();    // GUID, Channel
 
-                    foreach (KeyValuePair<string, Channel> curr in Channels)
+                    foreach (KeyValuePair<string, Channel> curr in _Channels)
                     {
                         List<Client> updatedMembers = new List<Client>();
                         List<Client> updatedSubscribers = new List<Client>();
@@ -817,7 +817,7 @@ namespace BigQ
                             {
                                 if (String.Compare(currMember.IpPort, ipPort) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "RemoveClient removing member GUID " + currMember.ClientGUID + " from channel GUID " + curr.Value.ChannelGUID);
+                                    _Logging.Log(LoggingModule.Severity.Debug, "RemoveClient removing member GUID " + currMember.ClientGUID + " from channel GUID " + curr.Value.ChannelGUID);
                                     continue;
                                 }
                                 else
@@ -833,7 +833,7 @@ namespace BigQ
                             {
                                 if (String.Compare(currSubscriber.IpPort, ipPort) == 0)
                                 {
-                                    Logging.Log(LoggingModule.Severity.Debug, "RemoveClient removing subscriber GUID " + currSubscriber.ClientGUID + " from channel GUID " + curr.Value.ChannelGUID);
+                                    _Logging.Log(LoggingModule.Severity.Debug, "RemoveClient removing subscriber GUID " + currSubscriber.ClientGUID + " from channel GUID " + curr.Value.ChannelGUID);
                                     continue;
                                 }
                                 else
@@ -848,7 +848,7 @@ namespace BigQ
                         updated.Add(curr.Key, curr.Value);
                     }
 
-                    Channels = updated;
+                    _Channels = updated;
                 }
             }
         }
