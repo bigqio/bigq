@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -60,6 +61,9 @@ namespace BigQServerTest
                         Console.WriteLine("Client Commands:");
                         Console.WriteLine("  listclients  listclientguidmaps");
                         Console.WriteLine("  listclientactivesend  clearclientactivesend");
+                        Console.WriteLine("");
+                        Console.WriteLine("Persistence Commands:");
+                        Console.WriteLine("  queuedepth  rcptqueuedepth");
                         Console.WriteLine("");
                         break;
 
@@ -275,6 +279,15 @@ namespace BigQServerTest
                         }
                         break;
 
+                    case "queuedepth":
+                        Console.WriteLine(server.PersistentQueueDepth());
+                        break;
+
+                    case "rcptqueuedepth":
+                        string guid = Helper.InputString("Recipient GUID:", null, false);
+                        Console.WriteLine(server.PersistentQueueDepth(guid));
+                        break; 
+
                     default:
                         Console.WriteLine("Unknown command");
                         break;
@@ -309,9 +322,7 @@ namespace BigQServerTest
                 server.Config.Logging.ConsoleLogging = true;
                 server.Config.Debug.Enable = true;
                 server.Config.Debug.ConnectionMgmt = true;
-                server.Config.Debug.ChannelMgmt = false;
-                server.Config.Debug.SendHeartbeat = true;
-                server.Config.Heartbeat.IntervalMs = 1000;
+                server.Config.Debug.ChannelMgmt = false; 
 
                 server.MessageReceived = MessageReceived;
                 server.ServerStopped = StartServer;
@@ -343,6 +354,7 @@ namespace BigQServerTest
 
         static bool ClientConnected(Client client)
         {
+            Console.WriteLine(Helper.StackToString());
             Console.WriteLine("ClientConnected received notice of client connect from " + client.IpPort);
             return true;
         }

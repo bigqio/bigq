@@ -90,7 +90,6 @@ D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\test-certificate.txt
 D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\client.json
 D:\Code\BigQ\BigQWatson\BigQClientTest\bin\Release\test.pfx
 D:\code\bigq\bigq\BigQClientTest\bin\Release\test-certificate.txt
-D:\code\bigq\bigq\BigQClientTest\bin\Release\client.json
 D:\code\bigq\bigq\BigQClientTest\bin\Release\test.pfx
 D:\code\bigq\bigq\BigQClientTest\bin\Release\BigQClientTest.exe.config
 D:\code\bigq\bigq\BigQClientTest\bin\Release\BigQClientTest.exe
@@ -108,3 +107,10 @@ D:\code\bigq\bigq\BigQClientTest\bin\Release\Newtonsoft.Json.xml
 D:\code\bigq\bigq\BigQClientTest\obj\Release\BigQClientTest.csprojResolveAssemblyReference.cache
 D:\code\bigq\bigq\BigQClientTest\obj\Release\BigQClientTest.exe
 D:\code\bigq\bigq\BigQClientTest\obj\Release\BigQClientTest.pdb
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\sqlite3.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\client1.json
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\client2.json
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\SqliteWrapper.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\Mono.Data.Sqlite.dll
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\BigQ.dll.config
+D:\Code\BigQ\BigQ\BigQClientTest\bin\Release\SqliteWrapper.pdb

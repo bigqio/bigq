@@ -22,7 +22,8 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <CodeAnalysisRuleSet>BigQ.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>
+    </CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -32,18 +33,39 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <CodeAnalysisRuleSet>BigQ.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>
+    </CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\EntityFramework.6.2.0\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\EntityFramework.6.2.0\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Data.Sqlite, Version=2.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
+      <HintPath>..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\lib\net4\Mono.Data.Sqlite.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="SqliteWrapper, Version=1.0.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\SqliteHelper.1.0.1\lib\SqliteWrapper.dll</HintPath>
     </Reference>
     <Reference Include="SyslogLogging, Version=1.0.9.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\SyslogLogging.1.0.9\lib\SyslogLogging.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data.Portable, Version=4.0.0.0, Culture=neutral, PublicKeyToken=59e704a76bc4613a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\lib\net4\System.Data.Portable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Transactions" />
+    <Reference Include="System.Transactions.Portable, Version=4.0.0.0, Culture=neutral, PublicKeyToken=59e704a76bc4613a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\lib\net4\System.Transactions.Portable.dll</HintPath>
+    </Reference>
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="Microsoft.CSharp" />
@@ -58,34 +80,45 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChannelManager.cs" />
-    <Compile Include="ConnectionManager.cs" />
-    <Compile Include="MessageBuilder.cs" />
-    <Compile Include="SuccessData.cs" />
-    <Compile Include="FailureData.cs" />
-    <Compile Include="ClientConfiguration.cs" />
-    <Compile Include="ServerConfiguration.cs" />
-    <Compile Include="Channel.cs" />
-    <Compile Include="Client.cs" />
-    <Compile Include="Helper.cs" />
-    <Compile Include="EventData.cs" />
-    <Compile Include="ConcurrentList.cs" />
-    <Compile Include="Permission.cs" />
-    <Compile Include="User.cs" />
-    <Compile Include="Message.cs" />
+    <Compile Include="Managers\ChannelManager.cs" />
+    <Compile Include="Managers\ConnectionManager.cs" />
+    <Compile Include="Helpers\MessageBuilder.cs" />
+    <Compile Include="Classes\SuccessData.cs" />
+    <Compile Include="Classes\FailureData.cs" />
+    <Compile Include="Classes\ClientConfiguration.cs" />
+    <Compile Include="Classes\ServerConfiguration.cs" />
+    <Compile Include="Classes\Channel.cs" />
+    <Compile Include="Classes\Client.cs" />
+    <Compile Include="Helpers\Helper.cs" />
+    <Compile Include="Classes\EventData.cs" />
+    <Compile Include="Classes\ConcurrentList.cs" />
+    <Compile Include="Classes\Permission.cs" />
+    <Compile Include="Classes\User.cs" />
+    <Compile Include="Classes\Message.cs" />
+    <Compile Include="Managers\PersistenceManager.cs" />
     <Compile Include="Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="BigQ.ruleset" />
+    <None Include="App.config" />
     <None Include="packages.config" />
-    <None Include="Samples\client.json" />
-    <None Include="Samples\permissions.json" />
-    <None Include="Samples\server.json" />
-    <None Include="Samples\users.json" />
+    <None Include="Samples\Client.json" />
+    <None Include="Samples\Permissions.json" />
+    <None Include="Samples\Server.json" />
+    <None Include="Samples\Users.json" />
     <None Include="WatsonWebsocket.dll.config" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="sqlite3.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\tools\Mono.Data.Sqlite.Portable.targets" Condition="Exists('..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\tools\Mono.Data.Sqlite.Portable.targets')" />
+  <Target Name="EnsureMonoDataSqlitePortableImported" BeforeTargets="BeforeBuild" Condition="'$(MonoDataSqlitePortableImported)' == ''">
+    <Error Condition="!Exists('..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\tools\Mono.Data.Sqlite.Portable.targets')" Text="This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them." />
+    <Error Condition="Exists('..\packages\Mono.Data.Sqlite.Portable.1.0.3.5\tools\Mono.Data.Sqlite.Portable.targets')" Text="The build restored NuGet packages. Build the project again to include these packages in the build." />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

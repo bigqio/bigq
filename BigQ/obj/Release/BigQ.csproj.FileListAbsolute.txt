@@ -73,3 +73,15 @@ D:\code\bigq\bigq\BigQ\bin\Release\WatsonTcp.pdb
 D:\code\bigq\bigq\BigQ\bin\Release\WatsonWebsocket.pdb
 D:\code\bigq\bigq\BigQ\obj\Release\BigQ.dll
 D:\code\bigq\bigq\BigQ\obj\Release\BigQ.pdb
+D:\Code\BigQ\BigQ\BigQ\bin\Release\sqlite3.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\BigQ.dll.config
+D:\Code\BigQ\BigQ\BigQ\bin\Release\EntityFramework.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\EntityFramework.SqlServer.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\Mono.Data.Sqlite.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\SqliteWrapper.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\System.Data.Portable.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\System.Transactions.Portable.dll
+D:\Code\BigQ\BigQ\BigQ\bin\Release\EntityFramework.xml
+D:\Code\BigQ\BigQ\BigQ\bin\Release\EntityFramework.SqlServer.xml
+D:\Code\BigQ\BigQ\BigQ\bin\Release\SqliteWrapper.pdb
+D:\Code\BigQ\BigQ\BigQ\obj\Release\BigQ.csprojResolveAssemblyReference.cache

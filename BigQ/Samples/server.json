@@ -1,9 +1,15 @@
 {
   "Version":"1.7",
   "GUID":"00000000-0000-0000-0000-000000000000",
-  "Files":{
-    "UsersFile":"",
-    "PermissionsFile":""
+  "Files": {
+    "UsersFile": "",
+    "PermissionsFile": "",
+    "PersistenceDatabaseFile": ""
+  },
+  "Persistence": {
+    "EnablePersistence": false,
+    "MaxExpirationSeconds": 0,
+    "MaxStoredMessagesPerRecipient": 0
   },
   "Heartbeat":{
     "IntervalMs":1000,

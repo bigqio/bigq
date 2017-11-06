@@ -13,8 +13,10 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 
 first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
 
-## New in v1.7.6
-- Bugfixes
+## New in v1.8.0
+- Persistence support per message (async direct messages only)
+- Better, faster disconnect detection
+- Bugfixes and refactoring
 
 ## Description
 
@@ -40,6 +42,10 @@ Core use cases for bigq:
 ## Performance
 
 Performance in bigq is good, however, connection and channel management both have high overhead.  If you have a use case with lots of client joins/exits, bigq may not be suitable for your environment.  We'd love your help in making bigq more efficient!
+
+## Persistence
+
+Persistence is supported as an attribute of a directed asynchronous message.  If you use persistence, make sure you include ```sqlite3.dll``` in your program execution directory.  This is very important.
 
 ## Components
 
@@ -126,6 +132,10 @@ if (!client.ListClients(out response, out clients)) { // handle errors }
 // private async message
 // received by 'AsyncMessageReceived' on recipient
 if (!client.SendPrivateMessageAsync(guid, msg)) { // handle errors }
+
+// private async message with persistence
+// received by 'AsyncMessageReceived' on recipient
+if (!client.SendPrivateMessageAsync(guid, null, msg, true)) { // handle errors }
 
 // private sync message
 // received by 'SyncMessageReceived' on recipient client

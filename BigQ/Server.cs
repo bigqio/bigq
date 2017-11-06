@@ -53,6 +53,7 @@ namespace BigQ
         private MessageBuilder _MsgBuilder;
         private ConnectionManager _ConnMgr;
         private ChannelManager _ChannelMgr;
+        private PersistenceManager _PersistenceMgr;
         private ConcurrentDictionary<string, DateTime> _ClientActiveSendMap;     // Receiver GUID, AddedUTC
 
         //
@@ -113,7 +114,7 @@ namespace BigQ
          
         #endregion
 
-        #region Constructors
+        #region Constructors-and-Factories
 
         /// <summary>
         /// Start an instance of the BigQ server process.
@@ -143,180 +144,7 @@ namespace BigQ
 
             #endregion
 
-            #region Initialize-Logging
-
-            _Logging = new LoggingModule(
-                Config.Logging.SyslogServerIp,
-                Config.Logging.SyslogServerPort,
-                Config.Logging.ConsoleLogging,
-                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
-                false,
-                true,
-                true,
-                true,
-                true,
-                true);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server configuration loaded");
-
-            #endregion
-
-            #region Set-Class-Variables
-
-            if (!String.IsNullOrEmpty(Config.GUID)) _ServerGUID = Config.GUID;
-
-            _MsgBuilder = new MessageBuilder(_ServerGUID);
-            _ConnMgr = new ConnectionManager(_Logging, Config);
-            _ChannelMgr = new ChannelManager(_Logging, Config);
-            _ClientActiveSendMap = new ConcurrentDictionary<string, DateTime>();
-             
-            _UsersLastModified = "";
-            _UsersList = new ConcurrentList<User>();
-            _PermissionsLastModified = "";
-            _PermissionsList = new ConcurrentList<Permission>();
-
-            #endregion
-
-            #region Set-Delegates-to-Null
-
-            MessageReceived = null;
-            ServerStopped = null;
-            ClientConnected = null;
-            ClientLogin = null;
-            ClientDisconnected = null;
-            
-            #endregion
-             
-            #region Start-Users-and-Permissions-File-Monitor
-
-            _UsersCancellationTokenSource = new CancellationTokenSource();
-            _UsersCancellationToken = _UsersCancellationTokenSource.Token;
-            Task.Run(() => MonitorUsersFile(), _UsersCancellationToken);
-
-            _PermissionsCancellationTokenSource = new CancellationTokenSource();
-            _PermissionsCancellationToken = _PermissionsCancellationTokenSource.Token;
-            Task.Run(() => MonitorPermissionsFile(), _PermissionsCancellationToken);
-
-            #endregion
-
-            #region Start-Cleanup-Task
-
-            _CleanupCancellationTokenSource = new CancellationTokenSource();
-            _CleanupCancellationToken = _CleanupCancellationTokenSource.Token;
-            Task.Run(() => CleanupTask(), _CleanupCancellationToken);
-
-            #endregion
-
-            #region Start-Server-Channels
-
-            if (Config.ServerChannels != null && Config.ServerChannels.Count > 0)
-            {
-                Client CurrentClient = new Client();
-                CurrentClient.Email = null;
-                CurrentClient.Password = null;
-                CurrentClient.ClientGUID = _ServerGUID;
-                CurrentClient.IpPort = "127.0.0.1:0";
-                CurrentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-                CurrentClient.UpdatedUtc = CurrentClient.CreatedUtc;
-
-                foreach (Channel curr in Config.ServerChannels)
-                {
-                    if (!AddChannel(CurrentClient, curr))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "Unable to add server channel " + curr.ChannelName);
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Debug, "Added server channel " + curr.ChannelName);
-                    }
-                }
-            }
-
-            #endregion
-            
-            #region Start-Watson-Servers
-
-            if (Config.TcpServer.Enable)
-            {
-                #region Start-TCP-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP server: " + Config.TcpServer.Ip + ":" + Config.TcpServer.Port);
-
-                _WTcpServer = new WatsonTcpServer(
-                    Config.TcpServer.Ip,
-                    Config.TcpServer.Port,
-                    WTcpClientConnected,
-                    WTcpClientDisconnected,
-                    WTcpMessageReceived,
-                    Config.TcpServer.Debug);
-                 
-                #endregion
-            }
-
-            if (Config.TcpSslServer.Enable)
-            {
-                #region Start-TCP-SSL-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP SSL server: " + Config.TcpSslServer.Ip + ":" + Config.TcpSslServer.Port);
-
-                _WTcpSslServer = new WatsonTcpSslServer(
-                    Config.TcpSslServer.Ip,
-                    Config.TcpSslServer.Port,
-                    Config.TcpSslServer.PfxCertFile,
-                    Config.TcpSslServer.PfxCertPassword,
-                    Config.TcpSslServer.AcceptInvalidCerts,
-                    false,
-                    WTcpSslClientConnected,
-                    WTcpSslClientDisconnected,
-                    WTcpSslMessageReceived,
-                    Config.TcpSslServer.Debug);
-
-                #endregion
-            }
-
-            if (Config.WebsocketServer.Enable)
-            {
-                #region Start-Websocket-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket server: " + Config.WebsocketServer.Ip + ":" + Config.WebsocketServer.Port);
-
-                _WWsServer = new WatsonWsServer(
-                    Config.WebsocketServer.Ip,
-                    Config.WebsocketServer.Port,
-                    false,
-                    false,
-                    null,
-                    WWsClientConnected,
-                    WWsClientDisconnected,
-                    WWsMessageReceived,
-                    Config.WebsocketServer.Debug);
-
-                #endregion
-            }
-
-            if (Config.WebsocketSslServer.Enable)
-            {
-                #region Start-Websocket-SSL-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket SSL server: " + Config.WebsocketSslServer.Ip + ":" + Config.WebsocketSslServer.Port);
-
-                _WWsSslServer = new WatsonWsServer(
-                    Config.WebsocketSslServer.Ip,
-                    Config.WebsocketSslServer.Port,
-                    true,
-                    Config.WebsocketSslServer.AcceptInvalidCerts,
-                    null,
-                    WWsSslClientConnected,
-                    WWsSslClientDisconnected,
-                    WWsSslMessageReceived,
-                    Config.WebsocketServer.Debug);
-
-                #endregion
-            }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server started");
-
-            #endregion
+            InitializeServer(); 
         }
 
         /// <summary>
@@ -325,187 +153,15 @@ namespace BigQ
         /// <param name="config">Populated server configuration object.</param>
         public Server(ServerConfiguration config)
         {
+            #region Load-Config
+
             if (config == null) throw new ArgumentNullException(nameof(config));
             config.ValidateConfig();
             Config = config;
 
-            _CreatedUtc = DateTime.Now.ToUniversalTime();
-            _Random = new Random((int)DateTime.Now.Ticks);
-
-            #region Initialize-Logging
-
-            _Logging = new LoggingModule(
-                Config.Logging.SyslogServerIp,
-                Config.Logging.SyslogServerPort,
-                Config.Logging.ConsoleLogging,
-                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
-                false,
-                true,
-                true,
-                true,
-                true,
-                true);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server configuration loaded");
-
             #endregion
 
-            #region Set-Class-Variables
-
-            if (!String.IsNullOrEmpty(Config.GUID)) _ServerGUID = Config.GUID;
-
-            _MsgBuilder = new MessageBuilder(_ServerGUID);
-            _ConnMgr = new ConnectionManager(_Logging, Config);
-            _ChannelMgr = new ChannelManager(_Logging, Config);
-            _ClientActiveSendMap = new ConcurrentDictionary<string, DateTime>();
-
-            _UsersLastModified = "";
-            _UsersList = new ConcurrentList<User>();
-            _PermissionsLastModified = "";
-            _PermissionsList = new ConcurrentList<Permission>();
-
-            #endregion
-
-            #region Set-Delegates-to-Null
-
-            MessageReceived = null;
-            ServerStopped = null;
-            ClientConnected = null;
-            ClientLogin = null;
-            ClientDisconnected = null;
-
-            #endregion
-
-            #region Start-Users-and-Permissions-File-Monitor
-
-            _UsersCancellationTokenSource = new CancellationTokenSource();
-            _UsersCancellationToken = _UsersCancellationTokenSource.Token;
-            Task.Run(() => MonitorUsersFile(), _UsersCancellationToken);
-
-            _PermissionsCancellationTokenSource = new CancellationTokenSource();
-            _PermissionsCancellationToken = _PermissionsCancellationTokenSource.Token;
-            Task.Run(() => MonitorPermissionsFile(), _PermissionsCancellationToken);
-
-            #endregion
-
-            #region Start-Cleanup-Task
-
-            _CleanupCancellationTokenSource = new CancellationTokenSource();
-            _CleanupCancellationToken = _CleanupCancellationTokenSource.Token;
-            Task.Run(() => CleanupTask(), _CleanupCancellationToken);
-
-            #endregion
-
-            #region Start-Server-Channels
-
-            if (Config.ServerChannels != null && Config.ServerChannels.Count > 0)
-            {
-                Client CurrentClient = new Client();
-                CurrentClient.Email = null;
-                CurrentClient.Password = null;
-                CurrentClient.ClientGUID = _ServerGUID;
-                CurrentClient.IpPort = "127.0.0.1:0";
-                CurrentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-                CurrentClient.UpdatedUtc = CurrentClient.CreatedUtc;
-
-                foreach (Channel curr in Config.ServerChannels)
-                {
-                    if (!AddChannel(CurrentClient, curr))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "Unable to add server channel " + curr.ChannelName);
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Debug, "Added server channel " + curr.ChannelName);
-                    }
-                }
-            }
-
-            #endregion
-
-            #region Start-Watson-Servers
-
-            if (Config.TcpServer.Enable)
-            {
-                #region Start-TCP-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP server: " + Config.TcpServer.Ip + ":" + Config.TcpServer.Port);
-
-                _WTcpServer = new WatsonTcpServer(
-                    Config.TcpServer.Ip,
-                    Config.TcpServer.Port,
-                    WTcpClientConnected,
-                    WTcpClientDisconnected,
-                    WTcpMessageReceived,
-                    Config.TcpServer.Debug);
-
-                #endregion
-            }
-
-            if (Config.TcpSslServer.Enable)
-            {
-                #region Start-TCP-SSL-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP SSL server: " + Config.TcpSslServer.Ip + ":" + Config.TcpSslServer.Port);
-
-                _WTcpSslServer = new WatsonTcpSslServer(
-                    Config.TcpSslServer.Ip,
-                    Config.TcpSslServer.Port,
-                    Config.TcpSslServer.PfxCertFile,
-                    Config.TcpSslServer.PfxCertPassword,
-                    Config.TcpSslServer.AcceptInvalidCerts,
-                    false,
-                    WTcpSslClientConnected,
-                    WTcpSslClientDisconnected,
-                    WTcpSslMessageReceived,
-                    Config.TcpSslServer.Debug);
-
-                #endregion
-            }
-
-            if (Config.WebsocketServer.Enable)
-            {
-                #region Start-Websocket-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket server: " + Config.WebsocketServer.Ip + ":" + Config.WebsocketServer.Port);
-
-                _WWsServer = new WatsonWsServer(
-                    Config.WebsocketServer.Ip,
-                    Config.WebsocketServer.Port,
-                    false,
-                    false,
-                    null,
-                    WWsClientConnected,
-                    WWsClientDisconnected,
-                    WWsMessageReceived,
-                    Config.WebsocketServer.Debug);
-
-                #endregion
-            }
-
-            if (Config.WebsocketSslServer.Enable)
-            {
-                #region Start-Websocket-SSL-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket SSL server: " + Config.WebsocketSslServer.Ip + ":" + Config.WebsocketSslServer.Port);
-
-                _WWsSslServer = new WatsonWsServer(
-                    Config.WebsocketSslServer.Ip,
-                    Config.WebsocketSslServer.Port,
-                    true,
-                    Config.WebsocketSslServer.AcceptInvalidCerts,
-                    null,
-                    WWsSslClientConnected,
-                    WWsSslClientDisconnected,
-                    WWsSslMessageReceived,
-                    Config.WebsocketServer.Debug);
-
-                #endregion
-            }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server started");
-
-            #endregion
+            InitializeServer();
         }
 
         #endregion
@@ -721,45 +377,49 @@ namespace BigQ
             return RemoveChannel(currentChannel);
         }
 
+        /// <summary>
+        /// Return the number of unexpired persistent messages awaiting delivery.
+        /// </summary>
+        /// <returns>The number of persistent messages.</returns>
+        public int PersistentQueueDepth()
+        {
+            if (_PersistenceMgr == null) return -1;
+            return _PersistenceMgr.QueueDepth();
+        }
+
+        /// <summary>
+        /// Return the number of unexpired persistent messages awaiting delivery to a recipient.
+        /// </summary>
+        /// <param name="guid">The GUID of the recipient.</param>
+        /// <returns>The number of persistent messages.</returns>
+        public int PersistentQueueDepth(string guid)
+        {
+            if (_PersistenceMgr == null) return -1;
+            return _PersistenceMgr.QueueDepth(guid);
+        }
+
         #endregion
 
-        #region Private-Watson-Methods
+        #region Private-Watson-Callback-Methods
 
         private bool WTcpClientConnected(string ipPort)
-        {
+        { 
             _Logging.Log(LoggingModule.Severity.Debug, "WTcpClientConnected new connection from " + ipPort);
             Client currentClient = new Client(ipPort, true, false, false);
             _ConnMgr.AddClient(currentClient);
-            StartClientQueue(currentClient);
             return true;
         }
 
         private bool WTcpClientDisconnected(string ipPort)
         {
             _Logging.Log(LoggingModule.Severity.Debug, "WTcpClientDisconnected connection termination from " + ipPort);
-            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(Client))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "WTcpClientDisconnected unable to find client " + ipPort);
-                return true;
-            }
-            currentClient.Dispose();
-            _ConnMgr.RemoveClient(ipPort);
+            DestroyClient(ipPort);
             return true;
         }
 
         private bool WTcpMessageReceived(string ipPort, byte[] data)
         {
-            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(Client))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "WTcpMessageReceived unable to retrieve client " + ipPort);
-                return true;
-            }
-
-            Message currentMessage = new Message(data);
-            MessageProcessor(currentClient, currentMessage);
-            if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
+            HandleMessageReceived(ipPort, data);
             return true;
         }
          
@@ -767,37 +427,20 @@ namespace BigQ
         {
             _Logging.Log(LoggingModule.Severity.Debug, "WTcpSslClientConnected new connection from " + ipPort);
             Client currentClient = new Client(ipPort, true, false, true);
-            _ConnMgr.AddClient(currentClient);
-            StartClientQueue(currentClient);
+            _ConnMgr.AddClient(currentClient); 
             return true;
         }
 
         private bool WTcpSslClientDisconnected(string ipPort)
         {
             _Logging.Log(LoggingModule.Severity.Debug, "WTcpSslClientDisconnected connection termination from " + ipPort);
-            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(Client))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "WTcpSslClientDisconnected unable to find client " + ipPort);
-                return true;
-            }
-            currentClient.Dispose();
-            _ConnMgr.RemoveClient(ipPort);
+            DestroyClient(ipPort);
             return true;
         }
 
         private bool WTcpSslMessageReceived(string ipPort, byte[] data)
         {
-            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(Client))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "WTcpSslMessageReceived unable to retrieve client " + ipPort);
-                return true;
-            }
-
-            Message currentMessage = new Message(data);
-            MessageProcessor(currentClient, currentMessage);
-            if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
+            HandleMessageReceived(ipPort, data);
             return true;
         }
 
@@ -807,8 +450,7 @@ namespace BigQ
             {
                 _Logging.Log(LoggingModule.Severity.Debug, "WWsClientConnected new connection from " + ipPort);
                 Client currentClient = new Client(ipPort, false, true, false);
-                _ConnMgr.AddClient(currentClient);
-                StartClientQueue(currentClient);
+                _ConnMgr.AddClient(currentClient); 
                 return true;
             }
             catch (Exception e)
@@ -821,82 +463,266 @@ namespace BigQ
         private bool WWsClientDisconnected(string ipPort)
         {
             _Logging.Log(LoggingModule.Severity.Debug, "WWsClientDisconnected connection termination from " + ipPort);
-            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(Client))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "WWsClientDisconnected unable to find client " + ipPort);
-                return true;
-            }
-            currentClient.Dispose();
-            _ConnMgr.RemoveClient(ipPort);
+            DestroyClient(ipPort);
             return true;
         }
 
         private bool WWsMessageReceived(string ipPort, byte[] data)
         {
-            try
-            {
-                Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-                if (currentClient == null || currentClient == default(Client))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "WWsMessageReceived unable to retrieve client " + ipPort);
-                    return true;
-                }
-
-                Message currentMessage = new Message(data);
-                Console.WriteLine(currentMessage.ToString());
-                MessageProcessor(currentClient, currentMessage);
-                if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
-                return true;
-            }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "WWsMessageReceived", e);
-                return false;
-            }
+            HandleMessageReceived(ipPort, data);
+            return true;
         }
 
         private bool WWsSslClientConnected(string ipPort, IDictionary<string, string> qs)
         {
             _Logging.Log(LoggingModule.Severity.Debug, "WWsSslClientConnected new connection from " + ipPort);
             Client currentClient = new Client(ipPort, false, true, true);
-            _ConnMgr.AddClient(currentClient);
-            StartClientQueue(currentClient);
+            _ConnMgr.AddClient(currentClient); 
             return true;
         }
 
         private bool WWsSslClientDisconnected(string ipPort)
         {
             _Logging.Log(LoggingModule.Severity.Debug, "WWsSslClientDisconnected connection termination from " + ipPort);
-            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(Client))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "WWsSslClientDisconnected unable to find client " + ipPort);
-                return true;
-            }
-            currentClient.Dispose();
-            _ConnMgr.RemoveClient(ipPort);
+            DestroyClient(ipPort);
             return true;
         }
 
         private bool WWsSslMessageReceived(string ipPort, byte[] data)
         {
+            HandleMessageReceived(ipPort, data);
+            return true;
+        }
+
+        #endregion
+
+        #region Private-Methods
+
+        private void InitializeServer()
+        {
+            #region Initialize-Globals
+
+            _CreatedUtc = DateTime.Now.ToUniversalTime();
+            _Random = new Random((int)DateTime.Now.Ticks);
+
+            #endregion
+
+            #region Initialize-Logging
+
+            _Logging = new LoggingModule(
+                Config.Logging.SyslogServerIp,
+                Config.Logging.SyslogServerPort,
+                Config.Logging.ConsoleLogging,
+                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
+                false,
+                true,
+                true,
+                true,
+                true,
+                false);
+
+            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server configuration loaded");
+
+            #endregion
+
+            #region Set-Class-Variables
+
+            if (!String.IsNullOrEmpty(Config.GUID)) _ServerGUID = Config.GUID;
+
+            _MsgBuilder = new MessageBuilder(_ServerGUID);
+            _ConnMgr = new ConnectionManager(_Logging, Config);
+            _ChannelMgr = new ChannelManager(_Logging, Config);
+            _ClientActiveSendMap = new ConcurrentDictionary<string, DateTime>();
+
+            _UsersLastModified = "";
+            _UsersList = new ConcurrentList<User>();
+            _PermissionsLastModified = "";
+            _PermissionsList = new ConcurrentList<Permission>();
+
+            if (Config.Persistence != null && Config.Persistence.EnablePersistence)
+            {
+                _PersistenceMgr = new PersistenceManager(_Logging, Config);
+            }
+            else
+            {
+                _PersistenceMgr = null;
+            }
+
+            #endregion
+
+            #region Set-Delegates-to-Null
+
+            MessageReceived = null;
+            ServerStopped = null;
+            ClientConnected = null;
+            ClientLogin = null;
+            ClientDisconnected = null;
+
+            #endregion
+
+            #region Start-Users-and-Permissions-File-Monitor
+
+            _UsersCancellationTokenSource = new CancellationTokenSource();
+            _UsersCancellationToken = _UsersCancellationTokenSource.Token;
+            Task.Run(() => MonitorUsersFile(), _UsersCancellationToken);
+
+            _PermissionsCancellationTokenSource = new CancellationTokenSource();
+            _PermissionsCancellationToken = _PermissionsCancellationTokenSource.Token;
+            Task.Run(() => MonitorPermissionsFile(), _PermissionsCancellationToken);
+
+            #endregion
+
+            #region Start-Cleanup-Task
+
+            _CleanupCancellationTokenSource = new CancellationTokenSource();
+            _CleanupCancellationToken = _CleanupCancellationTokenSource.Token;
+            Task.Run(() => CleanupTask(), _CleanupCancellationToken);
+
+            #endregion
+
+            #region Start-Server-Channels
+
+            if (Config.ServerChannels != null && Config.ServerChannels.Count > 0)
+            {
+                Client CurrentClient = new Client();
+                CurrentClient.Email = null;
+                CurrentClient.Password = null;
+                CurrentClient.ClientGUID = _ServerGUID;
+                CurrentClient.IpPort = "127.0.0.1:0";
+                CurrentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+                CurrentClient.UpdatedUtc = CurrentClient.CreatedUtc;
+
+                foreach (Channel curr in Config.ServerChannels)
+                {
+                    if (!AddChannel(CurrentClient, curr))
+                    {
+                        _Logging.Log(LoggingModule.Severity.Warn, "Unable to add server channel " + curr.ChannelName);
+                    }
+                    else
+                    {
+                        _Logging.Log(LoggingModule.Severity.Debug, "Added server channel " + curr.ChannelName);
+                    }
+                }
+            }
+
+            #endregion
+
+            #region Start-Watson-Servers
+
+            if (Config.TcpServer.Enable)
+            {
+                #region Start-TCP-Server
+
+                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP server: " + Config.TcpServer.Ip + ":" + Config.TcpServer.Port);
+
+                _WTcpServer = new WatsonTcpServer(
+                    Config.TcpServer.Ip,
+                    Config.TcpServer.Port,
+                    WTcpClientConnected,
+                    WTcpClientDisconnected,
+                    WTcpMessageReceived,
+                    Config.TcpServer.Debug);
+
+                #endregion
+            }
+
+            if (Config.TcpSslServer.Enable)
+            {
+                #region Start-TCP-SSL-Server
+
+                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP SSL server: " + Config.TcpSslServer.Ip + ":" + Config.TcpSslServer.Port);
+
+                _WTcpSslServer = new WatsonTcpSslServer(
+                    Config.TcpSslServer.Ip,
+                    Config.TcpSslServer.Port,
+                    Config.TcpSslServer.PfxCertFile,
+                    Config.TcpSslServer.PfxCertPassword,
+                    Config.TcpSslServer.AcceptInvalidCerts,
+                    false,
+                    WTcpSslClientConnected,
+                    WTcpSslClientDisconnected,
+                    WTcpSslMessageReceived,
+                    Config.TcpSslServer.Debug);
+
+                #endregion
+            }
+
+            if (Config.WebsocketServer.Enable)
+            {
+                #region Start-Websocket-Server
+
+                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket server: " + Config.WebsocketServer.Ip + ":" + Config.WebsocketServer.Port);
+
+                _WWsServer = new WatsonWsServer(
+                    Config.WebsocketServer.Ip,
+                    Config.WebsocketServer.Port,
+                    false,
+                    false,
+                    null,
+                    WWsClientConnected,
+                    WWsClientDisconnected,
+                    WWsMessageReceived,
+                    Config.WebsocketServer.Debug);
+
+                #endregion
+            }
+
+            if (Config.WebsocketSslServer.Enable)
+            {
+                #region Start-Websocket-SSL-Server
+
+                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket SSL server: " + Config.WebsocketSslServer.Ip + ":" + Config.WebsocketSslServer.Port);
+
+                _WWsSslServer = new WatsonWsServer(
+                    Config.WebsocketSslServer.Ip,
+                    Config.WebsocketSslServer.Port,
+                    true,
+                    Config.WebsocketSslServer.AcceptInvalidCerts,
+                    null,
+                    WWsSslClientConnected,
+                    WWsSslClientDisconnected,
+                    WWsSslMessageReceived,
+                    Config.WebsocketServer.Debug);
+
+                #endregion
+            }
+
+            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server started");
+
+            #endregion
+        }
+         
+        private void DestroyClient(string ipPort)
+        {
+            if (String.IsNullOrEmpty(ipPort)) return;
             Client currentClient = _ConnMgr.GetByIpPort(ipPort);
             if (currentClient == null || currentClient == default(Client))
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "WWsSslMessageReceived unable to retrieve client " + ipPort);
-                return true;
+                _Logging.Log(LoggingModule.Severity.Warn, "DestroyClient unable to find client " + ipPort);
+                return;
+            }
+            else
+            {
+                currentClient.Dispose();
+                _ConnMgr.RemoveClient(ipPort);
+                return;
+            }
+        }
+
+        private void HandleMessageReceived(string ipPort, byte[] data)
+        {
+            Client currentClient = _ConnMgr.GetByIpPort(ipPort);
+            if (currentClient == null || currentClient == default(Client))
+            {
+                _Logging.Log(LoggingModule.Severity.Warn, "HandleMessageReceived unable to retrieve client " + ipPort);
+                return;
             }
 
             Message currentMessage = new Message(data);
             MessageProcessor(currentClient, currentMessage);
             if (MessageReceived != null) Task.Run(() => MessageReceived(currentMessage));
-            return true;
+            return;
         }
-        
-        #endregion
-
-        #region Private-Methods
 
         protected virtual void Dispose(bool disposing)
         {
@@ -953,7 +779,7 @@ namespace BigQ
                     //
                     // wait
                     //
-
+                    
                     Task.Delay(25).Wait();
                     addLoopCount += 25;
 
@@ -974,9 +800,9 @@ namespace BigQ
                 #endregion
 
                 #region Send-Message
-
+                 
                 byte[] data = currentMessage.ToBytes();
-
+                 
                 if (currentClient.IsTcp && !currentClient.IsSsl) return _WTcpServer.Send(currentClient.IpPort, data);
                 else if (currentClient.IsTcp && currentClient.IsSsl) return _WTcpSslServer.Send(currentClient.IpPort, data);
                 else if (currentClient.IsWebsocket && !currentClient.IsSsl) return _WWsServer.SendAsync(currentClient.IpPort, data).Result;
@@ -1019,7 +845,7 @@ namespace BigQ
                         }
                     }
                 }
-
+                 
                 #endregion
             }
         }
@@ -1124,56 +950,93 @@ namespace BigQ
                 #endregion
             }
         }
-        
+
+        private void StartClientQueue(Client currentClient)
+        {
+            currentClient.RamQueueTokenSource = new CancellationTokenSource();
+            currentClient.RamQueueToken = currentClient.RamQueueTokenSource.Token;
+            currentClient.RamQueueToken.ThrowIfCancellationRequested();
+
+            currentClient.DiskQueueTokenSource = new CancellationTokenSource();
+            currentClient.DiskQueueToken = currentClient.DiskQueueTokenSource.Token;
+            currentClient.DiskQueueToken.ThrowIfCancellationRequested();
+
+            _Logging.Log(LoggingModule.Severity.Debug, "StartClientQueue starting queue processors for " + currentClient.IpPort);
+
+            Task.Run(() => ProcessClientRamQueue(currentClient, currentClient.RamQueueToken), currentClient.RamQueueToken);
+            Task.Run(() => ProcessClientDiskQueue(currentClient, currentClient.RamQueueToken), currentClient.DiskQueueToken);
+        }
+
         private bool QueueClientMessage(Client currentClient, Message currentMessage)
         { 
-            _Logging.Log(LoggingModule.Severity.Debug, "QueueClientMessage queued message for client " + currentClient.IpPort + " " + currentClient.ClientGUID + " from " + currentMessage.SenderGUID);
-            currentClient.MessageQueue.Add(currentMessage);
+            _Logging.Log(LoggingModule.Severity.Debug, "QueueClientMessage queuing message for client " + currentClient.IpPort + " " + currentClient.ClientGUID + " from " + currentMessage.SenderGUID);
+
+            if (currentMessage.Persist)
+            {
+                if (!_PersistenceMgr.PersistMessage(currentMessage))
+                {
+                    _Logging.Log(LoggingModule.Severity.Warn, "QueueClientMessage unable to queue persistent message for client " + currentClient.IpPort + " " + currentClient.ClientGUID + " from " + currentMessage.SenderGUID);
+                    return false;
+                }
+                else
+                {
+                    _Logging.Log(LoggingModule.Severity.Debug, "QueueClientMessage persisted message for client " + currentClient.IpPort + " " + currentClient.ClientGUID + " from " + currentMessage.SenderGUID);
+                }
+            }
+            else
+            {
+                currentClient.MessageQueue.Add(currentMessage);
+            }
+
             return true;
         }
 
-        private bool ProcessClientQueue(Client currentClient)
+        private void ProcessClientRamQueue(Client currentClient, CancellationToken cancelToken)
         {
+            if (cancelToken != null) cancelToken.ThrowIfCancellationRequested();
+
             try
             { 
                 #region Process
 
                 while (true)
                 {
-                    Message currMessage = currentClient.MessageQueue.Take(currentClient.ProcessClientQueueToken);
+                    if (cancelToken.IsCancellationRequested) break;
+
+                    Message currMessage = currentClient.MessageQueue.Take(currentClient.RamQueueToken);
+
                     if (currMessage != null)
                     {
                         if (String.IsNullOrEmpty(currMessage.RecipientGUID))
                         {
-                            _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue unable to deliver message " + currMessage.MessageID + " from " + currMessage.SenderGUID + " (empty recipient), discarding");
+                            _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientRamQueue unable to deliver message " + currMessage.MessageID + " from " + currMessage.SenderGUID + " (empty recipient), discarding");
                         }
                         else
                         {
-                            bool success = SendMessage(currentClient, currMessage);
-                            if (!success)
+                            if (!SendMessage(currentClient, currMessage))
                             {
                                 Client tempClient = _ConnMgr.GetClientByGUID(currMessage.RecipientGUID);
                                 if (tempClient == null)
                                 {
-                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue recipient " + currMessage.RecipientGUID + " no longer exists, disposing");
+                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientRamQueue recipient " + currMessage.RecipientGUID + " no longer exists, disposing");
                                     currentClient.Dispose();
-                                    return false;
+                                    return;
                                 }
                                 else
                                 {
-                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing (client still exists)");
+                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientRamQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing (client still exists)");
                                     currentClient.MessageQueue.Add(currMessage);
                                 }
                             }
                             else
                             {
-                                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
+                                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientRamQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
                             }
                         }
                     }
                     else
                     {
-                        _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientQueue received null message from queue for client " + currentClient.ClientGUID + ", discarding");
+                        _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientRamQueue received null message from queue for client " + currentClient.ClientGUID + ", discarding");
                     }
                 }
 
@@ -1181,133 +1044,95 @@ namespace BigQ
             }
             catch (OperationCanceledException oce)
             {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientQueue canceled for client " + currentClient.IpPort + ": " + oce.Message);
-                return false;
+                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientRamQueue canceled for client " + currentClient.IpPort + ": " + oce.Message);
+                return;
             }
             catch (Exception e)
             {
                 if (currentClient != null)
                 {
-                    _Logging.LogException("Server", "ProcessClientQueue (" + currentClient.IpPort + ")", e);
+                    _Logging.LogException("Server", "ProcessClientRamQueue (" + currentClient.IpPort + ")", e);
                 }
                 else
                 {
-                    _Logging.LogException("Server", "ProcessClientQueue (null)", e);
+                    _Logging.LogException("Server", "ProcessClientRamQueue (null)", e);
                 }
 
-                return false;
-            }
-        }
-
-        private void StartClientQueue(Client currentClient)
-        {
-            currentClient.ProcessClientQueueTokenSource = new CancellationTokenSource();
-            currentClient.ProcessClientQueueToken = currentClient.ProcessClientQueueTokenSource.Token;
-            _Logging.Log(LoggingModule.Severity.Debug, "StartClientQueue starting queue processor for " + currentClient.IpPort);
-            Task.Run(() => ProcessClientQueue(currentClient), currentClient.ProcessClientQueueToken);
-        }
-
-        private void HeartbeatManager(Client currentClient)
-        { 
-            // Should only be called after client login
-
-            try
-            {
-                #region Check-for-Null-Values
-
-                if (Config.Heartbeat.IntervalMs <= 0)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager invalid heartbeat interval, using 1000ms");
-                    Config.Heartbeat.IntervalMs = 1000;
-                }
-                 
-                if (String.IsNullOrEmpty(currentClient.ClientGUID))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager null client GUID in supplied client");
-                    return;
-                }
-
-                #endregion
-
-                #region Variables
-
-                DateTime threadStart = DateTime.Now;
-                DateTime lastHeartbeatAttempt = DateTime.Now;
-                DateTime lastSuccess = DateTime.Now;
-                DateTime lastFailure = DateTime.Now;
-                int numConsecutiveFailures = 0;
-                bool firstRun = true;
-
-                #endregion
-
-                #region Process
-
-                while (true)
-                {
-                    #region Sleep
-
-                    if (firstRun)
-                    {
-                        firstRun = false;
-                    }
-                    else
-                    {
-                        Task.Delay(Config.Heartbeat.IntervalMs).Wait();
-                    }
-
-                    #endregion
-
-                    #region Send-Heartbeat-Message
-
-                    lastHeartbeatAttempt = DateTime.Now;
-
-                    Message heartbeatMessage = _MsgBuilder.HeartbeatRequest(currentClient);
-                    if (Config.Debug.SendHeartbeat) _Logging.Log(LoggingModule.Severity.Debug, "HeartbeatManager sending heartbeat to " + currentClient.IpPort + " GUID " + currentClient.ClientGUID);
-
-                    if (!SendMessage(currentClient, heartbeatMessage))
-                    {
-                        numConsecutiveFailures++;
-                        lastFailure = DateTime.Now;
-
-                        _Logging.Log(LoggingModule.Severity.Debug, "HeartbeatManager failed to send heartbeat to client " + currentClient.IpPort + " (" + numConsecutiveFailures + "/" + Config.Heartbeat.MaxFailures + " consecutive failures)");
-
-                        if (numConsecutiveFailures >= Config.Heartbeat.MaxFailures)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "HeartbeatManager maximum number of failed heartbeats reached, abandoning client " + currentClient.IpPort);
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        numConsecutiveFailures = 0;
-                        lastSuccess = DateTime.Now;
-                    }
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (ThreadAbortException)
-            {
-                // do nothing
-            }
-            catch (Exception e)
-            { 
-                _Logging.LogException("Server", "HeartbeatManager " + currentClient.IpPort, e);
-            }
-            finally
-            {
-                List<Channel> affectedChannels = null;
-                _ConnMgr.RemoveClient(currentClient.IpPort);
-                _ChannelMgr.RemoveClientChannels(currentClient.ClientGUID, out affectedChannels);
-                ChannelDestroyEvent(affectedChannels);
-                _ChannelMgr.RemoveClient(currentClient.IpPort);
-                if (Config.Notification.ServerJoinNotification) Task.Run(() => ServerLeaveEvent(currentClient));
-                currentClient.Dispose();
+                return;
             }
         }
          
+        private void ProcessClientDiskQueue(Client currentClient, CancellationToken cancelToken)
+        {
+            if (Config.Persistence == null || !Config.Persistence.EnablePersistence) return;
+            if (cancelToken != null) cancelToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                #region Process
+
+                Dictionary<int, Message> msgs = null;
+
+                while (true)
+                {
+                    if (cancelToken.IsCancellationRequested) break;
+
+                    Task.Delay(Config.Persistence.RefreshIntervalMs).Wait();
+                    
+                    _PersistenceMgr.GetMessagesForRecipient(currentClient.ClientGUID, out msgs);
+                     
+                    if (msgs != null && msgs.Count > 0)
+                    {
+                        foreach (KeyValuePair<int, Message> curr in msgs)
+                        {
+                            if (!SendMessage(currentClient, curr.Value))
+                            {
+                                _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientDiskQueue unable to send message ID " + curr.Key + ", remaining in queue");
+
+                                Client tempClient = _ConnMgr.GetClientByGUID(currentClient.ClientGUID);
+                                if (tempClient == null)
+                                {
+                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientDiskQueue recipient " + currentClient.ClientGUID + " no longer exists, disposing");
+                                    currentClient.Dispose();
+                                    return;
+                                }
+                                else
+                                {
+                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientDiskQueue unable to deliver message from " + curr.Value.SenderGUID + " to " + currentClient.ClientGUID);
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                _PersistenceMgr.ExpireMessage(curr.Key);
+                                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientDiskQueue successfully drained message ID " + curr.Key + " to client " + currentClient.ClientGUID);
+                            }
+                        }
+                    }
+                }
+
+                #endregion
+            }
+            catch (OperationCanceledException oce)
+            {
+                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientDiskQueue canceled for client " + currentClient.IpPort + ": " + oce.Message);
+                return;
+            }
+            catch (Exception e)
+            {
+                if (currentClient != null)
+                {
+                    _Logging.LogException("Server", "ProcessClientDiskQueue (" + currentClient.IpPort + ")", e);
+                }
+                else
+                {
+                    _Logging.LogException("Server", "ProcessClientDiskQueue (null)", e);
+                }
+
+                return;
+            }
+        }
+
         #endregion
         
         #region Private-Event-Methods
@@ -2717,7 +2542,7 @@ namespace BigQ
 
             if (currentMessage == null)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor null message supplied");
+                _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor null message supplied from client " + currentClient.IpPort);
                 return false;
             }
 
@@ -2760,10 +2585,7 @@ namespace BigQ
                 #region Ensure-GUID-Exists
 
                 if (String.Compare(currentClient.ClientGUID, _ServerGUID) != 0)
-                {
-                    //
-                    // All zeros is the BigQ server
-                    //
+                { 
                     Client verifyClient = _ConnMgr.GetClientByGUID(currentClient.ClientGUID);
                     if (verifyClient == null)
                     {
@@ -2802,6 +2624,19 @@ namespace BigQ
                     _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue authorization failed message to client " + currentClient.IpPort);
                 }
                 return responseSuccess;
+            }
+
+            #endregion
+
+            #region Check-Persistence
+
+            if (currentMessage.Persist)
+            {
+                if (Config.Persistence == null || !Config.Persistence.EnablePersistence)
+                {
+                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor message from " + currentClient.ClientGUID + " requested persistence but persistence not enabled");
+                    return false;
+                }
             }
 
             #endregion
@@ -2925,13 +2760,13 @@ namespace BigQ
             if (currentRecipient != null)
             {
                 #region Send-to-Recipient
-
+                 
                 responseSuccess = QueueClientMessage(currentRecipient, currentMessage);
                 if (!responseSuccess)
                 {
                     _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue to recipient " + currentRecipient.ClientGUID + ", sent failure notification to sender");
                 }
-
+                 
                 return responseSuccess;
 
                 #endregion
@@ -3571,16 +3406,12 @@ namespace BigQ
                 currentClient.Name = currentMessage.SenderName;
 
                 _ConnMgr.UpdateClient(currentClient);
-
-                // start heartbeat
-                currentClient.HeartbeatTokenSource = new CancellationTokenSource();
-                currentClient.HeartbeatToken = currentClient.HeartbeatTokenSource.Token;
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessLoginMessage starting heartbeat manager for " + currentClient.IpPort);
-                Task.Run(() => HeartbeatManager(currentClient));
-
+                 
                 currentMessage = currentMessage.Redact();
                 runClientLoginTask = true;
                 runServerJoinNotification = true;
+
+                StartClientQueue(currentClient);
 
                 return currentMessage;
             }

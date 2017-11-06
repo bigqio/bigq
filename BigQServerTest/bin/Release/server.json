@@ -3,16 +3,19 @@
    "AcceptInvalidSSLCerts":true,
    "Files":{  
       "UsersFile":"users.json",
-      "PermissionsFile":"permissions.json"
+      "PermissionsFile":"permissions.json",
+      "PersistenceDatabaseFile":"PersistenceQueue.db"
    },
-   "Heartbeat":{  
-      "Enable":false,
-      "IntervalMs":1000,
-      "MaxFailures":5
-   },
+   "Persistence":{
+      "EnablePersistence":true,
+      "DebugDatabase":false,
+      "MaxExpirationSeconds":30,
+      "RefreshIntervalMs":3000,
+      "ExpirationIntervalMs":3000
+   }, 
    "Logging":{
       "ConsoleLogging":true,
-      "SyslogLogging":true,
+      "SyslogLogging":false,
       "SyslogServerIp":"127.0.0.1",
       "SyslogServerPort":514,
       "MinimumSeverity":1

@@ -118,3 +118,8 @@ D:\code\bigq\bigq\BigQServerTest\bin\Release\Newtonsoft.Json.xml
 D:\code\bigq\bigq\BigQServerTest\obj\Release\BigQServerTest.csprojResolveAssemblyReference.cache
 D:\code\bigq\bigq\BigQServerTest\obj\Release\BigQServerTest.exe
 D:\code\bigq\bigq\BigQServerTest\obj\Release\BigQServerTest.pdb
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Release\sqlite3.dll
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Release\SqliteWrapper.dll
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Release\Mono.Data.Sqlite.dll
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Release\BigQ.dll.config
+D:\Code\BigQ\BigQ\BigQServerTest\bin\Release\SqliteWrapper.pdb

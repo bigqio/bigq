@@ -36,8 +36,7 @@ namespace BigQClientTest
 
             Console.WriteLine("");
             Console.WriteLine("BigQ Client Version " + System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString());
-            if (String.IsNullOrEmpty(configFile)) Console.WriteLine("|  Use '--cfg=<filename>' to start with a configuration file");
-            Console.WriteLine("|  You must manually issue the 'login' command after connecting!");
+            if (String.IsNullOrEmpty(configFile)) Console.WriteLine("|  Use '--cfg=<filename>' to start with a configuration file"); 
             Console.WriteLine("");
 
             ConnectToServer(configFile);
@@ -65,7 +64,7 @@ namespace BigQClientTest
                         Console.WriteLine("  sendchannelasync  sendchannelsync");
                         Console.WriteLine("");
                         Console.WriteLine("Messaging Commands:");
-                        Console.WriteLine("  sendprivasync  sendprivsync");
+                        Console.WriteLine("  sendprivasync  sendpersist  sendprivsync");
                         Console.WriteLine("  listclients  isclientconnected  pendingsyncrequests");
                         Console.WriteLine("");
                         break;
@@ -345,6 +344,15 @@ namespace BigQClientTest
                         client.SendPrivateMessageAsync(guid, msg);
                         break;
 
+                    case "sendpersist":
+                        if (client == null) break;
+                        Console.Write("Recipient GUID: ");
+                        guid = Console.ReadLine();
+                        Console.Write("Message: ");
+                        msg = Console.ReadLine();
+                        client.SendPrivateMessageAsync(guid, null, msg, true);
+                        break;
+
                     case "sendprivsync":
                         if (client == null) break;
                         Console.Write("Recipient GUID: ");
@@ -448,8 +456,7 @@ namespace BigQClientTest
                     if (client != null) client.Dispose();
                     client = null;
                     client = new Client(ClientConfiguration.DefaultConfig());
-
-                    client.Config.Heartbeat.IntervalMs = 1000;
+                     
                     client.AsyncMessageReceived = AsyncMessageReceived;
                     client.SyncMessageReceived = SyncMessageReceived;
                     // client.ServerDisconnected = ServerDisconnected;
@@ -465,15 +472,6 @@ namespace BigQClientTest
                     client.ChannelDestroyed = ChannelDestroyed;
                     client.LogMessage = LogMessage;
                     client.LogMessage = null;
-
-                    Console.WriteLine("Client connected, logging in");
-                    Message response;
-                    if (!client.Login(out response))
-                    {
-                        Console.WriteLine("Unable to login, retrying in five seconds");
-                        Task.Delay(5000).Wait();
-                        return ConnectToServer(null);
-                    }
                 }
                 else
                 {
@@ -497,9 +495,17 @@ namespace BigQClientTest
                     client.LogMessage = LogMessage;
                     client.LogMessage = null; 
                 }
+                 
+                Console.WriteLine("Client connected, logging in");
+                Message response;
+                if (!client.Login(out response))
+                {
+                    Console.WriteLine("Unable to login, retrying in five seconds");
+                    Task.Delay(5000).Wait();
+                    return ConnectToServer(null);
+                }
 
-                Console.WriteLine("Successfully connected to server");
-                return true;
+                return false;
             }
             catch (SocketException)
             {
