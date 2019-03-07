@@ -1,13 +1,11 @@
 ﻿# BigQ
 
+Messaging Platform in C# for TCP, SSL, and Websockets, with unicast, broadcast, multicast, publisher/subscriber messaging and integrated framing.
+
 [![][nuget-img]][nuget]
 
 [nuget]:     https://www.nuget.org/packages/BigQ.dll
 [nuget-img]: https://badge.fury.io/nu/Object.svg
-
-## Messaging Platform in C#
-
-For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 
 ## Help or Feedback
 
