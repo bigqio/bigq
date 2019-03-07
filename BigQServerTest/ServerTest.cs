@@ -1,10 +1,7 @@
-﻿using System;
+﻿using BigQ.Core;
+using BigQ.Server;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using BigQ;
 
 namespace BigQServerTest
 {
@@ -16,9 +13,9 @@ namespace BigQServerTest
         {
             string configFile = null;
             bool runForever = true; 
-            List<Client> clients = new List<Client>();
-            List<Client> members = new List<Client>();
-            List<Client> subscribers = new List<Client>();
+            List<ServerClient> clients = new List<ServerClient>();
+            List<ServerClient> members = new List<ServerClient>();
+            List<ServerClient> subscribers = new List<ServerClient>();
             List<Channel> channels = new List<Channel>();
             Dictionary<string, string> guidMaps = new Dictionary<string, string>();
             Dictionary<string, DateTime> sendMaps = new Dictionary<string, DateTime>();
@@ -102,16 +99,18 @@ namespace BigQServerTest
 
                     case "listchannelmembers":
                         members = server.ListChannelMembers(
-                            Helper.InputString("Channel GUID:", null, false));
+                            Common.InputString("Channel GUID:", null, false));
                         if (members != null)
                         {
-                            foreach (Client curr in members)
+                            foreach (ServerClient curr in members)
                             {
-                                string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                if (curr.IsTcp) line += "TCP ";
-                                if (curr.IsWebsocket) line += "WS ";
-                                if (curr.IsSsl) line += "SSL ";
-                                
+                                string line = 
+                                    "  " + curr.IpPort +
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
+
                                 Console.WriteLine(line);
                             }
                         }
@@ -123,16 +122,18 @@ namespace BigQServerTest
 
                     case "listchannelsubscribers": 
                         subscribers = server.ListChannelSubscribers(
-                            Helper.InputString("Channel GUID:", null, false));
+                            Common.InputString("Channel GUID:", null, false));
                         if (subscribers != null)
                         {
-                            foreach (Client curr in subscribers)
+                            foreach (ServerClient curr in subscribers)
                             {
-                                string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                if (curr.IsTcp) line += "TCP ";
-                                if (curr.IsWebsocket) line += "WS ";
-                                if (curr.IsSsl) line += "SSL "; 
-                                
+                                string line =
+                                    "  " + curr.IpPort +
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
+
                                 Console.WriteLine(line);
                             }
                         }
@@ -144,27 +145,27 @@ namespace BigQServerTest
 
                     case "createbcastchannel":
                         server.CreateBroadcastChannel(
-                            Helper.InputString("Channel name:", null, false),
-                            Helper.InputString("Channel GUID:", null, true),
-                            Helper.InputInteger("Private:", 0, true, true));
+                            Common.InputString("Channel name:", null, false),
+                            Common.InputString("Channel GUID:", null, true),
+                            Common.InputInteger("Private:", 0, true, true));
                         break;
 
                     case "createucastchannel":
                         server.CreateUnicastChannel(
-                            Helper.InputString("Channel name:", null, false),
-                            Helper.InputString("Channel GUID:", null, true),
-                            Helper.InputInteger("Private:", 0, true, true)); break;
+                            Common.InputString("Channel name:", null, false),
+                            Common.InputString("Channel GUID:", null, true),
+                            Common.InputInteger("Private:", 0, true, true)); break;
 
                     case "createmcastchannel":
                         server.CreateMulticastChannel(
-                            Helper.InputString("Channel name:", null, false),
-                            Helper.InputString("Channel GUID:", null, true),
-                            Helper.InputInteger("Private:", 0, true, true));  
+                            Common.InputString("Channel name:", null, false),
+                            Common.InputString("Channel GUID:", null, true),
+                            Common.InputInteger("Private:", 0, true, true));  
                         break;
 
                     case "deletechannel":
                         if (server.DeleteChannel(
-                            Helper.InputString("Channel GUID:", null, false)))
+                            Common.InputString("Channel GUID:", null, false)))
                         {
                             Console.WriteLine("Success");
                         }
@@ -178,13 +179,15 @@ namespace BigQServerTest
                         clients = server.ListClients();
                         if (clients != null)
                         {
-                            foreach (Client curr in clients)
+                            foreach (ServerClient curr in clients)
                             {
-                                string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                if (curr.IsTcp) line += "TCP ";
-                                if (curr.IsWebsocket) line += "WS ";
-                                if (curr.IsSsl) line += "SSL "; 
-                                
+                                string line =
+                                    "  " + curr.IpPort +
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
+
                                 Console.WriteLine(line);
                             }
                         }
@@ -284,7 +287,7 @@ namespace BigQServerTest
                         break;
 
                     case "rcptqueuedepth":
-                        string guid = Helper.InputString("Recipient GUID:", null, false);
+                        string guid = Common.InputString("Recipient GUID:", null, false);
                         Console.WriteLine(server.PersistentQueueDepth(guid));
                         break; 
 
@@ -316,7 +319,7 @@ namespace BigQServerTest
                 //
                 // initialize with default configuration
                 //
-                server = new Server(ServerConfiguration.DefaultConfig());
+                server = new Server(ServerConfiguration.Default());
 
                 server.Config.Logging.MinimumSeverity = 0;
                 server.Config.Logging.ConsoleLogging = true;
@@ -324,11 +327,11 @@ namespace BigQServerTest
                 server.Config.Debug.ConnectionMgmt = true;
                 server.Config.Debug.ChannelMgmt = false; 
 
-                server.MessageReceived = MessageReceived;
-                server.ServerStopped = StartServer;
-                server.ClientConnected = ClientConnected;
-                server.ClientLogin = ClientLogin;
-                server.ClientDisconnected = ClientDisconnected;
+                server.Callbacks.MessageReceived = MessageReceived;
+                server.Callbacks.ServerStopped = StartServer;
+                server.Callbacks.ClientConnected = ClientConnected;
+                server.Callbacks.ClientLogin = ClientLogin;
+                server.Callbacks.ClientDisconnected = ClientDisconnected;
             }
             else
             {
@@ -336,11 +339,11 @@ namespace BigQServerTest
                 if (server != null) server.Dispose();
                 server = new Server(configFile);
 
-                server.MessageReceived = MessageReceived;
-                server.ServerStopped = StartServer;
-                server.ClientConnected = ClientConnected;
-                server.ClientLogin = ClientLogin;
-                server.ClientDisconnected = ClientDisconnected;
+                server.Callbacks.MessageReceived = MessageReceived;
+                server.Callbacks.ServerStopped = StartServer;
+                server.Callbacks.ClientConnected = ClientConnected;
+                server.Callbacks.ClientLogin = ClientLogin;
+                server.Callbacks.ClientDisconnected = ClientDisconnected;
             }
 
             return true;
@@ -352,20 +355,19 @@ namespace BigQServerTest
             return true;
         }
 
-        static bool ClientConnected(Client client)
-        {
-            Console.WriteLine(Helper.StackToString());
+        static bool ClientConnected(ServerClient client)
+        { 
             Console.WriteLine("ClientConnected received notice of client connect from " + client.IpPort);
             return true;
         }
 
-        static bool ClientLogin(Client client)
+        static bool ClientLogin(ServerClient client)
         {
             Console.WriteLine("ClientConnected received notice of client login GUID " + client.ClientGUID + " from " + client.IpPort);
             return true;
         }
 
-        static bool ClientDisconnected(Client client)
+        static bool ClientDisconnected(ServerClient client)
         {
             Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGUID + " from " + client.IpPort);
             return true;

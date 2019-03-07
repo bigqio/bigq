@@ -9,9 +9,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BigQClientTest</RootNamespace>
     <AssemblyName>BigQClientTest</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -52,7 +53,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="BigQClientTest.ruleset" />
     <None Include="client1.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -64,9 +64,17 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BigQ\BigQ.csproj">
+    <ProjectReference Include="..\BigQClient\BigQClient.csproj">
+      <Project>{fa517b8f-dc27-433e-b919-1733791d117b}</Project>
+      <Name>BigQClient</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\BigQServer\BigQServer.csproj">
       <Project>{2f8fb0a4-0cde-44ed-aef2-7bb91417f71f}</Project>
-      <Name>BigQ</Name>
+      <Name>BigQServer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Core\Core.csproj">
+      <Project>{0b0e6bcd-ca90-4f97-be5d-26c9d604b211}</Project>
+      <Name>Core</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

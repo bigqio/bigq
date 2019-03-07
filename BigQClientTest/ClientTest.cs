@@ -1,12 +1,10 @@
-﻿using System;
+﻿using BigQ.Client;
+using BigQ.Core;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using BigQ;
 
 namespace BigQClientTest
 {
@@ -21,7 +19,7 @@ namespace BigQClientTest
             string guid = "";
             string msg = "";
             int priv = 0;
-            List<Client> clients = new List<Client>();
+            List<ServerClient> clients = new List<ServerClient>();
             List<Channel> channels = new List<Channel>();
             Message response = new Message();
             Dictionary<string, DateTime> pendingRequests;
@@ -104,12 +102,13 @@ namespace BigQClientTest
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
                             else
                             {
-                                foreach (Client curr in clients)
+                                foreach (ServerClient curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort + " " + curr.Name + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                    if (curr.IsTcp) line += "TCP ";
-                                    if (curr.IsWebsocket) line += "WS ";
-                                    if (curr.IsSsl) line += "SSL ";
+                                    string line = 
+                                        " " + curr.Name +
+                                        " " + curr.Email +
+                                        " " + curr.ClientGUID +
+                                        " " + curr.Connection.ToString();
                                     
                                     Console.WriteLine(line);
                                 }
@@ -173,13 +172,14 @@ namespace BigQClientTest
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
                             else
                             {
-                                foreach (Client curr in clients)
+                                foreach (ServerClient curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                    if (curr.IsTcp) line += "TCP ";
-                                    if (curr.IsWebsocket) line += "WS ";
-                                    if (curr.IsSsl) line += "SSL "; 
-                                    
+                                    string line = 
+                                        " " + curr.Name +
+                                        " " + curr.Email +
+                                        " " + curr.ClientGUID +
+                                        " " + curr.Connection.ToString();
+
                                     Console.WriteLine(line);
                                 }
                             }
@@ -200,13 +200,14 @@ namespace BigQClientTest
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
                             else
                             {
-                                foreach (Client curr in clients)
+                                foreach (ServerClient curr in clients)
                                 {
-                                    string line = "  " + curr.IpPort + " " + curr.Email + " " + curr.ClientGUID + " ";
-                                    if (curr.IsTcp) line += "TCP ";
-                                    if (curr.IsWebsocket) line += "WS ";
-                                    if (curr.IsSsl) line += "SSL ";
-                                    
+                                    string line =  
+                                        " " + curr.Name +
+                                        " " + curr.Email +
+                                        " " + curr.ClientGUID +
+                                        " " + curr.Connection.ToString();
+
                                     Console.WriteLine(line);
                                 }
                             }
@@ -403,9 +404,8 @@ namespace BigQClientTest
                         break;
 
                     case "whoami":
-                        if (client == null) break;
-                        Console.Write(client.IpPort);
-                        if (!String.IsNullOrEmpty(client.ClientGUID)) Console.WriteLine("  GUID " + client.ClientGUID);
+                        if (client == null) break; 
+                        if (!String.IsNullOrEmpty(client.Config.ClientGUID)) Console.WriteLine("  GUID " + client.Config.ClientGUID);
                         else Console.WriteLine("[not logged in]");
                         break;
 
@@ -455,23 +455,23 @@ namespace BigQClientTest
                     Console.WriteLine("Attempting to connect to server using default configuration");
                     if (client != null) client.Dispose();
                     client = null;
-                    client = new Client(ClientConfiguration.DefaultConfig());
+                    client = new Client(ClientConfiguration.Default());
                      
-                    client.AsyncMessageReceived = AsyncMessageReceived;
-                    client.SyncMessageReceived = SyncMessageReceived;
-                    // client.ServerDisconnected = ServerDisconnected;
-                    client.ServerDisconnected = ConnectToServer;
-                    client.ServerConnected = ServerConnected;
-                    client.ClientJoinedServer = ClientJoinedServer;
-                    client.ClientLeftServer = ClientLeftServer;
-                    client.ClientJoinedChannel = ClientJoinedChannel;
-                    client.ClientLeftChannel = ClientLeftChannel;
-                    client.SubscriberJoinedChannel = SubscriberJoinedChannel;
-                    client.SubscriberLeftChannel = SubscriberLeftChannel;
-                    client.ChannelCreated = ChannelCreated;
-                    client.ChannelDestroyed = ChannelDestroyed;
-                    client.LogMessage = LogMessage;
-                    client.LogMessage = null;
+                    client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
+                    client.Callbacks.SyncMessageReceived = SyncMessageReceived;
+                    // client.Callbacks.ServerDisconnected = ServerDisconnected;
+                    client.Callbacks.ServerDisconnected = ConnectToServer;
+                    client.Callbacks.ServerConnected = ServerConnected;
+                    client.Callbacks.ClientJoinedServer = ClientJoinedServer;
+                    client.Callbacks.ClientLeftServer = ClientLeftServer;
+                    client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
+                    client.Callbacks.ClientLeftChannel = ClientLeftChannel;
+                    client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                    client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
+                    client.Callbacks.ChannelCreated = ChannelCreated;
+                    client.Callbacks.ChannelDestroyed = ChannelDestroyed;
+                    client.Callbacks.LogMessage = LogMessage;
+                    client.Callbacks.LogMessage = null;
                 }
                 else
                 {
@@ -479,21 +479,21 @@ namespace BigQClientTest
                     if (client != null) client.Dispose();
                     client = new Client(configFile);
 
-                    client.AsyncMessageReceived = AsyncMessageReceived;
-                    client.SyncMessageReceived = SyncMessageReceived;
-                    // client.ServerDisconnected = ServerDisconnected;
-                    client.ServerDisconnected = ConnectToServer;
-                    client.ServerConnected = ServerConnected;
-                    client.ClientJoinedServer = ClientJoinedServer;
-                    client.ClientLeftServer = ClientLeftServer;
-                    client.ClientJoinedChannel = ClientJoinedChannel;
-                    client.ClientLeftChannel = ClientLeftChannel;
-                    client.SubscriberJoinedChannel = SubscriberJoinedChannel;
-                    client.SubscriberLeftChannel = SubscriberLeftChannel;
-                    client.ChannelCreated = ChannelCreated;
-                    client.ChannelDestroyed = ChannelDestroyed;
-                    client.LogMessage = LogMessage;
-                    client.LogMessage = null; 
+                    client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
+                    client.Callbacks.SyncMessageReceived = SyncMessageReceived;
+                    // client.Callbacks.ServerDisconnected = ServerDisconnected;
+                    client.Callbacks.ServerDisconnected = ConnectToServer;
+                    client.Callbacks.ServerConnected = ServerConnected;
+                    client.Callbacks.ClientJoinedServer = ClientJoinedServer;
+                    client.Callbacks.ClientLeftServer = ClientLeftServer;
+                    client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
+                    client.Callbacks.ClientLeftChannel = ClientLeftChannel;
+                    client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                    client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
+                    client.Callbacks.ChannelCreated = ChannelCreated;
+                    client.Callbacks.ChannelDestroyed = ChannelDestroyed;
+                    client.Callbacks.LogMessage = LogMessage;
+                    client.Callbacks.LogMessage = null; 
                 }
                  
                 Console.WriteLine("Client connected, logging in");

@@ -11,37 +11,41 @@ For a sample app exercising bigq, please see: https://github.com/bigqio/chat
 
 ## Help or Feedback
 
-first things first - do you need help or have feedback?  Contact me at joel at maraudersoftware.com dot com or file an issue here!
+First things first - do you need help or have feedback?  Contact me at joel dot christner at gmail dot com or file an issue here!
 
-## New in v1.8.0
-- Persistence support per message (async direct messages only)
-- Better, faster disconnect detection
-- Bugfixes and refactoring
+## New in v2.0.0
+
+- Major refactor and simplification for better code manageability
+- Separate logic for client and server functions, removed client dependencies within the server
+- Enums where appropriate including client connection type and message commands
+- Removed unnecessary configuration parameters and constructors
+- Creation of a common Core library and separate client and server libraries
+- Several minor bugfixes
 
 ## Description
 
-bigq is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. bigq is written in C# and made available under the MIT license.  bigq is tested and compatible with Mono.
+BigQ is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. BigQ is written in C# and made available under the MIT license.  BigQ is tested and compatible with Mono.
 
-Core use cases for bigq:
-- simple sockets wrapper - we make sockets programming easier
-- standard communication layer connecting apps through diverse transports including:
+Core use cases for BigQ:
+- Simple sockets wrapper with integrated framing - we make sockets programming easier
+- Standard communication layer connecting apps through diverse transports including:
   - TCP
   - TCP with SSL
   - Websockets
   - Websockets with SSL
-- real-time messaging like chat applications
-- synchronous and asynchronous messaging
-- flexible distribution options
-  - unicast node to node
-  - multicast channels for publisher to multiple subscribers
-  - unicast channels for publisher to single subscriber
-  - broadcast channels for publisher to all members
-- cluster management
-- near real-time notifications and events
+- Real-time messaging like chat applications
+- Synchronous and asynchronous messaging
+- Flexible message distribution options
+  - Unicast node to node (private)
+  - Multicast channels for publisher to multiple subscribers
+  - Unicast channels for publisher to single subscriber
+  - Broadcast channels for publisher to all members
+- Cluster management
+- Near real-time notifications and events
 
 ## Performance
 
-Performance in bigq is good, however, connection and channel management both have high overhead.  If you have a use case with lots of client joins/exits, bigq may not be suitable for your environment.  We'd love your help in making bigq more efficient!
+Performance in BigQ is good, however, connection and channel management both have high overhead.  If you have a use case with lots of client joins/exits, BigQ may not be suitable for your environment.  We'd love your help in making BigQ more efficient!
 
 ## Persistence
 
@@ -49,25 +53,27 @@ Persistence is supported as an attribute of a directed asynchronous message.  If
 
 ## Components
 
-Two main components to bigq: client and server.  The server can be run independently or instantiated within your own application.  Clients initiate connections to the server and maintain them to avoid issues with intermediary firewalls.  
+Two main components to BigQ: client and server.  The server can be run independently or instantiated within your own application.  Clients initiate connections to the server and maintain them to avoid issues with intermediary firewalls.  
 
 ## Starting the Server
 
 Refer to the BigQServerTest project for a thorough example.
 ```
-using BigQ;
+using BigQ.Core;
+using BigQ.Server;
 ...
 // start the server
 Server server = new Server(null);		// with a default configuration
 Server server = new Server("server.json");	// with a configuration file
+Server server = new Server(serverConfig);	// with a configuration object
 
 // set callbacks
-server.MessageReceived = MessageReceived;		
-server.ServerStopped = ServerStopped;				
-server.ClientConnected = ClientConnected;
-server.ClientLogin = ClientLogin;
-server.ClientDisconnected = ClientDisconnected;
-server.LogMessage = LogMessage;
+server.Callbacks.MessageReceived = MessageReceived;		
+server.Callbacks.ServerStopped = ServerStopped;				
+server.Callbacks.ClientConnected = ClientConnected;
+server.Callbacks.ClientLogin = ClientLogin;
+server.Callbacks.ClientDisconnected = ClientDisconnected;
+server.Callbacks.LogMessage = LogMessage;
 
 // callback implementation, these methods should return true
 static bool MessageReceived(Message msg) { ... }
@@ -81,24 +87,26 @@ static bool LogMessage(string msg) { ... }
 
 Refer to the BigQClientTest project for a thorough example.
 ```
-using BigQ;
-
+using BigQ.Client;
+using BigQ.Core;
+...
 // start the client and connect to the server
 Client client = new Client(null);		// with a default configuration
 Client client = new Client("client.json");	// with a configuration file
+Client client = new Client(clientConfig);	// with a configuration object
 
 // set callbacks
-client.AsyncMessageReceived = AsyncMessageReceived;
-client.SyncMessageReceived = SyncMessageReceived;
-client.ServerConnected = ServerConnected;
-client.ServerDisconnected = ServerDisconnected;
-client.ClientJoinedServer = ClientJoinedServer;
-client.ClientLeftServer = ClientLeftServer;
-client.ClientJoinedChannel = ClientJoinedChannel;
-client.ClientLeftChannel = ClientLeftChannel;
-client.SubscriberJoinedChannel = SubscriberJoinedChannel;
-client.SubscriberLeftChannel = SubscriberLeftChannel;
-client.LogMessage = LogMessage;
+client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
+client.Callbacks.SyncMessageReceived = SyncMessageReceived;
+client.Callbacks.ServerConnected = ServerConnected;
+client.Callbacks.ServerDisconnected = ServerDisconnected;
+client.Callbacks.ClientJoinedServer = ClientJoinedServer;
+client.Callbacks.ClientLeftServer = ClientLeftServer;
+client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
+client.Callbacks.ClientLeftChannel = ClientLeftChannel;
+client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
+client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
+client.Callbacks.LogMessage = LogMessage;
 
 // implement callbacks, these methods should return true
 // sync message callback should return the data to be returned to requestor
@@ -124,7 +132,7 @@ if (!client.Login(out response)) { // handle failures }
 Unicast messages are sent directly between clients without a channel
 ```
 Message response;
-List<Client> clients;
+List<ServerClient> clients;
 
 // find a client to message
 if (!client.ListClients(out response, out clients)) { // handle errors }
@@ -146,13 +154,14 @@ if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle er
 ## Channel Messaging
 
 Channel messages are sent to one or more channel members based on the type of channel
-- messages sent to a unicast channel are sent to a single random subscriber
-- messages sent to a multicast channel are sent to all members that are subscribers
-- messages sent to a broadcast channel are sent to all members whether they are subscribers or not
+
+- Messages sent to a unicast channel are sent to a single random subscriber
+- Messages sent to a multicast channel are sent to all members that are subscribers
+- Messages sent to a broadcast channel are sent to all members whether they are subscribers or not
 ```
 Message response;
 List<Channel> channels;
-List<Client> clients;
+List<ServerClient> clients;
 
 // list and join or create a channel
 if (!client.ListChannels(out response, out channels)) { // handle errors }
@@ -212,6 +221,12 @@ mono --server myapp.exe
 ## Version History
 
 Notes from previous versions (starting with v1.5.0) will be moved here.
+
+v1.8.x
+- Persistence support per message (async direct messages only)
+- Better, faster disconnect detection
+- Bugfixes and refactoring
+
 v1.7.x
 - update to support changes in WatsonWebsocket
 - create and delete channels from the server
