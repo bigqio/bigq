@@ -6,3 +6,4 @@ C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\netstandard2.0\Core.AssemblyInfoInputs
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\netstandard2.0\Core.AssemblyInfo.cs
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\netstandard2.0\Core.dll
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\netstandard2.0\Core.pdb
+C:\Code\BigQ\BigQ-Retarget\Core\obj\Debug\netstandard2.0\Core.csprojAssemblyReference.cache

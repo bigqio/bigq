@@ -8,8 +8,8 @@
     ".NETCoreApp,Version=v2.0": {
       "BigQServerTest/1.0.0": {
         "dependencies": {
-          "BigQServer": "2.0.2",
-          "Core": "2.0.2"
+          "BigQServer": "2.0.3",
+          "Core": "2.0.3"
         },
         "runtime": {
           "BigQServerTest.dll": {}
@@ -80,9 +80,9 @@
           }
         }
       },
-      "BigQServer/2.0.2": {
+      "BigQServer/2.0.3": {
         "dependencies": {
-          "Core": "2.0.2",
+          "Core": "2.0.3",
           "EntityFramework": "6.2.0",
           "Newtonsoft.Json": "12.0.1",
           "SqliteHelper": "1.0.6",
@@ -94,7 +94,7 @@
           "BigQServer.dll": {}
         }
       },
-      "Core/2.0.2": {
+      "Core/2.0.3": {
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.1",
@@ -170,12 +170,12 @@
       "path": "watsonwebsocket/1.2.4",
       "hashPath": "watsonwebsocket.1.2.4.nupkg.sha512"
     },
-    "BigQServer/2.0.2": {
+    "BigQServer/2.0.3": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "Core/2.0.2": {
+    "Core/2.0.3": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

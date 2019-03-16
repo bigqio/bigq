@@ -10,3 +10,4 @@ C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.AssemblyInfo.cs
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.csproj.CopyComplete
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.dll
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.pdb
+C:\Code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.csprojAssemblyReference.cache
