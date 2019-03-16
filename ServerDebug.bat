@@ -1,1 +1,1 @@
-BigQServerTest\bin\debug\BigQServerTest.exe
+ServerTestNetFramework\bin\debug\BigQServerTest.exe

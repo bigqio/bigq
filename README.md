@@ -2,6 +2,8 @@
 
 Messaging Platform in C# for TCP, SSL, and Websockets, with unicast, broadcast, multicast, publisher/subscriber messaging and integrated framing.
 
+As of v2.0.2, BigQ is now targeted to both .NET Core 2.0 and .NET Framework 4.6.2.
+
 [![][nuget-img]][nuget]
 
 [nuget]:     https://www.nuget.org/packages/BigQ.dll
@@ -11,14 +13,9 @@ Messaging Platform in C# for TCP, SSL, and Websockets, with unicast, broadcast, 
 
 First things first - do you need help or have feedback?  Contact me at joel dot christner at gmail dot com or file an issue here!
 
-## New in v2.0.0
+## New in v2.0.2
 
-- Major refactor and simplification for better code manageability
-- Separate logic for client and server functions, removed client dependencies within the server
-- Enums where appropriate including client connection type and message commands
-- Removed unnecessary configuration parameters and constructors
-- Creation of a common Core library and separate client and server libraries
-- Several minor bugfixes
+- Retarget to .NET Core 2.0 and .NET Framework 4.6.2
 
 ## Description
 
@@ -219,6 +216,14 @@ mono --server myapp.exe
 ## Version History
 
 Notes from previous versions (starting with v1.5.0) will be moved here.
+
+v2.0.x
+- Major refactor and simplification for better code manageability
+- Separate logic for client and server functions, removed client dependencies within the server
+- Enums where appropriate including client connection type and message commands
+- Removed unnecessary configuration parameters and constructors
+- Creation of a common Core library and separate client and server libraries
+- Several minor bugfixes
 
 v1.8.x
 - Persistence support per message (async direct messages only)
