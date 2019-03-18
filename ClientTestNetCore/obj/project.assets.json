@@ -242,7 +242,7 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQClient/2.0.3": {
+      "BigQClient/2.0.4": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -894,7 +894,7 @@
         "watsonwebsocket.nuspec"
       ]
     },
-    "BigQClient/2.0.3": {
+    "BigQClient/2.0.4": {
       "type": "project",
       "path": "../BigQClient/BigQClient.csproj",
       "msbuildProject": "../BigQClient/BigQClient.csproj"
@@ -907,7 +907,7 @@
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.0": [
-      "BigQClient >= 2.0.3",
+      "BigQClient >= 2.0.4",
       "Core >= 2.0.3",
       "Microsoft.NETCore.App >= 2.0.0"
     ]
@@ -919,11 +919,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Code\\BigQ\\BigQ-Retarget\\ClientTestNetCore\\ClientTestNetCore.csproj",
+      "projectUniqueName": "C:\\Code\\BigQ\\BigQ\\ClientTestNetCore\\ClientTestNetCore.csproj",
       "projectName": "BigQClientTest",
-      "projectPath": "C:\\Code\\BigQ\\BigQ-Retarget\\ClientTestNetCore\\ClientTestNetCore.csproj",
+      "projectPath": "C:\\Code\\BigQ\\BigQ\\ClientTestNetCore\\ClientTestNetCore.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\Code\\BigQ\\BigQ-Retarget\\ClientTestNetCore\\obj\\",
+      "outputPath": "C:\\Code\\BigQ\\BigQ\\ClientTestNetCore\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
@@ -942,11 +942,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "C:\\Code\\BigQ\\BigQ-Retarget\\BigQClient\\BigQClient.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-Retarget\\BigQClient\\BigQClient.csproj"
+            "C:\\Code\\BigQ\\BigQ\\BigQClient\\BigQClient.csproj": {
+              "projectPath": "C:\\Code\\BigQ\\BigQ\\BigQClient\\BigQClient.csproj"
             },
-            "C:\\Code\\BigQ\\BigQ-Retarget\\Core\\Core.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-Retarget\\Core\\Core.csproj"
+            "C:\\Code\\BigQ\\BigQ\\Core\\Core.csproj": {
+              "projectPath": "C:\\Code\\BigQ\\BigQ\\Core\\Core.csproj"
             }
           }
         }

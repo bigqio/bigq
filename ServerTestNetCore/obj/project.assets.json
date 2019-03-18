@@ -2,17 +2,6 @@
   "version": 3,
   "targets": {
     ".NETCoreApp,Version=v2.0": {
-      "EntityFramework/6.2.0": {
-        "type": "package",
-        "compile": {
-          "lib/net45/EntityFramework.SqlServer.dll": {},
-          "lib/net45/EntityFramework.dll": {}
-        },
-        "runtime": {
-          "lib/net45/EntityFramework.SqlServer.dll": {},
-          "lib/net45/EntityFramework.dll": {}
-        }
-      },
       "Microsoft.CSharp/4.5.0": {
         "type": "package",
         "compile": {
@@ -202,15 +191,6 @@
           "lib/netstandard1.0/_._": {}
         }
       },
-      "Mono.Data.Sqlite/1.0.61": {
-        "type": "package",
-        "compile": {
-          "lib/net40/Mono.Data.Sqlite.dll": {}
-        },
-        "runtime": {
-          "lib/net40/Mono.Data.Sqlite.dll": {}
-        }
-      },
       "NETStandard.Library/2.0.0": {
         "type": "package",
         "dependencies": {
@@ -235,24 +215,17 @@
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
         }
       },
-      "SqliteHelper/1.0.6": {
+      "SqliteHelper/1.0.9": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "Mono.Data.Sqlite": "1.0.61"
+          "System.Data.SQLite": "1.0.110"
         },
         "compile": {
           "lib/netstandard2.0/SqliteWrapper.dll": {}
         },
         "runtime": {
           "lib/netstandard2.0/SqliteWrapper.dll": {}
-        },
-        "contentFiles": {
-          "contentFiles/any/any/_._": {
-            "buildAction": "None",
-            "codeLanguage": "any",
-            "copyToOutput": false
-          }
         }
       },
       "SyslogLogging/1.0.10": {
@@ -262,6 +235,39 @@
         },
         "runtime": {
           "lib/netstandard2.0/LoggingModule.dll": {}
+        }
+      },
+      "System.Data.SQLite/1.0.110": {
+        "type": "package",
+        "dependencies": {
+          "System.Data.SQLite.Core": "1.0.110"
+        }
+      },
+      "System.Data.SQLite.Core/1.0.110": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/System.Data.SQLite.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.Data.SQLite.dll": {}
+        },
+        "runtimeTargets": {
+          "runtimes/linux-x64/native/netstandard2.0/SQLite.Interop.dll": {
+            "assetType": "native",
+            "rid": "linux-x64"
+          },
+          "runtimes/osx-x64/native/netstandard2.0/SQLite.Interop.dll": {
+            "assetType": "native",
+            "rid": "osx-x64"
+          },
+          "runtimes/win-x64/native/netstandard2.0/SQLite.Interop.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          },
+          "runtimes/win-x86/native/netstandard2.0/SQLite.Interop.dll": {
+            "assetType": "native",
+            "rid": "win-x86"
+          }
         }
       },
       "WatsonTcp/1.1.7": {
@@ -282,14 +288,13 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQServer/2.0.3": {
+      "BigQServer/2.0.4": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
           "Core": "2.0.3",
-          "EntityFramework": "6.2.0",
           "Newtonsoft.Json": "12.0.1",
-          "SqliteHelper": "1.0.6",
+          "SqliteHelper": "1.0.9",
           "SyslogLogging": "1.0.10",
           "WatsonTcp": "1.1.7",
           "WatsonWebsocket": "1.2.4"
@@ -321,36 +326,6 @@
     }
   },
   "libraries": {
-    "EntityFramework/6.2.0": {
-      "sha512": "ptGyXOf26qLrtn+2doAmylIlCxOnBJANwlyyLrXDmqIk9O18IzLWHyxDwwAyhgXkxmbiaA0WNpRy67WRReInBw==",
-      "type": "package",
-      "path": "entityframework/6.2.0",
-      "hasTools": true,
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "content/net40/App.config.transform",
-        "content/net40/Web.config.transform",
-        "entityframework.6.2.0.nupkg.sha512",
-        "entityframework.nuspec",
-        "lib/net40/EntityFramework.SqlServer.dll",
-        "lib/net40/EntityFramework.SqlServer.xml",
-        "lib/net40/EntityFramework.dll",
-        "lib/net40/EntityFramework.xml",
-        "lib/net45/EntityFramework.SqlServer.dll",
-        "lib/net45/EntityFramework.SqlServer.xml",
-        "lib/net45/EntityFramework.dll",
-        "lib/net45/EntityFramework.xml",
-        "tools/EntityFramework.PowerShell.Utility.dll",
-        "tools/EntityFramework.PowerShell.dll",
-        "tools/EntityFramework.psd1",
-        "tools/EntityFramework.psm1",
-        "tools/about_EntityFramework.help.txt",
-        "tools/init.ps1",
-        "tools/install.ps1",
-        "tools/migrate.exe"
-      ]
-    },
     "Microsoft.CSharp/4.5.0": {
       "sha512": "EGoBmf3Na2ppbhPePDE9PlX81r1HuOZH5twBrq7couJZiPTjUnD3648balerQJO6EJ8Sj+43+XuRwQ7r+3tE3w==",
       "type": "package",
@@ -758,18 +733,6 @@
         "version.txt"
       ]
     },
-    "Mono.Data.Sqlite/1.0.61": {
-      "sha512": "o5bYhnYDlQ8qiDBDJEnnK/LlQnHzpAb6ixXdrZKcVGv26jBfSm58ujAR1NLBhs0h+R5782VufbaF6gzYq3iiaA==",
-      "type": "package",
-      "path": "mono.data.sqlite/1.0.61",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/net40/Mono.Data.Sqlite.dll",
-        "mono.data.sqlite.1.0.61.nupkg.sha512",
-        "mono.data.sqlite.nuspec"
-      ]
-    },
     "NETStandard.Library/2.0.0": {
       "sha512": "49ZAcrnNn56GIJwGoiaI7NpwcEJ8mjUyfSqVYIJMDhOBzPe8HSHS74swF2H0v8fzj7pxLfcYjS9P5PdIqsTQxw==",
       "type": "package",
@@ -939,19 +902,16 @@
         "newtonsoft.json.nuspec"
       ]
     },
-    "SqliteHelper/1.0.6": {
-      "sha512": "vtmJnl2RAxjoXoYmqs+eBZwZb32GxuE5tWb3esPSvos1CutGVXd4OoYqMp7k5g1aRaRNI1Zo3htJ+i+c1flRww==",
+    "SqliteHelper/1.0.9": {
+      "sha512": "7kZY808clbsoL+OYePEo4Vy4D4JDIbYszq+koH6sKbyz/BDRCJ1YEDDZMEnQDw4YqaD7LlPqtX5z0pbakjrP7A==",
       "type": "package",
-      "path": "sqlitehelper/1.0.6",
+      "path": "sqlitehelper/1.0.9",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "content/sqlite3.dll",
-        "contentFiles/any/net452/sqlite3.dll",
-        "contentFiles/any/netstandard2.0/sqlite3.dll",
         "lib/net452/SqliteWrapper.dll",
         "lib/netstandard2.0/SqliteWrapper.dll",
-        "sqlitehelper.1.0.6.nupkg.sha512",
+        "sqlitehelper.1.0.9.nupkg.sha512",
         "sqlitehelper.nuspec"
       ]
     },
@@ -966,6 +926,65 @@
         "lib/netstandard2.0/LoggingModule.dll",
         "sysloglogging.1.0.10.nupkg.sha512",
         "sysloglogging.nuspec"
+      ]
+    },
+    "System.Data.SQLite/1.0.110": {
+      "sha512": "YFUBQ4BzxzLhq/TOVg8wipF+YbpFHrfMx1dkhgpfTDsiLnpt/2oqRmI0ti48rNhNjR0ZPW5TLCdNA4zrHiNy0g==",
+      "type": "package",
+      "path": "system.data.sqlite/1.0.110",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "system.data.sqlite.1.0.110.nupkg.sha512",
+        "system.data.sqlite.nuspec"
+      ]
+    },
+    "System.Data.SQLite.Core/1.0.110": {
+      "sha512": "x7xZ0oBWycJch9ShAFwTQRPJ2HEo5NmXyhx/LFJvSbCBQVXnHc9rIAeLo1VXzDFbfbtPl3HFpFhriEnUkS2L0Q==",
+      "type": "package",
+      "path": "system.data.sqlite.core/1.0.110",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/net20/System.Data.SQLite.Core.targets",
+        "build/net20/x64/SQLite.Interop.dll",
+        "build/net20/x86/SQLite.Interop.dll",
+        "build/net40/System.Data.SQLite.Core.targets",
+        "build/net40/x64/SQLite.Interop.dll",
+        "build/net40/x86/SQLite.Interop.dll",
+        "build/net45/System.Data.SQLite.Core.targets",
+        "build/net45/x64/SQLite.Interop.dll",
+        "build/net45/x86/SQLite.Interop.dll",
+        "build/net451/System.Data.SQLite.Core.targets",
+        "build/net451/x64/SQLite.Interop.dll",
+        "build/net451/x86/SQLite.Interop.dll",
+        "build/net46/System.Data.SQLite.Core.targets",
+        "build/net46/x64/SQLite.Interop.dll",
+        "build/net46/x86/SQLite.Interop.dll",
+        "lib/net20/System.Data.SQLite.dll",
+        "lib/net20/System.Data.SQLite.dll.config",
+        "lib/net20/System.Data.SQLite.xml",
+        "lib/net40/System.Data.SQLite.dll",
+        "lib/net40/System.Data.SQLite.dll.config",
+        "lib/net40/System.Data.SQLite.xml",
+        "lib/net45/System.Data.SQLite.dll",
+        "lib/net45/System.Data.SQLite.dll.config",
+        "lib/net45/System.Data.SQLite.xml",
+        "lib/net451/System.Data.SQLite.dll",
+        "lib/net451/System.Data.SQLite.dll.config",
+        "lib/net451/System.Data.SQLite.xml",
+        "lib/net46/System.Data.SQLite.dll",
+        "lib/net46/System.Data.SQLite.dll.config",
+        "lib/net46/System.Data.SQLite.xml",
+        "lib/netstandard2.0/System.Data.SQLite.dll",
+        "lib/netstandard2.0/System.Data.SQLite.dll.config",
+        "lib/netstandard2.0/System.Data.SQLite.xml",
+        "runtimes/linux-x64/native/netstandard2.0/SQLite.Interop.dll",
+        "runtimes/osx-x64/native/netstandard2.0/SQLite.Interop.dll",
+        "runtimes/win-x64/native/netstandard2.0/SQLite.Interop.dll",
+        "runtimes/win-x86/native/netstandard2.0/SQLite.Interop.dll",
+        "system.data.sqlite.core.1.0.110.nupkg.sha512",
+        "system.data.sqlite.core.nuspec"
       ]
     },
     "WatsonTcp/1.1.7": {
@@ -994,7 +1013,7 @@
         "watsonwebsocket.nuspec"
       ]
     },
-    "BigQServer/2.0.3": {
+    "BigQServer/2.0.4": {
       "type": "project",
       "path": "../BigQServer/BigQServer.csproj",
       "msbuildProject": "../BigQServer/BigQServer.csproj"
@@ -1007,7 +1026,7 @@
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.0": [
-      "BigQServer >= 2.0.3",
+      "BigQServer >= 2.0.4",
       "Core >= 2.0.3",
       "Microsoft.NETCore.App >= 2.0.0"
     ]
@@ -1019,11 +1038,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Code\\BigQ\\BigQ-Retarget\\ServerTestNetCore\\ServerTestNetCore.csproj",
+      "projectUniqueName": "C:\\Code\\BigQ\\BigQ\\ServerTestNetCore\\ServerTestNetCore.csproj",
       "projectName": "BigQServerTest",
-      "projectPath": "C:\\Code\\BigQ\\BigQ-Retarget\\ServerTestNetCore\\ServerTestNetCore.csproj",
+      "projectPath": "C:\\Code\\BigQ\\BigQ\\ServerTestNetCore\\ServerTestNetCore.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\Code\\BigQ\\BigQ-Retarget\\ServerTestNetCore\\obj\\",
+      "outputPath": "C:\\Code\\BigQ\\BigQ\\ServerTestNetCore\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
@@ -1042,11 +1061,11 @@
       "frameworks": {
         "netcoreapp2.0": {
           "projectReferences": {
-            "C:\\Code\\BigQ\\BigQ-Retarget\\BigQServer\\BigQServer.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-Retarget\\BigQServer\\BigQServer.csproj"
+            "C:\\Code\\BigQ\\BigQ\\BigQServer\\BigQServer.csproj": {
+              "projectPath": "C:\\Code\\BigQ\\BigQ\\BigQServer\\BigQServer.csproj"
             },
-            "C:\\Code\\BigQ\\BigQ-Retarget\\Core\\Core.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-Retarget\\Core\\Core.csproj"
+            "C:\\Code\\BigQ\\BigQ\\Core\\Core.csproj": {
+              "projectPath": "C:\\Code\\BigQ\\BigQ\\Core\\Core.csproj"
             }
           }
         }
@@ -1074,27 +1093,5 @@
         "warn": true
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Package 'EntityFramework 6.2.0' was restored using '.NETFramework,Version=v4.6.1' instead of the project target framework '.NETCoreApp,Version=v2.0'. This package may not be fully compatible with your project.",
-      "libraryId": "EntityFramework",
-      "targetGraphs": [
-        ".NETCoreApp,Version=v2.0"
-      ]
-    },
-    {
-      "code": "NU1701",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Package 'Mono.Data.Sqlite 1.0.61' was restored using '.NETFramework,Version=v4.6.1' instead of the project target framework '.NETCoreApp,Version=v2.0'. This package may not be fully compatible with your project.",
-      "libraryId": "Mono.Data.Sqlite",
-      "targetGraphs": [
-        ".NETCoreApp,Version=v2.0"
-      ]
-    }
-  ]
+  }
 }

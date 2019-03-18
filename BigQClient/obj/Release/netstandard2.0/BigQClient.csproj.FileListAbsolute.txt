@@ -10,3 +10,15 @@ C:\code\BigQ\BigQ-Retarget\BigQClient\obj\Release\netstandard2.0\BigQClient.Asse
 C:\code\BigQ\BigQ-Retarget\BigQClient\obj\Release\netstandard2.0\BigQClient.csproj.CopyComplete
 C:\code\BigQ\BigQ-Retarget\BigQClient\obj\Release\netstandard2.0\BigQClient.dll
 C:\code\BigQ\BigQ-Retarget\BigQClient\obj\Release\netstandard2.0\BigQClient.pdb
+C:\Code\BigQ\BigQ\BigQClient\bin\Release\netstandard2.0\BigQClient.deps.json
+C:\Code\BigQ\BigQ\BigQClient\bin\Release\netstandard2.0\BigQClient.dll
+C:\Code\BigQ\BigQ\BigQClient\bin\Release\netstandard2.0\BigQClient.pdb
+C:\Code\BigQ\BigQ\BigQClient\bin\Release\netstandard2.0\Core.dll
+C:\Code\BigQ\BigQ\BigQClient\bin\Release\netstandard2.0\Core.pdb
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.csprojAssemblyReference.cache
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.csproj.CoreCompileInputs.cache
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.AssemblyInfoInputs.cache
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.AssemblyInfo.cs
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.csproj.CopyComplete
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.dll
+C:\Code\BigQ\BigQ\BigQClient\obj\Release\netstandard2.0\BigQClient.pdb

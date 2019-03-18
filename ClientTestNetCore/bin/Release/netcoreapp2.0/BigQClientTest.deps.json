@@ -8,7 +8,7 @@
     ".NETCoreApp,Version=v2.0": {
       "BigQClientTest/1.0.0": {
         "dependencies": {
-          "BigQClient": "2.0.3",
+          "BigQClient": "2.0.4",
           "Core": "2.0.3"
         },
         "runtime": {
@@ -48,7 +48,7 @@
           }
         }
       },
-      "BigQClient/2.0.3": {
+      "BigQClient/2.0.4": {
         "dependencies": {
           "Core": "2.0.3",
           "Newtonsoft.Json": "12.0.1",
@@ -115,7 +115,7 @@
       "path": "watsonwebsocket/1.2.4",
       "hashPath": "watsonwebsocket.1.2.4.nupkg.sha512"
     },
-    "BigQClient/2.0.3": {
+    "BigQClient/2.0.4": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

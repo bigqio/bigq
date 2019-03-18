@@ -1,37 +1,24 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v2.0/",
-    "signature": "6f5d18b4e671fd38e158ddc5698a6fda6eb31a95"
+    "signature": "ee4d89c0204f4cb6acead28a48a2e113a4adc72b"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "BigQServer/2.0.3": {
+      "BigQServer/2.0.4": {
         "dependencies": {
           "Core": "2.0.3",
-          "EntityFramework": "6.2.0",
           "NETStandard.Library": "2.0.3",
           "Newtonsoft.Json": "12.0.1",
-          "SqliteHelper": "1.0.6",
+          "SqliteHelper": "1.0.9",
           "SyslogLogging": "1.0.10",
           "WatsonTcp": "1.1.7",
           "WatsonWebsocket": "1.2.4"
         },
         "runtime": {
           "BigQServer.dll": {}
-        }
-      },
-      "EntityFramework/6.2.0": {
-        "runtime": {
-          "lib/net45/EntityFramework.SqlServer.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.2.61023.0"
-          },
-          "lib/net45/EntityFramework.dll": {
-            "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.2.61023.0"
-          }
         }
       },
       "Microsoft.CSharp/4.5.0": {
@@ -43,14 +30,6 @@
         }
       },
       "Microsoft.NETCore.Platforms/1.1.0": {},
-      "Mono.Data.Sqlite/1.0.61": {
-        "runtime": {
-          "lib/net40/Mono.Data.Sqlite.dll": {
-            "assemblyVersion": "4.0.0.0",
-            "fileVersion": "1.0.61.0"
-          }
-        }
-      },
       "NETStandard.Library/2.0.3": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "1.1.0"
@@ -64,15 +43,15 @@
           }
         }
       },
-      "SqliteHelper/1.0.6": {
+      "SqliteHelper/1.0.9": {
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "Mono.Data.Sqlite": "1.0.61"
+          "System.Data.SQLite": "1.0.110"
         },
         "runtime": {
           "lib/netstandard2.0/SqliteWrapper.dll": {
-            "assemblyVersion": "1.0.6.0",
-            "fileVersion": "1.0.6.0"
+            "assemblyVersion": "1.0.9.0",
+            "fileVersion": "1.0.9.0"
           }
         }
       },
@@ -81,6 +60,19 @@
           "lib/netstandard2.0/LoggingModule.dll": {
             "assemblyVersion": "1.0.10.0",
             "fileVersion": "1.0.10.0"
+          }
+        }
+      },
+      "System.Data.SQLite/1.0.110": {
+        "dependencies": {
+          "System.Data.SQLite.Core": "1.0.110"
+        }
+      },
+      "System.Data.SQLite.Core/1.0.110": {
+        "runtime": {
+          "lib/netstandard2.0/System.Data.SQLite.dll": {
+            "assemblyVersion": "1.0.110.0",
+            "fileVersion": "1.0.110.0"
           }
         }
       },
@@ -115,17 +107,10 @@
     }
   },
   "libraries": {
-    "BigQServer/2.0.3": {
+    "BigQServer/2.0.4": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
-    },
-    "EntityFramework/6.2.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-ptGyXOf26qLrtn+2doAmylIlCxOnBJANwlyyLrXDmqIk9O18IzLWHyxDwwAyhgXkxmbiaA0WNpRy67WRReInBw==",
-      "path": "entityframework/6.2.0",
-      "hashPath": "entityframework.6.2.0.nupkg.sha512"
     },
     "Microsoft.CSharp/4.5.0": {
       "type": "package",
@@ -141,13 +126,6 @@
       "path": "microsoft.netcore.platforms/1.1.0",
       "hashPath": "microsoft.netcore.platforms.1.1.0.nupkg.sha512"
     },
-    "Mono.Data.Sqlite/1.0.61": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-o5bYhnYDlQ8qiDBDJEnnK/LlQnHzpAb6ixXdrZKcVGv26jBfSm58ujAR1NLBhs0h+R5782VufbaF6gzYq3iiaA==",
-      "path": "mono.data.sqlite/1.0.61",
-      "hashPath": "mono.data.sqlite.1.0.61.nupkg.sha512"
-    },
     "NETStandard.Library/2.0.3": {
       "type": "package",
       "serviceable": true,
@@ -162,12 +140,12 @@
       "path": "newtonsoft.json/12.0.1",
       "hashPath": "newtonsoft.json.12.0.1.nupkg.sha512"
     },
-    "SqliteHelper/1.0.6": {
+    "SqliteHelper/1.0.9": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-vtmJnl2RAxjoXoYmqs+eBZwZb32GxuE5tWb3esPSvos1CutGVXd4OoYqMp7k5g1aRaRNI1Zo3htJ+i+c1flRww==",
-      "path": "sqlitehelper/1.0.6",
-      "hashPath": "sqlitehelper.1.0.6.nupkg.sha512"
+      "sha512": "sha512-7kZY808clbsoL+OYePEo4Vy4D4JDIbYszq+koH6sKbyz/BDRCJ1YEDDZMEnQDw4YqaD7LlPqtX5z0pbakjrP7A==",
+      "path": "sqlitehelper/1.0.9",
+      "hashPath": "sqlitehelper.1.0.9.nupkg.sha512"
     },
     "SyslogLogging/1.0.10": {
       "type": "package",
@@ -175,6 +153,20 @@
       "sha512": "sha512-yi5UmWevLYRhZy1FR5YbyobICaOIxrpJX9vzCWXDR6W7xUycPT3EtNpYiLI7B5rxf2a3J8rOk++CRtIwEUwJtg==",
       "path": "sysloglogging/1.0.10",
       "hashPath": "sysloglogging.1.0.10.nupkg.sha512"
+    },
+    "System.Data.SQLite/1.0.110": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-YFUBQ4BzxzLhq/TOVg8wipF+YbpFHrfMx1dkhgpfTDsiLnpt/2oqRmI0ti48rNhNjR0ZPW5TLCdNA4zrHiNy0g==",
+      "path": "system.data.sqlite/1.0.110",
+      "hashPath": "system.data.sqlite.1.0.110.nupkg.sha512"
+    },
+    "System.Data.SQLite.Core/1.0.110": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-x7xZ0oBWycJch9ShAFwTQRPJ2HEo5NmXyhx/LFJvSbCBQVXnHc9rIAeLo1VXzDFbfbtPl3HFpFhriEnUkS2L0Q==",
+      "path": "system.data.sqlite.core/1.0.110",
+      "hashPath": "system.data.sqlite.core.1.0.110.nupkg.sha512"
     },
     "WatsonTcp/1.1.7": {
       "type": "package",

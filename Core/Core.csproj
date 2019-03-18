@@ -10,6 +10,7 @@
     <PackageProjectUrl>https://github.com/bigqio/bigq</PackageProjectUrl>
     <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</PackageLicenseUrl>
+    <AssemblyVersion>2.0.4.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>

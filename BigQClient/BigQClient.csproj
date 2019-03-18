@@ -9,7 +9,7 @@
     <PackageProjectUrl>https://github.com/bigqio/bigq</PackageProjectUrl>
     <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</PackageLicenseUrl>
-    <Version>2.0.3</Version>
+    <Version>2.0.4</Version>
   </PropertyGroup>
 
   <ItemGroup>

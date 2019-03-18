@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net462</TargetFrameworks>
     <RootNamespace>BigQ.Server</RootNamespace>
-    <Version>2.0.3</Version>
+    <Version>2.0.4</Version>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
     <Copyright>(c)2019 Joel Christner</Copyright>
@@ -12,9 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="EntityFramework" Version="6.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
-    <PackageReference Include="SqliteHelper" Version="1.0.6" />
+    <PackageReference Include="SqliteHelper" Version="1.0.9" />
     <PackageReference Include="SyslogLogging" Version="1.0.10" />
     <PackageReference Include="WatsonTcp" Version="1.1.7" />
     <PackageReference Include="WatsonWebsocket" Version="1.2.4" />
