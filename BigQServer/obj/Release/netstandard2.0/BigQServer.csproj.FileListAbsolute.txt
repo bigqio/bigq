@@ -23,3 +23,15 @@ C:\Code\BigQ\BigQ\BigQServer\obj\Release\netstandard2.0\BigQServer.AssemblyInfo.
 C:\Code\BigQ\BigQ\BigQServer\obj\Release\netstandard2.0\BigQServer.csproj.CopyComplete
 C:\Code\BigQ\BigQ\BigQServer\obj\Release\netstandard2.0\BigQServer.dll
 C:\Code\BigQ\BigQ\BigQServer\obj\Release\netstandard2.0\BigQServer.pdb
+C:\code\BigQ\BigQ-2.1\BigQServer\bin\Release\netstandard2.0\BigQServer.deps.json
+C:\code\BigQ\BigQ-2.1\BigQServer\bin\Release\netstandard2.0\BigQServer.dll
+C:\code\BigQ\BigQ-2.1\BigQServer\bin\Release\netstandard2.0\BigQServer.pdb
+C:\code\BigQ\BigQ-2.1\BigQServer\bin\Release\netstandard2.0\Core.dll
+C:\code\BigQ\BigQ-2.1\BigQServer\bin\Release\netstandard2.0\Core.pdb
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.csprojAssemblyReference.cache
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.csproj.CoreCompileInputs.cache
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.AssemblyInfoInputs.cache
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.AssemblyInfo.cs
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.csproj.CopyComplete
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.dll
+C:\code\BigQ\BigQ-2.1\BigQServer\obj\Release\netstandard2.0\BigQServer.pdb
