@@ -17,3 +17,4 @@ C:\code\bigq\BigQ-2.1\Server\obj\Release\net462\Server.AssemblyInfo.cs
 C:\code\bigq\BigQ-2.1\Server\obj\Release\net462\Server.csproj.CopyComplete
 C:\code\bigq\BigQ-2.1\Server\obj\Release\net462\Server.dll
 C:\code\bigq\BigQ-2.1\Server\obj\Release\net462\Server.pdb
+C:\code\bigq\BigQ-2.1\Server\obj\Release\net462\Server.csprojAssemblyReference.cache

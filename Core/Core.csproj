@@ -3,14 +3,14 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net462</TargetFrameworks>
     <RootNamespace>BigQ.Core</RootNamespace>
-    <Version>2.1.1</Version>
+    <Version>2.1.3</Version>
     <Company>Joel Christner</Company>
     <Authors>Joel Christner</Authors>
     <Copyright>(c)2019 Joel Christner</Copyright>
     <PackageProjectUrl>https://github.com/bigqio/bigq</PackageProjectUrl>
     <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</PackageLicenseUrl>
-    <AssemblyVersion>2.1.1.0</AssemblyVersion>
+    <AssemblyVersion>2.1.3.0</AssemblyVersion>
     <PackageId>BigQ.Core</PackageId>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Product>BigQ.Core</Product>
@@ -18,6 +18,7 @@
     <PackageTags>mq message queue messaging tcp sockets websockets ssl</PackageTags>
     <PackageReleaseNotes>Breaking changes, split into separate projects</PackageReleaseNotes>
     <Description>BigQ is a messaging platform using TCP sockets and websockets featuring sync, async, channel, and private communications.  This package includes the BigQ core libraries.  Please also download the BigQ.Client or BigQ.Server package as needed.</Description>
+    <PackageIconUrl>https://raw.githubusercontent.com/bigqio/bigq/master/Assets/logo.png</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>

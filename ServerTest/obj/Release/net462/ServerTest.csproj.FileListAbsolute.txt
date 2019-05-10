@@ -22,3 +22,4 @@ C:\code\bigq\BigQ-2.1\ServerTest\obj\Release\net462\ServerTest.AssemblyInfo.cs
 C:\code\bigq\BigQ-2.1\ServerTest\obj\Release\net462\ServerTest.csproj.CopyComplete
 C:\code\bigq\BigQ-2.1\ServerTest\obj\Release\net462\ServerTest.exe
 C:\code\bigq\BigQ-2.1\ServerTest\obj\Release\net462\ServerTest.pdb
+C:\code\bigq\BigQ-2.1\ServerTest\obj\Release\net462\ServerTest.csprojAssemblyReference.cache

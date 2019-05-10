@@ -1,32 +1,28 @@
 {
   "runtimeTarget": {
     "name": ".NETCoreApp,Version=v2.2",
-    "signature": "1f3973b564bde6add6da26e21520a2d972402025"
+    "signature": "945de0a8d30ec23a1034489d2aca574894483ce5"
   },
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v2.2": {
       "ClientTest/1.0.0": {
         "dependencies": {
-          "BigQ.Client": "2.1.0",
+          "BigQ.Client": "2.1.1",
           "BigQ.Core": "2.1.1"
         },
         "runtime": {
           "ClientTest.dll": {}
         }
       },
-      "BigQ.Client/2.1.0": {
+      "BigQ.Client/2.1.1": {
         "dependencies": {
-          "BigQ.Core": "2.1.1",
-          "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
-          "WatsonWebsocket": "1.2.4"
+          "BigQ.Core": "2.1.1"
         },
         "runtime": {
           "lib/netstandard2.0/Client.dll": {
-            "assemblyVersion": "2.1.0.0",
-            "fileVersion": "2.1.0.0"
+            "assemblyVersion": "2.1.1.0",
+            "fileVersion": "2.1.1.0"
           }
         }
       },
@@ -89,12 +85,12 @@
       "serviceable": false,
       "sha512": ""
     },
-    "BigQ.Client/2.1.0": {
+    "BigQ.Client/2.1.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-9UxCyl5AmQzr4VoLSYShy2SMF7TS+4S0s/oTXALzoJmvd5uSl8UoIxsd/6cTkLaeZz0+7N8XpFKZfB82uC1EMQ==",
-      "path": "bigq.client/2.1.0",
-      "hashPath": "bigq.client.2.1.0.nupkg.sha512"
+      "sha512": "sha512-BJmeGTeZ6HMuoXYYTPmdwjVDF77YX7lodSyBuLHgMzpKBFR4ACxfn8d7Gn6UcU80J+DUuWL2GTtW4Db38mGTKw==",
+      "path": "bigq.client/2.1.1",
+      "hashPath": "bigq.client.2.1.1.nupkg.sha512"
     },
     "BigQ.Core/2.1.1": {
       "type": "package",

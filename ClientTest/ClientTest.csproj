@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BigQ.Client" Version="2.1.0" />
+    <PackageReference Include="BigQ.Client" Version="2.1.1" />
     <PackageReference Include="BigQ.Core" Version="2.1.1" />
   </ItemGroup>
 

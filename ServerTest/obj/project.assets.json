@@ -18,10 +18,10 @@
           "lib/netstandard2.0/Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.0": {
+      "BigQ.Server/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
+          "BigQ.Core": "2.1.1",
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.11",
           "SyslogLogging": "1.0.10",
@@ -354,10 +354,10 @@
           "lib/netstandard2.0/Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.0": {
+      "BigQ.Server/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
+          "BigQ.Core": "2.1.1",
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.11",
           "SyslogLogging": "1.0.10",
@@ -926,10 +926,10 @@
           "lib/net462/Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.0": {
+      "BigQ.Server/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
+          "BigQ.Core": "2.1.1",
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.11",
           "SyslogLogging": "1.0.10",
@@ -1099,10 +1099,10 @@
           "lib/net462/Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.0": {
+      "BigQ.Server/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
+          "BigQ.Core": "2.1.1",
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.11",
           "SyslogLogging": "1.0.10",
@@ -1252,14 +1252,14 @@
         "lib/netstandard2.0/Core.dll"
       ]
     },
-    "BigQ.Server/2.1.0": {
-      "sha512": "AyHDybkZZGUZjQaNjA2njbyawNEwvf0Fs3zYc3e8CKV8wm4MrPLGBsfCBFwWvmTrM7H0SupfeXaPkr+9bDijjA==",
+    "BigQ.Server/2.1.1": {
+      "sha512": "yKGBaGRtSFJ0236d3n4lDUA/z8EpyFscHhniDDRaYeHCCqcAkCdOj5DosrhKpSwFqV098dpTeKxptyf770uLlg==",
       "type": "package",
-      "path": "bigq.server/2.1.0",
+      "path": "bigq.server/2.1.1",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "bigq.server.2.1.0.nupkg.sha512",
+        "bigq.server.2.1.1.nupkg.sha512",
         "bigq.server.nuspec",
         "lib/net462/Server.dll",
         "lib/netstandard2.0/Server.dll"
@@ -2311,12 +2311,12 @@
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
       "BigQ.Core >= 2.1.1",
-      "BigQ.Server >= 2.1.0",
+      "BigQ.Server >= 2.1.1",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
       "BigQ.Core >= 2.1.1",
-      "BigQ.Server >= 2.1.0"
+      "BigQ.Server >= 2.1.1"
     ]
   },
   "packageFolders": {
@@ -2371,7 +2371,7 @@
           },
           "BigQ.Server": {
             "target": "Package",
-            "version": "[2.1.0, )"
+            "version": "[2.1.1, )"
           },
           "Microsoft.NETCore.App": {
             "suppressParent": "All",
@@ -2394,7 +2394,7 @@
           },
           "BigQ.Server": {
             "target": "Package",
-            "version": "[2.1.0, )"
+            "version": "[2.1.1, )"
           }
         }
       }

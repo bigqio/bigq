@@ -2,14 +2,10 @@
   "version": 3,
   "targets": {
     ".NETCoreApp,Version=v2.2": {
-      "BigQ.Client/2.1.0": {
+      "BigQ.Client/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
-          "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
-          "WatsonWebsocket": "1.2.4"
+          "BigQ.Core": "2.1.1"
         },
         "compile": {
           "lib/netstandard2.0/Client.dll": {}
@@ -290,14 +286,10 @@
       }
     },
     ".NETCoreApp,Version=v2.2/win7-x86": {
-      "BigQ.Client/2.1.0": {
+      "BigQ.Client/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
-          "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
-          "WatsonWebsocket": "1.2.4"
+          "BigQ.Core": "2.1.1"
         },
         "compile": {
           "lib/netstandard2.0/Client.dll": {}
@@ -829,14 +821,10 @@
       }
     },
     ".NETFramework,Version=v4.6.2": {
-      "BigQ.Client/2.1.0": {
+      "BigQ.Client/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
-          "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
-          "WatsonWebsocket": "1.2.4"
+          "BigQ.Core": "2.1.1"
         },
         "compile": {
           "lib/net462/Client.dll": {}
@@ -914,14 +902,10 @@
       }
     },
     ".NETFramework,Version=v4.6.2/win7-x86": {
-      "BigQ.Client/2.1.0": {
+      "BigQ.Client/2.1.1": {
         "type": "package",
         "dependencies": {
-          "BigQ.Core": "2.1.0",
-          "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
-          "WatsonWebsocket": "1.2.4"
+          "BigQ.Core": "2.1.1"
         },
         "compile": {
           "lib/net462/Client.dll": {}
@@ -1000,14 +984,14 @@
     }
   },
   "libraries": {
-    "BigQ.Client/2.1.0": {
-      "sha512": "9UxCyl5AmQzr4VoLSYShy2SMF7TS+4S0s/oTXALzoJmvd5uSl8UoIxsd/6cTkLaeZz0+7N8XpFKZfB82uC1EMQ==",
+    "BigQ.Client/2.1.1": {
+      "sha512": "BJmeGTeZ6HMuoXYYTPmdwjVDF77YX7lodSyBuLHgMzpKBFR4ACxfn8d7Gn6UcU80J+DUuWL2GTtW4Db38mGTKw==",
       "type": "package",
-      "path": "bigq.client/2.1.0",
+      "path": "bigq.client/2.1.1",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "bigq.client.2.1.0.nupkg.sha512",
+        "bigq.client.2.1.1.nupkg.sha512",
         "bigq.client.nuspec",
         "lib/net462/Client.dll",
         "lib/netstandard2.0/Client.dll"
@@ -1907,12 +1891,12 @@
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
-      "BigQ.Client >= 2.1.0",
+      "BigQ.Client >= 2.1.1",
       "BigQ.Core >= 2.1.1",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Client >= 2.1.0",
+      "BigQ.Client >= 2.1.1",
       "BigQ.Core >= 2.1.1"
     ]
   },
@@ -1964,7 +1948,7 @@
         "dependencies": {
           "BigQ.Client": {
             "target": "Package",
-            "version": "[2.1.0, )"
+            "version": "[2.1.1, )"
           },
           "BigQ.Core": {
             "target": "Package",
@@ -1987,7 +1971,7 @@
         "dependencies": {
           "BigQ.Client": {
             "target": "Package",
-            "version": "[2.1.0, )"
+            "version": "[2.1.1, )"
           },
           "BigQ.Core": {
             "target": "Package",

@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>BigQ.Client</id>
+    <version>2.1.2</version>
+    <authors>Joel Christner</authors>
+    <owners>Joel Christner</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <licenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</licenseUrl>
+    <projectUrl>https://github.com/bigqio/bigq</projectUrl>
+    <iconUrl>https://github.com/bigqio/bigq/blob/master/Assets/logo.png</iconUrl>
+    <description>BigQ is a messaging platform using TCP sockets and websockets featuring sync, async, channel, and private communications.  This package includes the BigQ client and associated libraries.</description>
+    <releaseNotes>Breaking changes, split into separate projects</releaseNotes>
+    <copyright>(c)2019 Joel Christner</copyright>
+    <tags>mq message queue messaging tcp sockets websockets ssl</tags>
+    <repository type="Github" url="https://github.com/bigqio/bigq" />
+    <dependencies>
+      <group targetFramework=".NETFramework4.6.2">
+        <dependency id="BigQ.Core" version="2.1.1" exclude="Build,Analyzers" />
+      </group>
+      <group targetFramework=".NETStandard2.0">
+        <dependency id="BigQ.Core" version="2.1.1" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="C:\code\bigq\BigQ-2.1\Client\bin\Release\net462\Client.dll" target="lib\net462\Client.dll" />
+    <file src="C:\code\bigq\BigQ-2.1\Client\bin\Release\netstandard2.0\Client.dll" target="lib\netstandard2.0\Client.dll" />
+  </files>
+</package>
