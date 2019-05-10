@@ -14,7 +14,7 @@
           "lib/net45/_._": {}
         }
       },
-      "Newtonsoft.Json/12.0.1": {
+      "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
           "lib/net45/Newtonsoft.Json.dll": {}
@@ -32,8 +32,11 @@
           "lib/net452/LoggingModule.dll": {}
         }
       },
-      "WatsonTcp/1.1.7": {
+      "WatsonTcp/1.3.5": {
         "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "12.0.2"
+        },
         "compile": {
           "lib/net452/WatsonTcp.dll": {}
         },
@@ -85,7 +88,7 @@
           "build/netstandard2.0/NETStandard.Library.targets": {}
         }
       },
-      "Newtonsoft.Json/12.0.1": {
+      "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
@@ -103,8 +106,11 @@
           "lib/netstandard2.0/LoggingModule.dll": {}
         }
       },
-      "WatsonTcp/1.1.7": {
+      "WatsonTcp/1.3.5": {
         "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "12.0.2"
+        },
         "compile": {
           "lib/netstandard2.0/WatsonTcp.dll": {}
         },
@@ -335,42 +341,33 @@
         "netstandard.library.nuspec"
       ]
     },
-    "Newtonsoft.Json/12.0.1": {
-      "sha512": "jmVyoEyk0In8r+AObYQyFKVFm7uSRzE0XSHSbEtBJcZDMV6DqJoyB4FLcHwprPVhAh826so0db3DIKXVnpGoPA==",
+    "Newtonsoft.Json/12.0.2": {
+      "sha512": "mtweBXPWhp1CMQATtBT7ZfMZrbZBTKfjGwz6Y75NwGjx/GztDaUnfw8GK9KZ2T4fDIqKJyDjc9Rxlw5+G2FcVA==",
       "type": "package",
-      "path": "newtonsoft.json/12.0.1",
+      "path": "newtonsoft.json/12.0.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "LICENSE.md",
         "lib/net20/Newtonsoft.Json.dll",
-        "lib/net20/Newtonsoft.Json.pdb",
         "lib/net20/Newtonsoft.Json.xml",
         "lib/net35/Newtonsoft.Json.dll",
-        "lib/net35/Newtonsoft.Json.pdb",
         "lib/net35/Newtonsoft.Json.xml",
         "lib/net40/Newtonsoft.Json.dll",
-        "lib/net40/Newtonsoft.Json.pdb",
         "lib/net40/Newtonsoft.Json.xml",
         "lib/net45/Newtonsoft.Json.dll",
-        "lib/net45/Newtonsoft.Json.pdb",
         "lib/net45/Newtonsoft.Json.xml",
         "lib/netstandard1.0/Newtonsoft.Json.dll",
-        "lib/netstandard1.0/Newtonsoft.Json.pdb",
         "lib/netstandard1.0/Newtonsoft.Json.xml",
         "lib/netstandard1.3/Newtonsoft.Json.dll",
-        "lib/netstandard1.3/Newtonsoft.Json.pdb",
         "lib/netstandard1.3/Newtonsoft.Json.xml",
         "lib/netstandard2.0/Newtonsoft.Json.dll",
-        "lib/netstandard2.0/Newtonsoft.Json.pdb",
         "lib/netstandard2.0/Newtonsoft.Json.xml",
         "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.dll",
-        "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.pdb",
         "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.xml",
         "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.dll",
-        "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.pdb",
         "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.xml",
-        "newtonsoft.json.12.0.1.nupkg.sha512",
+        "newtonsoft.json.12.0.2.nupkg.sha512",
         "newtonsoft.json.nuspec"
       ]
     },
@@ -387,16 +384,16 @@
         "sysloglogging.nuspec"
       ]
     },
-    "WatsonTcp/1.1.7": {
-      "sha512": "hX3ozV5A4EGaBtvPfeJCotUv0J+RTeohfOH6BC7TlXpORjDObK37p8Ku1HQJF5WpSKN+tjBHN8OTHhZo+QlU5A==",
+    "WatsonTcp/1.3.5": {
+      "sha512": "lWFqwKhJ1PFE2/u6Y5q8pJkvhSw3+ybtc4IRyGsX1IlDe31ckh130QOdbzmmkvZFE96WL+6UCMCCQcc7Ch4gRA==",
       "type": "package",
-      "path": "watsontcp/1.1.7",
+      "path": "watsontcp/1.3.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.1.7.nupkg.sha512",
+        "watsontcp.1.3.5.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
@@ -417,17 +414,17 @@
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.6.2": [
       "Microsoft.CSharp >= 4.5.0",
-      "Newtonsoft.Json >= 12.0.1",
+      "Newtonsoft.Json >= 12.0.2",
       "SyslogLogging >= 1.0.10",
-      "WatsonTcp >= 1.1.7",
+      "WatsonTcp >= 1.3.5",
       "WatsonWebsocket >= 1.2.4"
     ],
     ".NETStandard,Version=v2.0": [
       "Microsoft.CSharp >= 4.5.0",
       "NETStandard.Library >= 2.0.3",
-      "Newtonsoft.Json >= 12.0.1",
+      "Newtonsoft.Json >= 12.0.2",
       "SyslogLogging >= 1.0.10",
-      "WatsonTcp >= 1.1.7",
+      "WatsonTcp >= 1.3.5",
       "WatsonWebsocket >= 1.2.4"
     ]
   },
@@ -436,13 +433,13 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
-    "version": "2.0.3",
+    "version": "2.1.1",
     "restore": {
-      "projectUniqueName": "C:\\code\\BigQ\\BigQ-2.1\\Core\\Core.csproj",
-      "projectName": "Core",
-      "projectPath": "C:\\code\\BigQ\\BigQ-2.1\\Core\\Core.csproj",
+      "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj",
+      "projectName": "BigQ.Core",
+      "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\code\\BigQ\\BigQ-2.1\\Core\\obj\\",
+      "outputPath": "C:\\code\\bigq\\BigQ-2.1\\Core\\obj\\",
       "projectStyle": "PackageReference",
       "crossTargeting": true,
       "fallbackFolders": [
@@ -483,7 +480,7 @@
           },
           "Newtonsoft.Json": {
             "target": "Package",
-            "version": "[12.0.1, )"
+            "version": "[12.0.2, )"
           },
           "SyslogLogging": {
             "target": "Package",
@@ -491,7 +488,7 @@
           },
           "WatsonTcp": {
             "target": "Package",
-            "version": "[1.1.7, )"
+            "version": "[1.3.5, )"
           },
           "WatsonWebsocket": {
             "target": "Package",
@@ -513,7 +510,7 @@
           },
           "Newtonsoft.Json": {
             "target": "Package",
-            "version": "[12.0.1, )"
+            "version": "[12.0.2, )"
           },
           "SyslogLogging": {
             "target": "Package",
@@ -521,7 +518,7 @@
           },
           "WatsonTcp": {
             "target": "Package",
-            "version": "[1.1.7, )"
+            "version": "[1.3.5, )"
           },
           "WatsonWebsocket": {
             "target": "Package",

@@ -36,27 +36,27 @@ namespace BigQ.Core
         /// <summary>
         /// Timestamp indicating when the message was created.
         /// </summary>
-        public DateTime? CreatedUtc;
+        public DateTime CreatedUtc;
 
         /// <summary>
         /// Contained in a response message to indicate if the request message was successful.
         /// </summary>
-        public bool? Success;
+        public bool Success;
 
         /// <summary>
         /// Set by the sender to indicate if the message should be handled synchronously by the receiver (i.e. the sender is blocking while waiting for a response).
         /// </summary>
-        public bool? SyncRequest;
+        public bool SyncRequest;
 
         /// <summary>
         /// Set by the recipient to indicate that the message is a response to a synchronous request message.
         /// </summary>
-        public bool? SyncResponse;
+        public bool SyncResponse;
         
         /// <summary>
         /// The amount of time in milliseconds to wait to receive a response to this message, if synchronous.  This parameter will override the value in the client configuration. 
         /// </summary>
-        public int? SyncTimeoutMs;
+        public int SyncTimeoutMs;
 
         /// <summary>
         /// Indicates whether or not the message should be stored persistently if unable to immediately deliver.
@@ -66,7 +66,7 @@ namespace BigQ.Core
         /// <summary>
         /// Timestamp indicating when the persistent message should expire.
         /// </summary>
-        public DateTime? ExpirationUtc;
+        public DateTime ExpirationUtc;
 
         /// <summary>
         /// Unique identifier for the message.
@@ -81,7 +81,7 @@ namespace BigQ.Core
         /// <summary>
         /// Reserved for future use.
         /// </summary>
-        public long? MessageSeqnum;
+        public long MessageSeqnum;
 
         /// <summary>
         /// Unique identifier for the sender.
@@ -121,7 +121,7 @@ namespace BigQ.Core
         /// <summary>
         /// Contains the number of bytes in the data payload.
         /// </summary>
-        public long? ContentLength;
+        public long ContentLength;
 
         /// <summary>
         /// The data payload.
@@ -172,20 +172,7 @@ namespace BigQ.Core
             Password = null;
             Command = MessageCommand.Unknown;
             CreatedUtc = DateTime.Now.ToUniversalTime();
-            Success = null;
-            SyncRequest = null;
-            SyncResponse = null;
-            Persist = false;
-            ExpirationUtc = null;
-            MessageID = null;
-            ConversationID = null;
-            MessageSeqnum = null;
-            SenderGUID = null;
-            RecipientGUID = null;
-            ChannelGUID = null;
             UserHeaders = new Dictionary<string, string>();
-            ContentType = null;
-            ContentLength = null;
             Data = null;
 
             #endregion
@@ -387,10 +374,10 @@ namespace BigQ.Core
 
             #region Get-Data
 
-            if (ContentLength != null && ContentLength > 0 && ContentLength < bytes.Length)
+            if (ContentLength > 0 && ContentLength < bytes.Length)
             {
-                Data = new byte[Convert.ToInt32(ContentLength)];
-                Buffer.BlockCopy(bytes, (bytes.Length - Convert.ToInt32(ContentLength)), Data, 0, Convert.ToInt32(ContentLength));
+                Data = new byte[ContentLength];
+                Buffer.BlockCopy(bytes, (int)(bytes.Length - ContentLength), Data, 0, (int)ContentLength);
             }
              
             #endregion
@@ -408,20 +395,9 @@ namespace BigQ.Core
         {
             List<string> errors = new List<string>();
             if (String.IsNullOrEmpty(MessageID)) errors.Add("MessageId is missing");
-            if (String.IsNullOrEmpty(SenderGUID)) errors.Add("SenderGUID is missing");
-            if (CreatedUtc == null) errors.Add("CreatedUtc is missing");
+            if (String.IsNullOrEmpty(SenderGUID)) errors.Add("SenderGUID is missing"); 
 
-            if (Data != null)
-            {
-                if (ContentLength == null)
-                {
-                    errors.Add("ContentLength is missing");
-                }
-                else
-                {
-                    if (Data.Length != ContentLength) errors.Add("ContentLength does not match data length");
-                }
-            }
+            if (Data != null && Data.Length != ContentLength) errors.Add("ContentLength does not match data length");
 
             if (errors.Count > 0)
             {
@@ -449,10 +425,10 @@ namespace BigQ.Core
                 " Conversation ID " + (!String.IsNullOrEmpty(ConversationID) ? ConversationID : "null") + Environment.NewLine;
 
             ret += " | Command " + Command.ToString() + 
-                " Success " + (Success != null ? Success.ToString() : "null") + Environment.NewLine;
+                " Success " + Success + Environment.NewLine;
 
-            ret += " | Sync Request " + (SyncRequest != null ? SyncRequest.ToString() : "null") + 
-                " Sync Response " + (SyncResponse != null ? SyncResponse.ToString() : "null") + 
+            ret += " | Sync Request " + SyncRequest + 
+                " Sync Response " + SyncResponse + 
                 " Persist " + Persist + Environment.NewLine;
 
             ret += " | Sender Name " + SenderName + " Sender GUID " + SenderGUID + Environment.NewLine;
@@ -478,7 +454,7 @@ namespace BigQ.Core
 
             if (Data != null)
             {
-                if (ContentLength != null)
+                if (ContentLength > 0)
                 {
                     string DataString = Encoding.UTF8.GetString(Data);
                     ret += " | Data (" + ContentLength + " bytes)";
@@ -536,36 +512,21 @@ namespace BigQ.Core
                 }
             }
             
-            if (CreatedUtc != null)
-            {
-                string sanitizedCreatedUtc = Convert.ToDateTime(CreatedUtc).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.fffffff");
-                headerSb.Append("CreatedUtc: " + sanitizedCreatedUtc);
-                headerSb.Append("\r\n");
-            }
+            string sanitizedCreatedUtc = Convert.ToDateTime(CreatedUtc).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.fffffff");
+            headerSb.Append("CreatedUtc: " + sanitizedCreatedUtc);
+            headerSb.Append("\r\n");
 
-            if (Success != null)
-            {
-                headerSb.Append("Success: " + Common.IsTrue(Success));
-                headerSb.Append("\r\n");
-            }
+            headerSb.Append("Success: " + Success);
+            headerSb.Append("\r\n");
 
-            if (SyncRequest != null)
-            {
-                headerSb.Append("SyncRequest: " + Common.IsTrue(SyncRequest));
-                headerSb.Append("\r\n");
-            }
+            headerSb.Append("SyncRequest: " + SyncRequest);
+            headerSb.Append("\r\n");
 
-            if (SyncResponse != null)
-            {
-                headerSb.Append("SyncResponse: " + Common.IsTrue(SyncResponse));
-                headerSb.Append("\r\n");
-            }
+            headerSb.Append("SyncResponse: " + SyncResponse);
+            headerSb.Append("\r\n");
 
-            if (SyncTimeoutMs != null)
-            {
-                headerSb.Append("SyncTimeoutMs: " + SyncTimeoutMs);
-                headerSb.Append("\r\n");
-            }
+            headerSb.Append("SyncTimeoutMs: " + SyncTimeoutMs);
+            headerSb.Append("\r\n");
 
             headerSb.Append("Persist: " + Persist);
             headerSb.Append("\r\n");
@@ -573,11 +534,8 @@ namespace BigQ.Core
             headerSb.Append("Command: " + Command.ToString());
             headerSb.Append("\r\n");
 
-            if (ExpirationUtc != null)
-            {
-                headerSb.Append("ExpirationUtc: " + Convert.ToDateTime(ExpirationUtc).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.ffffff"));
-                headerSb.Append("\r\n");
-            }
+            headerSb.Append("ExpirationUtc: " + ExpirationUtc.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.ffffff"));
+            headerSb.Append("\r\n");
             
             if (!String.IsNullOrEmpty(MessageID))
             {
@@ -597,13 +555,10 @@ namespace BigQ.Core
                     headerSb.Append("ConversationId: " + sanitizedConversationId);
                     headerSb.Append("\r\n");
                 }
-            }
+            } 
 
-            if (MessageSeqnum != null)
-            {
-                headerSb.Append("MessageSequenceNumber: " + MessageSeqnum);
-                headerSb.Append("\r\n");
-            }
+            headerSb.Append("MessageSequenceNumber: " + MessageSeqnum);
+            headerSb.Append("\r\n"); 
 
             if (!String.IsNullOrEmpty(SenderGUID))
             {

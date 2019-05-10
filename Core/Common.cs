@@ -241,8 +241,7 @@ namespace BigQ.Core
                     #endregion
 
                     #region Check-for-Empty-ContentLength
-
-                    if (CurrentMessage.ContentLength == null) return true;
+                     
                     if (CurrentMessage.ContentLength <= 0) return true;
 
                     #endregion
@@ -624,8 +623,7 @@ namespace BigQ.Core
                     #endregion
 
                     #region Check-for-Empty-ContentLength
-
-                    if (Message.ContentLength == null) return Message;
+                     
                     if (Message.ContentLength <= 0) return Message;
 
                     #endregion
@@ -830,8 +828,7 @@ namespace BigQ.Core
                     #endregion
 
                     #region Check-for-Empty-ContentLength
-
-                    if (Message.ContentLength == null) return Message;
+                     
                     if (Message.ContentLength <= 0) return Message;
 
                     #endregion
@@ -1040,8 +1037,7 @@ namespace BigQ.Core
                     #endregion
 
                     #region Check-for-Empty-ContentLength
-
-                    if (Message.ContentLength == null) return Message;
+                     
                     if (Message.ContentLength <= 0) return Message;
 
                     #endregion
@@ -1833,31 +1829,31 @@ namespace BigQ.Core
 
         #region Is-True
 
-        public static bool IsTrue(int? val)
+        public static bool aIsTrue(int? val)
         {
             if (val == null) return false;
             if (Convert.ToInt32(val) == 1) return true;
             return false;
         }
 
-        public static bool IsTrue(int val)
+        public static bool aIsTrue(int val)
         {
             if (val == 1) return true;
             return false;
         }
 
-        public static bool IsTrue(bool val)
+        public static bool aIsTrue(bool val)
         {
             return val;
         }
 
-        public static bool IsTrue(bool? val)
+        public static bool aIsTrue(bool? val)
         {
             if (val == null) return false;
             return Convert.ToBoolean(val);
         }
 
-        public static bool IsTrue(string val)
+        public static bool aIsTrue(string val)
         {
             if (String.IsNullOrEmpty(val)) return false;
             val = val.ToLower().Trim();

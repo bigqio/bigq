@@ -1,0 +1,15 @@
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\test-certificate.txt
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\client1.json
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\client2.json
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\test.pfx
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\ClientTest.deps.json
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\ClientTest.runtimeconfig.json
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\ClientTest.runtimeconfig.dev.json
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\ClientTest.dll
+C:\code\bigq\BigQ-2.1\ClientTest\bin\Debug\netcoreapp2.2\ClientTest.pdb
+C:\code\bigq\BigQ-2.1\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.csprojAssemblyReference.cache
+C:\code\bigq\BigQ-2.1\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.csproj.CoreCompileInputs.cache
+C:\code\bigq\BigQ-2.1\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.AssemblyInfoInputs.cache
+C:\code\bigq\BigQ-2.1\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.AssemblyInfo.cs
+C:\code\bigq\BigQ-2.1\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.dll
+C:\code\bigq\BigQ-2.1\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.pdb

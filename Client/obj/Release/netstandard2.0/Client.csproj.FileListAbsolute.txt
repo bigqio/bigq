@@ -1,0 +1,9 @@
+C:\code\bigq\BigQ-2.1\Client\bin\Release\netstandard2.0\Client.deps.json
+C:\code\bigq\BigQ-2.1\Client\bin\Release\netstandard2.0\Client.dll
+C:\code\bigq\BigQ-2.1\Client\bin\Release\netstandard2.0\Client.pdb
+C:\code\bigq\BigQ-2.1\Client\obj\Release\netstandard2.0\Client.csprojAssemblyReference.cache
+C:\code\bigq\BigQ-2.1\Client\obj\Release\netstandard2.0\Client.csproj.CoreCompileInputs.cache
+C:\code\bigq\BigQ-2.1\Client\obj\Release\netstandard2.0\Client.AssemblyInfoInputs.cache
+C:\code\bigq\BigQ-2.1\Client\obj\Release\netstandard2.0\Client.AssemblyInfo.cs
+C:\code\bigq\BigQ-2.1\Client\obj\Release\netstandard2.0\Client.dll
+C:\code\bigq\BigQ-2.1\Client\obj\Release\netstandard2.0\Client.pdb

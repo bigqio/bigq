@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net462</TargetFrameworks>
+    <RootNamespace>BigQ.Client</RootNamespace>
+    <Authors>Joel Christner</Authors>
+    <Company>Joel Christner</Company>
+    <Copyright>(c)2019 Joel Christner</Copyright>
+    <PackageProjectUrl>https://github.com/bigqio/bigq</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
+    <PackageLicenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</PackageLicenseUrl>
+    <Version>2.1.1</Version>
+    <PackageId>BigQ.Client</PackageId>
+    <Product>BigQ.Client</Product>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <RepositoryType>Github</RepositoryType>
+    <PackageTags>mq message queue messaging tcp sockets websockets ssl</PackageTags>
+    <PackageReleaseNotes>Breaking changes, split into separate projects</PackageReleaseNotes>
+    <Description>BigQ is a messaging platform using TCP sockets and websockets featuring sync, async, channel, and private communications.  This package includes the BigQ client and associated libraries.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BigQ.Core" Version="2.1.1" />
+  </ItemGroup>
+
+</Project>

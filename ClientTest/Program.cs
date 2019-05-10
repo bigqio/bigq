@@ -18,7 +18,7 @@ namespace ClientTest
             bool runForever = true;
             string guid = "";
             string msg = "";
-            int priv = 0;
+            bool priv = false;
             List<ServerClient> clients = new List<ServerClient>();
             List<Channel> channels = new List<Channel>();
             Message response = new Message();
@@ -145,11 +145,11 @@ namespace ClientTest
                                 foreach (Channel curr in channels)
                                 {
                                     string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
-                                    if (curr.Private == 1) line += "priv ";
+                                    if (curr.Private) line += "priv ";
                                     else line += "pub ";
-                                    if (curr.Broadcast == 1) line += "bcast ";
-                                    else if (curr.Multicast == 1) line += "mcast ";
-                                    else if (curr.Unicast == 1) line += "ucast ";
+                                    if (curr.Broadcast) line += "bcast ";
+                                    else if (curr.Multicast) line += "mcast ";
+                                    else if (curr.Unicast) line += "ucast ";
                                     else line += "unknown ";
 
                                     Console.WriteLine(line);
@@ -279,7 +279,7 @@ namespace ClientTest
                         Console.Write("Name          : ");
                         guid = Console.ReadLine();
                         Console.Write("Private (0/1) : ");
-                        priv = Convert.ToInt32(Console.ReadLine());
+                        priv = Convert.ToBoolean(Console.ReadLine());
                         if (client.CreateBroadcastChannel(guid, priv, out response))
                         {
                             Console.WriteLine("CreateBroadcastChannel success");
@@ -295,7 +295,7 @@ namespace ClientTest
                         Console.Write("Name          : ");
                         guid = Console.ReadLine();
                         Console.Write("Private (0/1) : ");
-                        priv = Convert.ToInt32(Console.ReadLine());
+                        priv = Convert.ToBoolean(Console.ReadLine());
                         if (client.CreateMulticastChannel(guid, priv, out response))
                         {
                             Console.WriteLine("CreateMulticastChannel success");
@@ -311,7 +311,7 @@ namespace ClientTest
                         Console.Write("Name          : ");
                         guid = Console.ReadLine();
                         Console.Write("Private (0/1) : ");
-                        priv = Convert.ToInt32(Console.ReadLine());
+                        priv = Convert.ToBoolean(Console.ReadLine());
                         if (client.CreateUnicastChannel(guid, priv, out response))
                         {
                             Console.WriteLine("CreateUnicastChannel success");

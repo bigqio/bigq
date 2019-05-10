@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.168
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BigQClient", "BigQClient\BigQClient.csproj", "{E67516E1-DBBD-4F1B-8186-E6133DEC1050}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Client", "Client\Client.csproj", "{E67516E1-DBBD-4F1B-8186-E6133DEC1050}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BigQServer", "BigQServer\BigQServer.csproj", "{8AB6AC8D-7CA9-47EE-A8F2-52D6F355BC7D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Server", "Server\Server.csproj", "{8AB6AC8D-7CA9-47EE-A8F2-52D6F355BC7D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", "{0609006B-173B-4B75-8E79-1605D883D94E}"
 EndProject

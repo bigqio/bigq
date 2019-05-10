@@ -11,3 +11,16 @@ C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.csproj.CopyComplete
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.dll
 C:\code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.pdb
 C:\Code\BigQ\BigQ-Retarget\Core\obj\Debug\net462\Core.csprojAssemblyReference.cache
+C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\Core.dll
+C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\Core.pdb
+C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\Newtonsoft.Json.dll
+C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\LoggingModule.dll
+C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\WatsonTcp.dll
+C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\WatsonWebsocket.dll
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.csprojAssemblyReference.cache
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.csproj.CoreCompileInputs.cache
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.AssemblyInfoInputs.cache
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.AssemblyInfo.cs
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.csproj.CopyComplete
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.dll
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\net462\Core.pdb

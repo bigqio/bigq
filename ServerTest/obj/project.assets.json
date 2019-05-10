@@ -2,6 +2,39 @@
   "version": 3,
   "targets": {
     ".NETCoreApp,Version=v2.2": {
+      "BigQ.Core/2.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.CSharp": "4.5.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/netstandard2.0/Core.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Core.dll": {}
+        }
+      },
+      "BigQ.Server/2.1.0": {
+        "type": "package",
+        "dependencies": {
+          "BigQ.Core": "2.1.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SqliteHelper": "1.0.11",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/netstandard2.0/Server.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Server.dll": {}
+        }
+      },
       "Microsoft.CSharp/4.5.0": {
         "type": "package",
         "compile": {
@@ -217,7 +250,7 @@
           "build/netstandard2.0/NETStandard.Library.targets": {}
         }
       },
-      "Newtonsoft.Json/12.0.1": {
+      "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
@@ -226,11 +259,12 @@
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
         }
       },
-      "SqliteHelper/1.0.9": {
+      "SqliteHelper/1.0.11": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "System.Data.SQLite": "1.0.110"
+          "System.Data.SQLite": "1.0.110",
+          "System.Data.SQLite.Core": "1.0.110"
         },
         "compile": {
           "lib/netstandard2.0/SqliteWrapper.dll": {}
@@ -281,8 +315,11 @@
           }
         }
       },
-      "WatsonTcp/1.1.7": {
+      "WatsonTcp/1.3.5": {
         "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "12.0.2"
+        },
         "compile": {
           "lib/netstandard2.0/WatsonTcp.dll": {}
         },
@@ -298,44 +335,42 @@
         "runtime": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
-      },
-      "BigQServer/2.0.4": {
-        "type": "project",
-        "framework": ".NETStandard,Version=v2.0",
-        "dependencies": {
-          "Core": "2.0.3",
-          "Newtonsoft.Json": "12.0.1",
-          "SqliteHelper": "1.0.9",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/BigQServer.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQServer.dll": {}
-        }
-      },
-      "Core/2.0.3": {
-        "type": "project",
-        "framework": ".NETStandard,Version=v2.0",
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.1",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/Core.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Core.dll": {}
-        }
       }
     },
     ".NETCoreApp,Version=v2.2/win7-x86": {
+      "BigQ.Core/2.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.CSharp": "4.5.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/netstandard2.0/Core.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Core.dll": {}
+        }
+      },
+      "BigQ.Server/2.1.0": {
+        "type": "package",
+        "dependencies": {
+          "BigQ.Core": "2.1.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SqliteHelper": "1.0.11",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/netstandard2.0/Server.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Server.dll": {}
+        }
+      },
       "Microsoft.CSharp/4.5.0": {
         "type": "package",
         "compile": {
@@ -557,7 +592,7 @@
           "build/netstandard2.0/NETStandard.Library.targets": {}
         }
       },
-      "Newtonsoft.Json/12.0.1": {
+      "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
@@ -811,11 +846,12 @@
           "runtimes/win-x86/native/hostfxr.dll": {}
         }
       },
-      "SqliteHelper/1.0.9": {
+      "SqliteHelper/1.0.11": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "System.Data.SQLite": "1.0.110"
+          "System.Data.SQLite": "1.0.110",
+          "System.Data.SQLite.Core": "1.0.110"
         },
         "compile": {
           "lib/netstandard2.0/SqliteWrapper.dll": {}
@@ -851,8 +887,11 @@
           "runtimes/win-x86/native/netstandard2.0/SQLite.Interop.dll": {}
         }
       },
-      "WatsonTcp/1.1.7": {
+      "WatsonTcp/1.3.5": {
         "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "12.0.2"
+        },
         "compile": {
           "lib/netstandard2.0/WatsonTcp.dll": {}
         },
@@ -868,44 +907,42 @@
         "runtime": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
-      },
-      "BigQServer/2.0.4": {
-        "type": "project",
-        "framework": ".NETStandard,Version=v2.0",
-        "dependencies": {
-          "Core": "2.0.3",
-          "Newtonsoft.Json": "12.0.1",
-          "SqliteHelper": "1.0.9",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/BigQServer.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQServer.dll": {}
-        }
-      },
-      "Core/2.0.3": {
-        "type": "project",
-        "framework": ".NETStandard,Version=v2.0",
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.1",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/Core.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Core.dll": {}
-        }
       }
     },
     ".NETFramework,Version=v4.6.2": {
+      "BigQ.Core/2.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.CSharp": "4.5.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/net462/Core.dll": {}
+        },
+        "runtime": {
+          "lib/net462/Core.dll": {}
+        }
+      },
+      "BigQ.Server/2.1.0": {
+        "type": "package",
+        "dependencies": {
+          "BigQ.Core": "2.1.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SqliteHelper": "1.0.11",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/net462/Server.dll": {}
+        },
+        "runtime": {
+          "lib/net462/Server.dll": {}
+        }
+      },
       "EntityFramework/6.2.0": {
         "type": "package",
         "frameworkAssemblies": [
@@ -932,7 +969,7 @@
           "lib/net45/_._": {}
         }
       },
-      "Newtonsoft.Json/12.0.1": {
+      "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
           "lib/net45/Newtonsoft.Json.dll": {}
@@ -941,11 +978,12 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "SqliteHelper/1.0.9": {
+      "SqliteHelper/1.0.11": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "System.Data.SQLite": "1.0.110"
+          "System.Data.SQLite": "1.0.110",
+          "System.Data.SQLite.Core": "1.0.110"
         },
         "compile": {
           "lib/net452/SqliteWrapper.dll": {}
@@ -1022,8 +1060,11 @@
           "lib/net46/System.Data.SQLite.Linq.dll": {}
         }
       },
-      "WatsonTcp/1.1.7": {
+      "WatsonTcp/1.3.5": {
         "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "12.0.2"
+        },
         "compile": {
           "lib/net452/WatsonTcp.dll": {}
         },
@@ -1039,44 +1080,42 @@
         "runtime": {
           "lib/net452/WatsonWebsocket.dll": {}
         }
-      },
-      "BigQServer/2.0.4": {
-        "type": "project",
-        "framework": ".NETFramework,Version=v4.6.2",
-        "dependencies": {
-          "Core": "2.0.3",
-          "Newtonsoft.Json": "12.0.1",
-          "SqliteHelper": "1.0.9",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/BigQServer.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQServer.dll": {}
-        }
-      },
-      "Core/2.0.3": {
-        "type": "project",
-        "framework": ".NETFramework,Version=v4.6.2",
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.1",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/Core.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Core.dll": {}
-        }
       }
     },
     ".NETFramework,Version=v4.6.2/win7-x86": {
+      "BigQ.Core/2.1.1": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.CSharp": "4.5.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/net462/Core.dll": {}
+        },
+        "runtime": {
+          "lib/net462/Core.dll": {}
+        }
+      },
+      "BigQ.Server/2.1.0": {
+        "type": "package",
+        "dependencies": {
+          "BigQ.Core": "2.1.0",
+          "Newtonsoft.Json": "12.0.2",
+          "SqliteHelper": "1.0.11",
+          "SyslogLogging": "1.0.10",
+          "WatsonTcp": "1.3.5",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "compile": {
+          "lib/net462/Server.dll": {}
+        },
+        "runtime": {
+          "lib/net462/Server.dll": {}
+        }
+      },
       "EntityFramework/6.2.0": {
         "type": "package",
         "frameworkAssemblies": [
@@ -1103,7 +1142,7 @@
           "lib/net45/_._": {}
         }
       },
-      "Newtonsoft.Json/12.0.1": {
+      "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
           "lib/net45/Newtonsoft.Json.dll": {}
@@ -1112,11 +1151,12 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "SqliteHelper/1.0.9": {
+      "SqliteHelper/1.0.11": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "System.Data.SQLite": "1.0.110"
+          "System.Data.SQLite": "1.0.110",
+          "System.Data.SQLite.Core": "1.0.110"
         },
         "compile": {
           "lib/net452/SqliteWrapper.dll": {}
@@ -1175,8 +1215,11 @@
           "lib/net46/System.Data.SQLite.Linq.dll": {}
         }
       },
-      "WatsonTcp/1.1.7": {
+      "WatsonTcp/1.3.5": {
         "type": "package",
+        "dependencies": {
+          "Newtonsoft.Json": "12.0.2"
+        },
         "compile": {
           "lib/net452/WatsonTcp.dll": {}
         },
@@ -1192,45 +1235,36 @@
         "runtime": {
           "lib/net452/WatsonWebsocket.dll": {}
         }
-      },
-      "BigQServer/2.0.4": {
-        "type": "project",
-        "framework": ".NETFramework,Version=v4.6.2",
-        "dependencies": {
-          "Core": "2.0.3",
-          "Newtonsoft.Json": "12.0.1",
-          "SqliteHelper": "1.0.9",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/BigQServer.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQServer.dll": {}
-        }
-      },
-      "Core/2.0.3": {
-        "type": "project",
-        "framework": ".NETFramework,Version=v4.6.2",
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.1",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.1.7",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "compile": {
-          "bin/placeholder/Core.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/Core.dll": {}
-        }
       }
     }
   },
   "libraries": {
+    "BigQ.Core/2.1.1": {
+      "sha512": "pnj5QsQO3lyQMIEgxpKBDqCcxAYGP8EfLIwFHKMR5alyUy3Ha7Eu2nyjs19tYJXtCU38WVI1EIIKf6JPvJp0/g==",
+      "type": "package",
+      "path": "bigq.core/2.1.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "bigq.core.2.1.1.nupkg.sha512",
+        "bigq.core.nuspec",
+        "lib/net462/Core.dll",
+        "lib/netstandard2.0/Core.dll"
+      ]
+    },
+    "BigQ.Server/2.1.0": {
+      "sha512": "AyHDybkZZGUZjQaNjA2njbyawNEwvf0Fs3zYc3e8CKV8wm4MrPLGBsfCBFwWvmTrM7H0SupfeXaPkr+9bDijjA==",
+      "type": "package",
+      "path": "bigq.server/2.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "bigq.server.2.1.0.nupkg.sha512",
+        "bigq.server.nuspec",
+        "lib/net462/Server.dll",
+        "lib/netstandard2.0/Server.dll"
+      ]
+    },
     "EntityFramework/6.2.0": {
       "sha512": "+aB/cnEAr9KqVMjmZwu+Fzy3EOPjCIzNsPAUyn19WbB2u3LFHd2OB3X56ohAj7EBf2hppl9M27nlRnkQxOhoAA==",
       "type": "package",
@@ -1797,42 +1831,33 @@
         "netstandard.library.nuspec"
       ]
     },
-    "Newtonsoft.Json/12.0.1": {
-      "sha512": "jmVyoEyk0In8r+AObYQyFKVFm7uSRzE0XSHSbEtBJcZDMV6DqJoyB4FLcHwprPVhAh826so0db3DIKXVnpGoPA==",
+    "Newtonsoft.Json/12.0.2": {
+      "sha512": "mtweBXPWhp1CMQATtBT7ZfMZrbZBTKfjGwz6Y75NwGjx/GztDaUnfw8GK9KZ2T4fDIqKJyDjc9Rxlw5+G2FcVA==",
       "type": "package",
-      "path": "newtonsoft.json/12.0.1",
+      "path": "newtonsoft.json/12.0.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "LICENSE.md",
         "lib/net20/Newtonsoft.Json.dll",
-        "lib/net20/Newtonsoft.Json.pdb",
         "lib/net20/Newtonsoft.Json.xml",
         "lib/net35/Newtonsoft.Json.dll",
-        "lib/net35/Newtonsoft.Json.pdb",
         "lib/net35/Newtonsoft.Json.xml",
         "lib/net40/Newtonsoft.Json.dll",
-        "lib/net40/Newtonsoft.Json.pdb",
         "lib/net40/Newtonsoft.Json.xml",
         "lib/net45/Newtonsoft.Json.dll",
-        "lib/net45/Newtonsoft.Json.pdb",
         "lib/net45/Newtonsoft.Json.xml",
         "lib/netstandard1.0/Newtonsoft.Json.dll",
-        "lib/netstandard1.0/Newtonsoft.Json.pdb",
         "lib/netstandard1.0/Newtonsoft.Json.xml",
         "lib/netstandard1.3/Newtonsoft.Json.dll",
-        "lib/netstandard1.3/Newtonsoft.Json.pdb",
         "lib/netstandard1.3/Newtonsoft.Json.xml",
         "lib/netstandard2.0/Newtonsoft.Json.dll",
-        "lib/netstandard2.0/Newtonsoft.Json.pdb",
         "lib/netstandard2.0/Newtonsoft.Json.xml",
         "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.dll",
-        "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.pdb",
         "lib/portable-net40+sl5+win8+wp8+wpa81/Newtonsoft.Json.xml",
         "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.dll",
-        "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.pdb",
         "lib/portable-net45+win8+wp8+wpa81/Newtonsoft.Json.xml",
-        "newtonsoft.json.12.0.1.nupkg.sha512",
+        "newtonsoft.json.12.0.2.nupkg.sha512",
         "newtonsoft.json.nuspec"
       ]
     },
@@ -2109,16 +2134,16 @@
         "version.txt"
       ]
     },
-    "SqliteHelper/1.0.9": {
-      "sha512": "7kZY808clbsoL+OYePEo4Vy4D4JDIbYszq+koH6sKbyz/BDRCJ1YEDDZMEnQDw4YqaD7LlPqtX5z0pbakjrP7A==",
+    "SqliteHelper/1.0.11": {
+      "sha512": "viAp3li4gBdlzatDxxbQ0kKfTaLwjN/QZcQKd3CFf2psxw2cRo6Fo28jaiul+VwQvATZR0dRbs9QpuWEtc5/ug==",
       "type": "package",
-      "path": "sqlitehelper/1.0.9",
+      "path": "sqlitehelper/1.0.11",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/SqliteWrapper.dll",
         "lib/netstandard2.0/SqliteWrapper.dll",
-        "sqlitehelper.1.0.9.nupkg.sha512",
+        "sqlitehelper.1.0.11.nupkg.sha512",
         "sqlitehelper.nuspec"
       ]
     },
@@ -2256,16 +2281,16 @@
         "system.data.sqlite.linq.nuspec"
       ]
     },
-    "WatsonTcp/1.1.7": {
-      "sha512": "hX3ozV5A4EGaBtvPfeJCotUv0J+RTeohfOH6BC7TlXpORjDObK37p8Ku1HQJF5WpSKN+tjBHN8OTHhZo+QlU5A==",
+    "WatsonTcp/1.3.5": {
+      "sha512": "lWFqwKhJ1PFE2/u6Y5q8pJkvhSw3+ybtc4IRyGsX1IlDe31ckh130QOdbzmmkvZFE96WL+6UCMCCQcc7Ch4gRA==",
       "type": "package",
-      "path": "watsontcp/1.1.7",
+      "path": "watsontcp/1.3.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.1.7.nupkg.sha512",
+        "watsontcp.1.3.5.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
@@ -2281,27 +2306,17 @@
         "watsonwebsocket.1.2.4.nupkg.sha512",
         "watsonwebsocket.nuspec"
       ]
-    },
-    "BigQServer/2.0.4": {
-      "type": "project",
-      "path": "../BigQServer/BigQServer.csproj",
-      "msbuildProject": "../BigQServer/BigQServer.csproj"
-    },
-    "Core/2.0.3": {
-      "type": "project",
-      "path": "../Core/Core.csproj",
-      "msbuildProject": "../Core/Core.csproj"
     }
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
-      "BigQServer >= 2.0.4",
-      "Core >= 2.0.3",
+      "BigQ.Core >= 2.1.1",
+      "BigQ.Server >= 2.1.0",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
-      "BigQServer >= 2.0.4",
-      "Core >= 2.0.3"
+      "BigQ.Core >= 2.1.1",
+      "BigQ.Server >= 2.1.0"
     ]
   },
   "packageFolders": {
@@ -2311,11 +2326,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\code\\BigQ\\BigQ-2.1\\ServerTest\\ServerTest.csproj",
+      "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\ServerTest\\ServerTest.csproj",
       "projectName": "ServerTest",
-      "projectPath": "C:\\code\\BigQ\\BigQ-2.1\\ServerTest\\ServerTest.csproj",
+      "projectPath": "C:\\code\\bigq\\BigQ-2.1\\ServerTest\\ServerTest.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\code\\BigQ\\BigQ-2.1\\ServerTest\\obj\\",
+      "outputPath": "C:\\code\\bigq\\BigQ-2.1\\ServerTest\\obj\\",
       "projectStyle": "PackageReference",
       "crossTargeting": true,
       "fallbackFolders": [
@@ -2335,24 +2350,10 @@
       },
       "frameworks": {
         "netcoreapp2.2": {
-          "projectReferences": {
-            "C:\\code\\BigQ\\BigQ-2.1\\BigQServer\\BigQServer.csproj": {
-              "projectPath": "C:\\code\\BigQ\\BigQ-2.1\\BigQServer\\BigQServer.csproj"
-            },
-            "C:\\code\\BigQ\\BigQ-2.1\\Core\\Core.csproj": {
-              "projectPath": "C:\\code\\BigQ\\BigQ-2.1\\Core\\Core.csproj"
-            }
-          }
+          "projectReferences": {}
         },
         "net462": {
-          "projectReferences": {
-            "C:\\code\\BigQ\\BigQ-2.1\\BigQServer\\BigQServer.csproj": {
-              "projectPath": "C:\\code\\BigQ\\BigQ-2.1\\BigQServer\\BigQServer.csproj"
-            },
-            "C:\\code\\BigQ\\BigQ-2.1\\Core\\Core.csproj": {
-              "projectPath": "C:\\code\\BigQ\\BigQ-2.1\\Core\\Core.csproj"
-            }
-          }
+          "projectReferences": {}
         }
       },
       "warningProperties": {
@@ -2364,6 +2365,14 @@
     "frameworks": {
       "netcoreapp2.2": {
         "dependencies": {
+          "BigQ.Core": {
+            "target": "Package",
+            "version": "[2.1.1, )"
+          },
+          "BigQ.Server": {
+            "target": "Package",
+            "version": "[2.1.0, )"
+          },
           "Microsoft.NETCore.App": {
             "suppressParent": "All",
             "target": "Package",
@@ -2377,7 +2386,18 @@
         "assetTargetFallback": true,
         "warn": true
       },
-      "net462": {}
+      "net462": {
+        "dependencies": {
+          "BigQ.Core": {
+            "target": "Package",
+            "version": "[2.1.1, )"
+          },
+          "BigQ.Server": {
+            "target": "Package",
+            "version": "[2.1.0, )"
+          }
+        }
+      }
     },
     "runtimes": {
       "win7-x86": {

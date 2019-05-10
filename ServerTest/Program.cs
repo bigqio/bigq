@@ -81,11 +81,11 @@ namespace ServerTest
                             foreach (Channel curr in channels)
                             {
                                 string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
-                                if (curr.Private == 1) line += "priv ";
+                                if (curr.Private) line += "priv ";
                                 else line += "pub ";
-                                if (curr.Broadcast == 1) line += "bcast ";
-                                else if (curr.Multicast == 1) line += "mcast ";
-                                else if (curr.Unicast == 1) line += "ucast ";
+                                if (curr.Broadcast) line += "bcast ";
+                                else if (curr.Multicast) line += "mcast ";
+                                else if (curr.Unicast) line += "ucast ";
                                 else line += "unknown ";
 
                                 Console.WriteLine(line);
@@ -147,20 +147,20 @@ namespace ServerTest
                         server.CreateBroadcastChannel(
                             Common.InputString("Channel name:", null, false),
                             Common.InputString("Channel GUID:", null, true),
-                            Common.InputInteger("Private:", 0, true, true));
+                            Common.InputBoolean("Private:", true));
                         break;
 
                     case "createucastchannel":
                         server.CreateUnicastChannel(
                             Common.InputString("Channel name:", null, false),
                             Common.InputString("Channel GUID:", null, true),
-                            Common.InputInteger("Private:", 0, true, true)); break;
+                            Common.InputBoolean("Private:", true)); break;
 
                     case "createmcastchannel":
                         server.CreateMulticastChannel(
                             Common.InputString("Channel name:", null, false),
                             Common.InputString("Channel GUID:", null, true),
-                            Common.InputInteger("Private:", 0, true, true));
+                            Common.InputBoolean("Private:", true));
                         break;
 
                     case "deletechannel":

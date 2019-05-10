@@ -39,8 +39,8 @@ namespace BigQ.Core
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = false;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
+            ResponseMessage.SyncRequest = false;
+            ResponseMessage.SyncResponse = false;
             ResponseMessage.Data = FailureData.ToBytes(ErrorTypes.LoginRequired, "Login required", null);
             return ResponseMessage;
         }
@@ -51,8 +51,8 @@ namespace BigQ.Core
             currentMessage.SenderGUID = ServerGUID;
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
-            currentMessage.SyncRequest = null;
-            currentMessage.SyncResponse = null;
+            currentMessage.SyncRequest = false;
+            currentMessage.SyncResponse = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.AuthorizationFailed, "Authorization failed", null);
             return currentMessage;
         }
@@ -76,8 +76,8 @@ namespace BigQ.Core
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
+            ResponseMessage.SyncRequest = false;
+            ResponseMessage.SyncResponse = false;
             ResponseMessage.Command = MessageCommand.Event;
             ResponseMessage.Data = EventData.ToBytes(EventTypes.ClientJoinedServer, newClient.ClientGUID);
             return ResponseMessage;
@@ -90,8 +90,8 @@ namespace BigQ.Core
             ResponseMessage.SenderGUID = ServerGUID;
             ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
+            ResponseMessage.SyncRequest = false;
+            ResponseMessage.SyncResponse = false;
             ResponseMessage.Command = MessageCommand.Event;
             ResponseMessage.Data = EventData.ToBytes(EventTypes.ClientLeftServer, leavingClient.ClientGUID);
             return ResponseMessage;
@@ -108,7 +108,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnknownCommand, "Unknown command", currentMessage.Command);
             return currentMessage;
         }
@@ -122,7 +122,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
 
             if (!String.IsNullOrEmpty(originalRecipientGUID))
             {
@@ -147,7 +147,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.NotAChannelMember, "You are not a member of this channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -160,7 +160,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.DataError, "Data error encountered", message);
             return currentMessage;
         }
@@ -177,7 +177,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
 
             if (!String.IsNullOrEmpty(currentMessage.RecipientGUID))
             {
@@ -215,7 +215,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToQueue, "Unable to queue message", null);
             return currentMessage;
         }
@@ -232,7 +232,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.ChannelNotFound, "Channel not found", currentMessage.ChannelGUID);
             return currentMessage;
         }
@@ -246,7 +246,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.NoChannelMembers, "No members in channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -260,7 +260,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.NoChannelSubscribers, "No subscribers in channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -273,7 +273,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.ChannelAlreadyExists, "Channel already exists", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -287,7 +287,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Channel created successfully", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -300,7 +300,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToCreateChannel, "Unable to create channel", null);
             return currentMessage;
         }
@@ -314,7 +314,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Successfully joined channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -328,7 +328,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Successfully left channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -342,7 +342,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Successfully subscribed to channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -356,7 +356,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Successfully unsubscribed from channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -370,7 +370,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToJoinChannel, "Unable to join channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -384,7 +384,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToLeaveChannel, "Unable to leave channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -398,7 +398,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToSubscribeChannel, "Unable to subscribe to channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -412,7 +412,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToUnsubscribeChannel, "Unable to unsubscribe from channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -426,7 +426,7 @@ namespace BigQ.Core
             ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
             ResponseMessage.SyncResponse = ResponseMessage.SyncRequest;
-            ResponseMessage.SyncRequest = null;
+            ResponseMessage.SyncRequest = false;
             ResponseMessage.Data = SuccessData.ToBytes("Channel deleted by owner", currentChannel.ChannelGUID);
             return ResponseMessage;
         }
@@ -440,7 +440,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = true;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Successfully deleted channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -454,7 +454,7 @@ namespace BigQ.Core
             currentMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentMessage.Success = false;
             currentMessage.SyncResponse = currentMessage.SyncRequest;
-            currentMessage.SyncRequest = null;
+            currentMessage.SyncRequest = false;
             currentMessage.Data = FailureData.ToBytes(ErrorTypes.UnableToDeleteChannel, "Unable to delete channel", currentChannel.ChannelGUID);
             return currentMessage;
         }
@@ -467,8 +467,8 @@ namespace BigQ.Core
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
             ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
+            ResponseMessage.SyncRequest = false;
+            ResponseMessage.SyncResponse = false;
             ResponseMessage.Command = MessageCommand.Event;
             ResponseMessage.Data = EventData.ToBytes(EventTypes.ClientJoinedChannel, newClient.ClientGUID);
             return ResponseMessage;
@@ -495,8 +495,8 @@ namespace BigQ.Core
             ResponseMessage.ChannelGUID = currentChannel.ChannelGUID;
             ResponseMessage.CreatedUtc = DateTime.Now.ToUniversalTime();
             ResponseMessage.Success = true;
-            ResponseMessage.SyncRequest = null;
-            ResponseMessage.SyncResponse = null;
+            ResponseMessage.SyncRequest = false;
+            ResponseMessage.SyncResponse = false;
             ResponseMessage.Command = MessageCommand.Event;
             ResponseMessage.Data = EventData.ToBytes(EventTypes.SubscriberJoinedChannel, newClient.ClientGUID);
             return ResponseMessage;

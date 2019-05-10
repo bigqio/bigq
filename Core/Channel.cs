@@ -29,32 +29,32 @@ namespace BigQ.Core
         /// <summary>
         /// The creation time.
         /// </summary>
-        public DateTime? CreatedUtc;
+        public DateTime CreatedUtc;
 
         /// <summary>
         /// The time of last update.
         /// </summary>
-        public DateTime? UpdatedUtc;
+        public DateTime UpdatedUtc;
 
         /// <summary>
         /// Indicates whether or not the channel is private, i.e. hidden from list channel responses.
         /// </summary>
-        public int? Private;
+        public bool Private;
 
         /// <summary>
         /// Indicates if the channel is a broadcast channel.
         /// </summary>
-        public int? Broadcast;
+        public bool Broadcast;
 
         /// <summary>
         /// Indicates if the channel is a multicast channel.
         /// </summary>
-        public int? Multicast;
+        public bool Multicast;
 
         /// <summary>
         /// Indicates if the channel is a unicast channel.
         /// </summary>
-        public int? Unicast;
+        public bool Unicast;
 
         /// <summary>
         /// Clients that are members of the channel.
@@ -107,10 +107,7 @@ namespace BigQ.Core
             {
                 return null;
             }
-
-            // assume ret.Private is set in the request
-            if (ret.Private == default(int)) ret.Private = 0;
-
+             
             if (String.IsNullOrEmpty(ret.ChannelGUID)) ret.ChannelGUID = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(ret.ChannelName)) ret.ChannelName = ret.ChannelGUID;
             ret.CreatedUtc = DateTime.Now.ToUniversalTime();
