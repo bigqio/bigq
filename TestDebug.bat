@@ -1,11 +1,11 @@
 @echo off
-cd ServerTestNetFramework\bin\debug
-start BigQServerTest.exe
+cd ServerTest\bin\debug\net462
+start ServerTest.exe
 TIMEOUT 1 > NUL
-cd ..\..\..
+cd ..\..\..\..
 
-cd ClientTestNetFramework\bin\debug
-start BigQClientTest.exe
-start BigQClientTest.exe
-cd ..\..\..
+cd ClientTest\bin\debug\net462
+start ClientTest.exe
+start ClientTest.exe
+cd ..\..\..\..
 @echo on

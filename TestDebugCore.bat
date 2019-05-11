@@ -1,11 +1,14 @@
 @echo off
-cd ServerTestNetCore\bin\debug\netcoreapp2.0
-start dotnet BigQServerTest.dll
+cd ServerTest\bin\debug\netcoreapp2.2
+start dotnet ServerTest.dll
 TIMEOUT 1 > NUL
 cd ..\..\..\..
 
-cd ClientTestNetCore\bin\debug\netcoreapp2.0
-start dotnet BigQClientTest.dll
-start dotnet BigQClientTest.dll
+cd ClientTest\bin\debug\netcoreapp2.2
+start dotnet ClientTest.dll
+start dotnet ClientTest.dll
+start dotnet ClientTest.dll
+start dotnet ClientTest.dll
+start dotnet ClientTest.dll
 cd ..\..\..\..
 @echo on

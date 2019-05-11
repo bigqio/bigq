@@ -1,17 +1,17 @@
 @echo off
 IF [%1] == [] GOTO Usage
-cd ServerTestNetFramework\bin\debug
-start BigQServerTest.exe
+cd ServerTest\bin\debug\net462
+start ServerTest.exe
 TIMEOUT 3 > NUL
-cd ..\..\..
+cd ..\..\..\..
 
-cd ClientTestNetFramework\bin\debug
+cd ClientTest\bin\debug\net462
 FOR /L %%i IN (1,1,%1) DO (
 ECHO Starting client %%i
-start BigQClientTest.exe
+start ClientTest.exe
 TIMEOUT 3 > NUL
 )
-cd ..\..\..
+cd ..\..\..\..
 @echo on
 EXIT /b
 

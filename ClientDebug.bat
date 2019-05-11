@@ -1,1 +1,1 @@
-ClientTestNetFramework\bin\debug\BigQClientTest.exe
+ClientTest\bin\debug\net462\ClientTest.exe
