@@ -41,12 +41,7 @@ namespace BigQ.Core
         /// The GUID associated with the server (optional).
         /// </summary>
         public string ServerGUID;
-         
-        /// <summary>
-        /// Settings related to logging.
-        /// </summary>
-        public LoggingSettings Logging;
-
+          
         /// <summary>
         /// Settings related to the BigQ TCP server (no SSL).
         /// </summary>
@@ -78,38 +73,7 @@ namespace BigQ.Core
         #endregion
 
         #region Public-Subordinate-Classes
-         
-        /// <summary>
-        /// Settings related to logging.
-        /// </summary>
-        public class LoggingSettings
-        {
-            /// <summary>
-            /// Enable or disable console logging.
-            /// </summary>
-            public bool ConsoleLogging;
-
-            /// <summary>
-            /// Enable or disable syslog logging.
-            /// </summary>
-            public bool SyslogLogging;
-
-            /// <summary>
-            /// IP address of the syslog server.
-            /// </summary>
-            public string SyslogServerIp;
-
-            /// <summary>
-            /// UDP port of the syslog server.
-            /// </summary>
-            public int SyslogServerPort;
-
-            /// <summary>
-            /// Minimum severity required to send log messages.
-            /// </summary>
-            public int MinimumSeverity;
-        }
-
+          
         /// <summary>
         /// Settings related to the BigQ TCP server (no SSL).
         /// </summary>
@@ -264,8 +228,7 @@ namespace BigQ.Core
         /// </summary>
         public void ValidateConfig()
         { 
-            if (SyncTimeoutMs < 1000) throw new ArgumentOutOfRangeException("DefaultSyncTimeoutMs must be greater than or equal to 1000."); 
-            if (Logging == null) throw new ArgumentException("Logging must not be null.");
+            if (SyncTimeoutMs < 5000) throw new ArgumentOutOfRangeException("DefaultSyncTimeoutMs must be greater than or equal to 5000.");  
             if (TcpServer == null) throw new ArgumentException("TcpServer must not be null.");
             if (TcpSslServer == null) throw new ArgumentException("TcpSslServer must not be null.");
             if (WebsocketServer == null) throw new ArgumentException("WebsocketServer must not be null.");
@@ -334,16 +297,9 @@ namespace BigQ.Core
             ret.Name = RandomName();
             ret.Email = Guid.NewGuid().ToString();
             ret.Password = ret.ClientGUID;
-            ret.SyncTimeoutMs = 10000;
+            ret.SyncTimeoutMs = 30000;
             ret.ServerGUID = "00000000-0000-0000-0000-000000000000";
-             
-            ret.Logging = new LoggingSettings();
-            ret.Logging.ConsoleLogging = true;
-            ret.Logging.SyslogLogging = true;
-            ret.Logging.SyslogServerIp = "127.0.0.1";
-            ret.Logging.SyslogServerPort = 514;
-            ret.Logging.MinimumSeverity = 1;
-
+              
             ret.TcpServer = new TcpServerSettings();
             ret.TcpServer.Enable = true;
             ret.TcpServer.Ip = "127.0.0.1";

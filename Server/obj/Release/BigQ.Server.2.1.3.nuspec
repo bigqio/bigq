@@ -19,7 +19,6 @@
         <dependency id="BigQ.Core" version="2.1.1" exclude="Build,Analyzers" />
         <dependency id="Newtonsoft.Json" version="12.0.2" exclude="Build,Analyzers" />
         <dependency id="SqliteHelper" version="1.0.11" exclude="Build,Analyzers" />
-        <dependency id="SyslogLogging" version="1.0.10" exclude="Build,Analyzers" />
         <dependency id="WatsonTcp" version="1.3.5" exclude="Build,Analyzers" />
         <dependency id="WatsonWebsocket" version="1.2.4" exclude="Build,Analyzers" />
       </group>
@@ -27,14 +26,13 @@
         <dependency id="BigQ.Core" version="2.1.1" exclude="Build,Analyzers" />
         <dependency id="Newtonsoft.Json" version="12.0.2" exclude="Build,Analyzers" />
         <dependency id="SqliteHelper" version="1.0.11" exclude="Build,Analyzers" />
-        <dependency id="SyslogLogging" version="1.0.10" exclude="Build,Analyzers" />
         <dependency id="WatsonTcp" version="1.3.5" exclude="Build,Analyzers" />
         <dependency id="WatsonWebsocket" version="1.2.4" exclude="Build,Analyzers" />
       </group>
     </dependencies>
   </metadata>
   <files>
-    <file src="C:\code\bigq\BigQ-2.1\Server\bin\Release\net462\Server.dll" target="lib\net462\Server.dll" />
-    <file src="C:\code\bigq\BigQ-2.1\Server\bin\Release\netstandard2.0\Server.dll" target="lib\netstandard2.0\Server.dll" />
+    <file src="C:\Code\BigQ\BigQ-2.1\Server\bin\Release\net462\Server.dll" target="lib\net462\Server.dll" />
+    <file src="C:\Code\BigQ\BigQ-2.1\Server\bin\Release\netstandard2.0\Server.dll" target="lib\netstandard2.0\Server.dll" />
   </files>
 </package>

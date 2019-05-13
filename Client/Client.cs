@@ -1,8 +1,6 @@
 ﻿using BigQ.Core;
-using Newtonsoft.Json.Linq;
-using SyslogLogging;
-using System;
-using System.Collections.Concurrent;
+using Newtonsoft.Json.Linq; 
+using System; 
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -49,12 +47,15 @@ namespace BigQ.Client
         #endregion
 
         #region Private-Members
-
-        private LoggingModule _Logging;
+         
         private CancellationTokenSource _CleanupSyncTokenSource = null;
         private CancellationToken _CleanupSyncToken;
-        private ConcurrentDictionary<string, DateTime> _SyncRequests;
-        private ConcurrentDictionary<string, Message> _SyncResponses;
+
+        private readonly object _SyncRequestsLock = new object();
+        private Dictionary<string, DateTime> _SyncRequests = new Dictionary<string, DateTime>();
+
+        private readonly object _SyncResponsesLock = new object();
+        private Dictionary<string, Message> _SyncResponses = new Dictionary<string, Message>();
 
         private WatsonTcpClient _WTcpClient; 
         private WatsonWsClient _WWsClient;
@@ -139,11 +140,7 @@ namespace BigQ.Client
         /// <returns>Boolean indicating success.</returns>
         public bool SendMessage(Message message)
         {
-            if (message == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "SendRawMessage null message supplied");
-                return false;
-            }
+            if (message == null) throw new ArgumentNullException(nameof(message));
 
             byte[] data = message.ToBytes();
 
@@ -160,8 +157,7 @@ namespace BigQ.Client
                 return _WWsSslClient.SendAsync(data).Result;
             }
             else
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendRawMessage no server enabled");
+            { 
                 return false;
             }
         }
@@ -204,30 +200,24 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = null;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "Login unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "Login null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "Login failed with response data " + response.Data.ToString());
-                return false;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            if (!response.Success) return false;
             else
             {
                 LoggedIn = true;
-                if (Callbacks.ServerConnected != null) Task.Run(() => Callbacks.ServerConnected());
+                if (Callbacks.ServerConnected != null)
+                {
+                    new Thread(delegate ()
+                    {
+                        Callbacks.ServerConnected();
+                    }).Start();
+                    // Task.Run(() => Callbacks.ServerConnected());
+                }
                 return true;
             }
         }
@@ -253,26 +243,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = null;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListClients unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListClients null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListClients failed with response data " + response.Data.ToString());
-                return false;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            if (!response.Success) return false;
             else
             {
                 if (response.Data != null)
@@ -305,26 +282,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = null;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannels unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannels null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannels failed with response data " + response.Data.ToString());
-                return false;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            if (!response.Success) return false;
             else
             {
                 if (response.Data != null)
@@ -360,26 +324,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannelMembers unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannelMembers null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannelMembers failed with response data " + response.Data.ToString());
-                return false;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            if (!response.Success) return false;
             else
             {
                 if (response.Data != null)
@@ -423,26 +374,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannelSubscribers unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannelSubscribers null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListChannelSubscribers failed with response data " + response.Data.ToString());
-                return false;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            if (!response.Success) return false;
             else
             {
                 if (response.Data != null)
@@ -475,30 +413,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "JoinChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "JoinChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "JoinChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -522,30 +443,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SubscribeChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SubscribeChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SubscribeChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -569,30 +473,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "LeaveChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "LeaveChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "LeaveChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -616,30 +503,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "UnsubscribeChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "UnsubscribeChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "UnsubscribeChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -673,30 +543,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = currentChannel.ChannelGUID;
             request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateBroadcastChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateBroadcastChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateBroadcastChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -730,30 +583,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = currentChannel.ChannelGUID;
             request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateUnicastChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateUnicastChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateUnicastChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -787,30 +623,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = currentChannel.ChannelGUID;
             request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "CreateChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -834,30 +653,13 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel failed with response data " + response.Data.ToString());
-                return false;
-            }
-            else
-            {
-                return true;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            return response.Success;
         }
 
         /// <summary>
@@ -955,30 +757,16 @@ namespace BigQ.Client
             message.RecipientGUID = guid;
             message.ChannelGUID = null;
             message.SyncRequest = true;
+            message.SyncTimeoutMs = Config.SyncTimeoutMs;
+            message.SyncResponse = false;
             message.Data = data;
 
-            if (!AddSyncRequest(message.MessageID))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessageSync unable to register sync request GUID " + message.MessageID);
-                return false;
-            }
-
-            if (!SendMessage(message))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage unable to send message GUID " + message.MessageID + " to recipient " + message.RecipientGUID);
-                return false;
-            }
-
+            if (!AddSyncRequest(message.MessageID)) return false;
+            if (!SendMessage(message)) return false;
             int timeoutMs = Config.SyncTimeoutMs;
             if (message.SyncTimeoutMs > 0) timeoutMs = Convert.ToInt32(message.SyncTimeoutMs);
 
-            if (!GetSyncResponse(message.MessageID, timeoutMs, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendPrivateMessage unable to get response for message GUID " + message.MessageID);
-                return false;
-            }
-
-            return true;
+            return GetSyncResponse(message.MessageID, timeoutMs, out response);
         }
 
         /// <summary>
@@ -1005,42 +793,15 @@ namespace BigQ.Client
             if (request == null) throw new ArgumentNullException(nameof(request));
             if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.RecipientGUID = Config.ServerGUID;
 
-            if (!AddSyncRequest(request.MessageID))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendServerMessageSync unable to register sync request GUID " + request.MessageID);
-                return false;
-            }
-            else
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "SendServerMessageSync registered sync request GUID " + request.MessageID);
-            }
-
-            if (!SendMessage(request))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendServerMessageSync unable to send message GUID " + request.MessageID + " to server");
-                return false;
-            }
-            else
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "SendServerMessageSync sent message GUID " + request.MessageID + " to server");
-            }
-
+            if (!AddSyncRequest(request.MessageID)) return false;
+            if (!SendMessage(request)) return false;
             int timeoutMs = Config.SyncTimeoutMs;
             if (request.SyncTimeoutMs > 0) timeoutMs = request.SyncTimeoutMs;
 
-            if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendServerMessageSync unable to get response for message GUID " + request.MessageID);
-                return false;
-            }
-            else
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "SendServerMessageSync received response for message GUID " + request.MessageID);
-            }
-
-            return true;
+            return GetSyncResponse(request.MessageID, timeoutMs, out response);
         }
 
         /// <summary>
@@ -1077,6 +838,8 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = null;
             request.ChannelGUID = guid;
+            request.SyncRequest = false;
+            request.SyncResponse = false;
             request.Data = data;
             return SendMessage(request);
         }
@@ -1120,30 +883,16 @@ namespace BigQ.Client
             request.RecipientGUID = null;
             request.ChannelGUID = guid;
             request.SyncRequest = true;
+            request.SyncResponse = false;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.Data = data;
 
-            if (!AddSyncRequest(request.MessageID))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendChannelMessageSync unable to register sync request GUID " + request.MessageID);
-                return false;
-            }
-
-            if (!SendMessage(request))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendChannelMessageSync unable to send message GUID " + request.MessageID + " to channel " + request.ChannelGUID);
-                return false;
-            }
-
+            if (!AddSyncRequest(request.MessageID)) return false;
+            if (!SendMessage(request)) return false;
             int timeoutMs = Config.SyncTimeoutMs;
             if (request.SyncTimeoutMs > 0) timeoutMs = request.SyncTimeoutMs;
 
-            if (!GetSyncResponse(request.MessageID, timeoutMs, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendChannelMessageSync unable to get response for message GUID " + request.MessageID);
-                return false;
-            }
-
-            return true;
+            return GetSyncResponse(request.MessageID, timeoutMs, out response);
         }
 
         /// <summary>
@@ -1154,11 +903,12 @@ namespace BigQ.Client
         public bool PendingSyncRequests(out Dictionary<string, DateTime> response)
         {
             response = null;
-            if (_SyncRequests == null) return true;
-            if (_SyncRequests.Count < 1) return true;
-
-            response = _SyncRequests.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            return true;
+            lock (_SyncRequestsLock)
+            {
+                if (_SyncRequests == null || _SyncRequests.Count < 1) return true;
+                response = new Dictionary<string, DateTime>(_SyncRequests);
+                return true;
+            }
         }
 
         /// <summary>
@@ -1181,26 +931,14 @@ namespace BigQ.Client
             request.SenderName = Config.Name;
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.SyncResponse = false;
             request.ChannelGUID = null;
             request.Data = Encoding.UTF8.GetBytes(guid);
 
-            if (!SendServerMessageSync(request, out response))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListClients unable to retrieve server response");
-                return false;
-            }
-
-            if (response == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListClients null response from server");
-                return false;
-            }
-
-            if (!response.Success)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ListClients failed with response data " + response.Data.ToString());
-                return false;
-            }
+            if (!SendServerMessageSync(request, out response)) return false;
+            if (response == null) return false;
+            if (!response.Success) return false;
             else
             {
                 if (response.Data != null)
@@ -1218,17 +956,23 @@ namespace BigQ.Client
         #region Private-Watson-Methods
 
         private bool WatsonServerConnected()
-        {
-            _Logging.Log(LoggingModule.Severity.Info, "Connected to server");
+        { 
             Connected = true;
             return true;
         }
 
         private bool WatsonServerDisconnected()
-        {
-            _Logging.Log(LoggingModule.Severity.Info, "Disconnected from server");
+        { 
             Connected = false;
-            if (Callbacks.ServerDisconnected != null) Task.Run(() => Callbacks.ServerDisconnected());
+            LoggedIn = false;
+            if (Callbacks.ServerDisconnected != null)
+            {
+                new Thread(delegate ()
+                {
+                    Callbacks.ServerDisconnected();
+                }).Start();
+                // Task.Run(() => Callbacks.ServerDisconnected());
+            }
             return true;
         }
 
@@ -1251,135 +995,63 @@ namespace BigQ.Client
 
         private bool SyncResponseReady(string guid)
         {
-            if (String.IsNullOrEmpty(guid))
+            if (String.IsNullOrEmpty(guid)) return false;
+
+            lock (_SyncResponsesLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady null GUID supplied");
-                return false;
+                if (_SyncResponses.Count < 1) return false;
+                if (_SyncResponses.ContainsKey(guid)) return true;
             }
 
-            if (_SyncResponses == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady null sync responses list, initializing");
-                _SyncResponses = new ConcurrentDictionary<string, Message>();
-                return false;
-            }
-
-            if (_SyncResponses.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady no entries in sync responses list");
-                return false;
-            }
-
-            if (_SyncResponses.ContainsKey(guid))
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "SyncResponseReady found sync response for GUID " + guid);
-                return true;
-            }
-
-            _Logging.Log(LoggingModule.Severity.Warn, "SyncResponseReady no sync response for GUID " + guid);
             return false;
         }
 
         private bool AddSyncRequest(string guid)
         {
-            if (String.IsNullOrEmpty(guid))
+            if (String.IsNullOrEmpty(guid)) return false;
+
+            lock (_SyncRequestsLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddSyncRequest null GUID supplied");
-                return false;
+                if (_SyncRequests.ContainsKey(guid)) return false;
+                _SyncRequests.Add(guid, DateTime.Now);
             }
 
-            if (_SyncRequests == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddSyncRequest null sync requests list, initializing");
-                _SyncRequests = new ConcurrentDictionary<string, DateTime>();
-            }
-
-            if (_SyncRequests.ContainsKey(guid))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddSyncRequest already contains an entry for GUID " + guid);
-                return false;
-            }
-
-            _SyncRequests.TryAdd(guid, DateTime.Now);
-            _Logging.Log(LoggingModule.Severity.Debug, "AddSyncRequest added request for GUID " + guid + ": " + DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss"));
             return true;
         }
 
         private bool RemoveSyncRequest(string guid)
         {
-            if (String.IsNullOrEmpty(guid))
+            if (String.IsNullOrEmpty(guid)) return false;
+
+            lock (_SyncRequestsLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "RemoveSyncRequest null GUID supplied");
-                return false;
+                if (_SyncRequests.ContainsKey(guid)) _SyncRequests.Remove(guid);
             }
 
-            if (_SyncRequests == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "RemoveSyncRequest null sync requests list, initializing");
-                _SyncRequests = new ConcurrentDictionary<string, DateTime>();
-                return false;
-            }
-
-            DateTime TempDateTime;
-            if (_SyncRequests.ContainsKey(guid)) _SyncRequests.TryRemove(guid, out TempDateTime);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "RemoveSyncRequest removed sync request for GUID " + guid);
             return true;
         }
 
         private bool SyncRequestExists(string guid)
         {
-            if (String.IsNullOrEmpty(guid))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists null GUID supplied");
-                return false;
-            }
+            if (String.IsNullOrEmpty(guid)) return false;
 
-            if (_SyncRequests == null)
+            lock (_SyncRequestsLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists null sync requests list, initializing");
-                _SyncRequests = new ConcurrentDictionary<string, DateTime>();
-                return false;
+                return _SyncRequests.ContainsKey(guid);
             }
-
-            if (_SyncRequests.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists empty sync requests list, returning false");
-                return false;
-            }
-
-            if (_SyncRequests.ContainsKey(guid))
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "SyncRequestExists found sync request for GUID " + guid);
-                return true;
-            }
-
-            _Logging.Log(LoggingModule.Severity.Warn, "SyncRequestExists unable to find sync request for GUID " + guid);
-            return false;
         }
 
         private bool AddSyncResponse(Message response)
         {
-            if (response == null)
+            if (response == null) return false;
+            if (String.IsNullOrEmpty(response.MessageID)) return false;
+
+            lock (_SyncResponsesLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddSyncResponse null BigQMessage supplied");
-                return false;
+                if (_SyncResponses.ContainsKey(response.MessageID)) return false;
+                _SyncResponses.Add(response.MessageID, response);
             }
 
-            if (String.IsNullOrEmpty(response.MessageID))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddSyncResponse null MessageId within supplied message");
-                return false;
-            }
-
-            if (_SyncResponses.ContainsKey(response.MessageID))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddSyncResponse response already awaits for MessageId " + response.MessageID);
-                return false;
-            }
-
-            _SyncResponses.TryAdd(response.MessageID, response);
-            _Logging.Log(LoggingModule.Severity.Debug, "AddSyncResponse added sync response for MessageId " + response.MessageID);
             return true;
         }
 
@@ -1388,64 +1060,32 @@ namespace BigQ.Client
             response = new Message();
             DateTime start = DateTime.Now;
 
-            #region Check-for-Null-Values
-
-            if (String.IsNullOrEmpty(guid))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse null GUID supplied");
-                return false;
-            }
-
-            if (_SyncResponses == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse null sync responses list, initializing");
-                _SyncResponses = new ConcurrentDictionary<string, Message>();
-                return false;
-            }
-
-            if (timeoutMs < 1000)
-            {
-                timeoutMs = 1000;
-            }
-
-            #endregion
-
-            #region Process
-
+            if (String.IsNullOrEmpty(guid)) return false; 
+            if (timeoutMs < 1000) timeoutMs = 1000;
+             
             int iterations = 0;
             while (true)
             {
-                // if (Config.Debug.Enable && Config.Debug.MsgResponseTime) Logging.Log(LoggingModule.Severity.Debug, "GetSyncResponse iteration " + iterations + " " + sw.Elapsed.TotalMilliseconds + "ms");
-
-                if (_SyncResponses.ContainsKey(guid))
+                lock (_SyncResponsesLock)
                 {
-                    if (!_SyncResponses.TryGetValue(guid, out response))
+                    if (_SyncResponses.ContainsKey(guid))
                     {
-                        _Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse unable to retrieve sync response for GUID " + guid + " though one exists");
-                        return false;
+                        response = _SyncResponses[guid];
+                        response.Success = true;
+                        return true;
                     }
-
-                    response.Success = true;
-                    _Logging.Log(LoggingModule.Severity.Debug, "GetSyncResponse returning response for message GUID " + guid);
-                    return true;
                 }
-
-                //
-                // Check if timeout exceeded
-                //
+                  
                 TimeSpan ts = DateTime.Now - start;
                 if (ts.TotalMilliseconds > timeoutMs)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "GetSyncResponse timeout waiting for response for message GUID " + guid);
+                { 
                     response = null;
                     return false;
                 }
 
                 iterations++;
                 continue;
-            }
-
-            #endregion 
+            } 
         }
 
         private void CleanupSyncRequests()
@@ -1453,41 +1093,30 @@ namespace BigQ.Client
             while (true)
             {
                 Task.Delay(Config.SyncTimeoutMs).Wait();
-                List<string> expiredIds = new List<string>();
-                DateTime tempTimestamp;
-                Message tempMessage;
+                List<string> expiredIds = new List<string>(); 
 
-                foreach (KeyValuePair<string, DateTime> currRequest in _SyncRequests)
+                lock (_SyncRequestsLock)
                 {
-                    DateTime expiryTimestamp = currRequest.Value.AddMilliseconds(Config.SyncTimeoutMs);
-
-                    if (DateTime.Compare(expiryTimestamp, DateTime.Now) < 0)
+                    foreach (KeyValuePair<string, DateTime> currRequest in _SyncRequests)
                     {
-                        #region Expiration-Earlier-Than-Current-Time
+                        DateTime expiryTimestamp = currRequest.Value.AddMilliseconds(Config.SyncTimeoutMs);
 
-                        _Logging.Log(LoggingModule.Severity.Debug, "CleanupSyncRequests adding MessageId " + currRequest.Key + " (added " + currRequest.Value.ToString("MM/dd/yyyy hh:mm:ss") + ") to cleanup list (past expiration time " + expiryTimestamp.ToString("MM/dd/yyyy hh:mm:ss") + ")");
-                        expiredIds.Add(currRequest.Key);
-
-                        #endregion
+                        if (DateTime.Compare(expiryTimestamp, DateTime.Now) < 0)
+                        {
+                            expiredIds.Add(currRequest.Key);
+                            _SyncResponses.Remove(currRequest.Key);
+                        }
                     }
                 }
 
-                foreach (string CurrentRequestGuid in expiredIds)
+                if (expiredIds != null && expiredIds.Count > 0)
                 {
-                    // 
-                    // remove from sync requests
-                    //
-                    _SyncRequests.TryRemove(CurrentRequestGuid, out tempTimestamp);
-                }
-
-                foreach (string CurrentRequestGuid in expiredIds)
-                {
-                    if (_SyncResponses.ContainsKey(CurrentRequestGuid))
+                    lock (_SyncResponsesLock)
                     {
-                        //
-                        // remove from sync responses
-                        //
-                        _SyncResponses.TryRemove(CurrentRequestGuid, out tempMessage);
+                        foreach (string curr in expiredIds)
+                        {
+                            if (_SyncResponses.ContainsKey(curr)) _SyncResponses.Remove(curr);
+                        }
                     }
                 }
             }
@@ -1526,27 +1155,15 @@ namespace BigQ.Client
             _Random = new Random((int)DateTime.Now.Ticks);
             Connected = false;
             LoggedIn = false;
-            
-            _Logging = new LoggingModule(
-                Config.Logging.SyslogServerIp,
-                Config.Logging.SyslogServerPort,
-                Config.Logging.ConsoleLogging,
-                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
-                false,
-                true,
-                true,
-                true,
-                true,
-                false);
-            
+             
             if (String.IsNullOrEmpty(Config.Email)) Config.Email = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(Config.ClientGUID)) Config.ClientGUID = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(Config.Name)) Config.Name = RandomName();
             if (String.IsNullOrEmpty(Config.Password)) Config.Password = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(Config.ServerGUID)) Config.ServerGUID = "00000000-0000-0000-0000-000000000000";
                
-            _SyncRequests = new ConcurrentDictionary<string, DateTime>();
-            _SyncResponses = new ConcurrentDictionary<string, Message>();
+            _SyncRequests = new Dictionary<string, DateTime>();
+            _SyncResponses = new Dictionary<string, Message>();
 
             Connected = false;
             LoggedIn = false;
@@ -1642,53 +1259,101 @@ namespace BigQ.Client
                         ev = BigQ.Core.Common.DeserializeJson<EventData>(currentMessage.Data);
                     }
                     catch (Exception)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage unable to deserialize incoming server message to event");
+                    { 
                         return;
                     }
-
-                    if (ev == null)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage null event object after deserializing incoming server message");
-                        return;
-                    }
-
+                     
                     switch (ev.EventType)
                     {
                         case EventTypes.ClientJoinedServer:
-                            if (Callbacks.ClientJoinedServer != null) Task.Run(() => Callbacks.ClientJoinedServer(ev.Data.ToString()));
+                            if (Callbacks.ClientJoinedServer != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.ClientJoinedServer(ev.Data.ToString());
+                                }).Start();
+                                // Task.Run(() => Callbacks.ClientJoinedServer(ev.Data.ToString()));
+                            }
                             return;
 
                         case EventTypes.ClientLeftServer:
-                            if (Callbacks.ClientLeftServer != null) Task.Run(() => Callbacks.ClientLeftServer(ev.Data.ToString()));
+                            if (Callbacks.ClientLeftServer != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.ClientLeftServer(ev.Data.ToString());
+                                }).Start();
+                                // Task.Run(() => Callbacks.ClientLeftServer(ev.Data.ToString()));
+                            }
                             return;
 
                         case EventTypes.ClientJoinedChannel:
-                            if (Callbacks.ClientJoinedChannel != null) Task.Run(() => Callbacks.ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            if (Callbacks.ClientJoinedChannel != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
+                                }).Start();
+                                // Task.Run(() => Callbacks.ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            }
                             return;
 
                         case EventTypes.ClientLeftChannel:
-                            if (Callbacks.ClientLeftChannel != null) Task.Run(() => Callbacks.ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            if (Callbacks.ClientLeftChannel != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
+                                }).Start();
+                                // Task.Run(() => Callbacks.ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            }
                             return;
 
                         case EventTypes.SubscriberJoinedChannel:
-                            if (Callbacks.SubscriberJoinedChannel != null) Task.Run(() => Callbacks.SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            if (Callbacks.SubscriberJoinedChannel != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
+                                }).Start();
+                                // Task.Run(() => Callbacks.SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            }
                             return;
 
                         case EventTypes.SubscriberLeftChannel:
-                            if (Callbacks.SubscriberLeftChannel != null) Task.Run(() => Callbacks.SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            if (Callbacks.SubscriberLeftChannel != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
+                                }).Start();
+                                // Task.Run(() => Callbacks.SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                            }
                             return;
 
                         case EventTypes.ChannelCreated:
-                            if (Callbacks.ChannelCreated != null) Task.Run(() => Callbacks.ChannelCreated(ev.Data.ToString()));
+                            if (Callbacks.ChannelCreated != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.ChannelCreated(ev.Data.ToString());
+                                }).Start();
+                                // Task.Run(() => Callbacks.ChannelCreated(ev.Data.ToString()));
+                            }
                             return;
 
                         case EventTypes.ChannelDestroyed:
-                            if (Callbacks.ChannelDestroyed != null) Task.Run(() => Callbacks.ChannelDestroyed(ev.Data.ToString()));
+                            if (Callbacks.ChannelDestroyed != null)
+                            {
+                                new Thread(delegate ()
+                                {
+                                    Callbacks.ChannelDestroyed(ev.Data.ToString());
+                                }).Start();
+                                // Task.Run(() => Callbacks.ChannelDestroyed(ev.Data.ToString()));
+                            }
                             return;
 
-                        default:
-                            _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage unknown event type: " + ev.EventType);
+                        default: 
                             return;
                     }
 
@@ -1705,9 +1370,7 @@ namespace BigQ.Client
             else if (currentMessage.SyncRequest)
             {
                 #region Handle-Incoming-Sync-Request
-
-                _Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sync request detected for message GUID " + currentMessage.MessageID);
-
+                 
                 if (Callbacks.SyncMessageReceived != null)
                 {
                     byte[] ResponseData = Callbacks.SyncMessageReceived(currentMessage);
@@ -1720,20 +1383,18 @@ namespace BigQ.Client
                     currentMessage.SenderGUID = Config.ClientGUID;
                     currentMessage.RecipientGUID = tempGuid;
 
-                    SendMessage(currentMessage);
-                    _Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sent response message for message GUID " + currentMessage.MessageID);
+                    SendMessage(currentMessage); 
                 }
                 else
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage sync request received for MessageId " + currentMessage.MessageID + " but no handler specified, sending async");
+                { 
                     if (Callbacks.AsyncMessageReceived != null)
                     {
-                        Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
-                    }
+                        new Thread(delegate ()
+                        {
+                            Callbacks.AsyncMessageReceived(currentMessage);
+                        }).Start();
+                        // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                    } 
                 }
 
                 #endregion
@@ -1741,42 +1402,31 @@ namespace BigQ.Client
             else if (currentMessage.SyncResponse)
             {
                 #region Handle-Incoming-Sync-Response
-
-                _Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sync response detected for message GUID " + currentMessage.MessageID);
-
+                 
                 if (SyncRequestExists(currentMessage.MessageID))
-                {
-                    _Logging.Log(LoggingModule.Severity.Debug, "HandleMessage sync request exists for message GUID " + currentMessage.MessageID);
-
-                    if (AddSyncResponse(currentMessage))
+                { 
+                    if (!AddSyncResponse(currentMessage)) 
                     {
-                        _Logging.Log(LoggingModule.Severity.Debug, "HandleMessage added sync response for message GUID " + currentMessage.MessageID);
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage unable to add sync response for MessageId " + currentMessage.MessageID + ", sending async");
                         if (Callbacks.AsyncMessageReceived != null)
                         {
-                            Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
-                        }
-                        else
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
-                        }
-
+                            new Thread(delegate ()
+                            {
+                                Callbacks.AsyncMessageReceived(currentMessage);
+                            }).Start();
+                            // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                        } 
                     }
                 }
                 else
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage message marked as sync response but no sync request found for MessageId " + currentMessage.MessageID + ", sending async");
+                { 
                     if (Callbacks.AsyncMessageReceived != null)
                     {
-                        Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
-                    }
+                        new Thread(delegate ()
+                        {
+                            Callbacks.AsyncMessageReceived(currentMessage);
+                        }).Start();
+                        // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                    } 
                 }
 
                 #endregion
@@ -1784,17 +1434,15 @@ namespace BigQ.Client
             else
             {
                 #region Handle-Async
-
-                _Logging.Log(LoggingModule.Severity.Debug, "HandleMessage async message GUID " + currentMessage.MessageID);
-
+                 
                 if (Callbacks.AsyncMessageReceived != null)
                 {
-                    Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
-                }
-                else
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "HandleMessage no method defined for AsyncMessageReceived");
-                }
+                    new Thread(delegate ()
+                    {
+                        Callbacks.AsyncMessageReceived(currentMessage);
+                    }).Start();
+                    // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                } 
 
                 #endregion
             }
@@ -1877,15 +1525,11 @@ namespace BigQ.Client
             request.RecipientGUID = guid;
             request.ChannelGUID = null;
             request.Persist = persist;
+            request.SyncRequest = false;
+            request.SyncResponse = false;
             request.ContentType = contentType;
             request.ContentLength = data.Length;
             request.Data = data;
-
-            if (persist)
-            {
-                request.SyncRequest = false;
-                request.SyncResponse = false;
-            }
 
             return SendMessage(request);
         }

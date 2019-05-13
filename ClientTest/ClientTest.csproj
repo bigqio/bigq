@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BigQ.Client" Version="2.1.1" />
-    <PackageReference Include="BigQ.Core" Version="2.1.1" />
+    <ProjectReference Include="..\Client\Client.csproj" />
+    <ProjectReference Include="..\Core\Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

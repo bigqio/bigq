@@ -1,8 +1,6 @@
 ﻿using BigQ.Core;
-using Newtonsoft.Json.Linq;
-using SyslogLogging;
-using System;
-using System.Collections.Concurrent;
+using Newtonsoft.Json.Linq; 
+using System; 
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,69 +21,90 @@ namespace BigQ.Client
 
         /// <summary>
         /// Delegate method called when an asynchronous message is received.
+        /// The message is the first parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<Message, bool> AsyncMessageReceived;
 
         /// <summary>
         /// Delegate method called when a synchronous message is received.
+        /// The message is the first parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<Message, byte[]> SyncMessageReceived;
 
         /// <summary>
         /// Delegate method called when the server connection is severed.
+        /// A response of true is expected.
         /// </summary>
         public Func<bool> ServerDisconnected;
 
         /// <summary>
         /// Delegate method called when the server connection is restored.
+        /// A response of true is expected.
         /// </summary>
         public Func<bool> ServerConnected;
 
         /// <summary>
         /// Delegate method called when a client joins the server.
+        /// The client GUID is the first parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, bool> ClientJoinedServer;
 
         /// <summary>
         /// Delegate method called when a client leaves the server.
+        /// The client GUID is the first parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, bool> ClientLeftServer;
 
         /// <summary>
         /// Delegate method called when a client joins a channel.
+        /// The client GUID is the first parameter.
+        /// The channel GUID is the second parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, string, bool> ClientJoinedChannel;
 
         /// <summary>
         /// Delegate method called when a client leaves a channel.
+        /// The client GUID is the first parameter.
+        /// The channel GUID is the second parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, string, bool> ClientLeftChannel;
 
         /// <summary>
         /// Delegate method called when a subscriber joins a channel.
+        /// The client GUID is the first parameter.
+        /// The channel GUID is the second parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, string, bool> SubscriberJoinedChannel;
 
         /// <summary>
         /// Delegate method called when a subscriber leaves a channel.
+        /// The client GUID is the first parameter.
+        /// The channel GUID is the second parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, string, bool> SubscriberLeftChannel;
 
         /// <summary>
         /// Delegate method called when a public channel is created.
+        /// The channel GUID is the first parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, bool> ChannelCreated;
 
         /// <summary>
         /// Delegate method called when a public channel is destroyed.
+        /// The channel GUID is the first parameter.
+        /// A response of true is expected.
         /// </summary>
         public Func<string, bool> ChannelDestroyed;
-
-        /// <summary>
-        /// Delegate method called when the client desires to send a log message.
-        /// </summary>
-        public Func<string, bool> LogMessage;
-
+         
         #endregion
 
         #region Private-Members
@@ -110,8 +129,7 @@ namespace BigQ.Client
             SubscriberJoinedChannel = null;
             SubscriberLeftChannel = null;
             ChannelCreated = null;
-            ChannelDestroyed = null;
-            LogMessage = null;
+            ChannelDestroyed = null; 
         }
 
         #endregion

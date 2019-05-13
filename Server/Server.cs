@@ -1,8 +1,6 @@
 ﻿using BigQ.Core;
-using BigQ.Server.Managers;
-using SyslogLogging;
-using System;
-using System.Collections.Concurrent;
+using BigQ.Server.Managers; 
+using System; 
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -39,12 +37,7 @@ namespace BigQ.Server
         //
         private DateTime _CreatedUtc;
         private Random _Random; 
-
-        //
-        // Logging
-        //
-        private LoggingModule _Logging;
-
+         
         //
         // resources
         //
@@ -52,7 +45,8 @@ namespace BigQ.Server
         private ConnectionManager _ConnMgr;
         private ChannelManager _ChannelMgr;
         private PersistenceManager _PersistenceMgr;
-        private ConcurrentDictionary<string, DateTime> _ClientActiveSendMap;     // Receiver GUID, AddedUTC
+        private readonly object _ClientActiveSendMapLock = new object();
+        private Dictionary<string, DateTime> _ClientActiveSendMap = new Dictionary<string, DateTime>(); // Receiver GUID, AddedUTC
         private AuthManager _AuthMgr;
 
         //
@@ -139,8 +133,7 @@ namespace BigQ.Server
         /// Tear down the server and dispose of background workers.
         /// </summary>
         public void Dispose()
-        {
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server terminating");
+        { 
             Dispose(true);
         }
          
@@ -181,25 +174,7 @@ namespace BigQ.Server
         {
             return _ConnMgr.GetClients();
         }
-
-        /// <summary>
-        /// Retrieve list of all client GUID to IP:port maps.
-        /// </summary>
-        /// <returns>A dictionary containing client GUIDs (keys) and IP:port strings (values).</returns>
-        public Dictionary<string, string> ListClientGUIDMaps()
-        {
-            return _ConnMgr.GetGUIDMaps();
-        }
-
-        /// <summary>
-        /// Retrieve list of client GUIDs to which the server is currently transmitting messages and on behalf of which sender.
-        /// </summary>
-        /// <returns>A dictionary containing recipient GUID (key) and sender GUID (value).</returns>
-        public Dictionary<string, DateTime> ListClientActiveSend()
-        {
-            return GetAllClientActiveSendMap();
-        }
-
+          
         /// <summary>
         /// Clear the list of client GUIDs to which the server is currently transmitting messages.  This API should only be used for debugging when advised by support.
         /// </summary>
@@ -254,8 +229,7 @@ namespace BigQ.Server
             newChannel.Subscribers = new List<ServerClient>();
             
             _ChannelMgr.AddChannel(newChannel);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "CreateBroadcastChannel successfully added server channel with GUID " + newChannel.ChannelGUID);
+             
             return;
         }
 
@@ -287,8 +261,7 @@ namespace BigQ.Server
             newChannel.Subscribers = new List<ServerClient>();
 
             _ChannelMgr.AddChannel(newChannel);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "CreateUnicastChannel successfully added server channel with GUID " + newChannel.ChannelGUID);
+             
             return;
         }
 
@@ -320,8 +293,7 @@ namespace BigQ.Server
             newChannel.Subscribers = new List<ServerClient>();
 
             _ChannelMgr.AddChannel(newChannel);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "CreateMulticastChannel successfully added server channel with GUID " + newChannel.ChannelGUID);
+             
             return;
         }
 
@@ -335,11 +307,7 @@ namespace BigQ.Server
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(guid);
-            if (currentChannel == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "DeleteChannel unable to find specified channel");
-                return false;
-            }
+            if (currentChannel == null) return false;
 
             return RemoveChannel(currentChannel);
         }
@@ -371,39 +339,27 @@ namespace BigQ.Server
 
         private bool WatsonTcpClientConnected(string ipPort)
         { 
-            _Logging.Log(LoggingModule.Severity.Debug, "WTcpClientConnected new connection from " + ipPort);
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Tcp);
             _ConnMgr.AddClient(currentClient);
             return true;
         }
          
         private bool WatsonWebsocketClientConnected(string ipPort, IDictionary<string, string> qs)
-        {
-            try
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "WWsClientConnected new connection from " + ipPort);
-                ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Websocket);
-                _ConnMgr.AddClient(currentClient); 
-                return true;
-            }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "WWsClientConnected", e);
-                return false;
-            }
+    { 
+            ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Websocket);
+            _ConnMgr.AddClient(currentClient); 
+            return true; 
         }
          
         private bool WatsonWebsocketSslClientConnected(string ipPort, IDictionary<string, string> qs)
-        {
-            _Logging.Log(LoggingModule.Severity.Debug, "WWsSslClientConnected new connection from " + ipPort);
+        { 
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.WebsocketSsl);
             _ConnMgr.AddClient(currentClient); 
             return true;
         }
 
         private bool WatsonClientDisconnected(string ipPort)
-        {
-            _Logging.Log(LoggingModule.Severity.Debug, "WTcpClientDisconnected connection termination from " + ipPort);
+        { 
             DestroyClient(ipPort);
             return true;
         }
@@ -411,15 +367,18 @@ namespace BigQ.Server
         private bool WatsonMessageReceived(string ipPort, byte[] data)
         {
             ServerClient currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(ServerClient))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "HandleMessageReceived unable to retrieve client " + ipPort);
-                return false;
-            }
+            if (currentClient == null || currentClient == default(ServerClient)) return false;
 
             Message currentMessage = new Message(data);
             MessageProcessor(currentClient, currentMessage);
-            if (Callbacks.MessageReceived != null) Task.Run(() => Callbacks.MessageReceived(currentMessage));
+            if (Callbacks.MessageReceived != null)
+            {
+                new Thread(delegate ()
+                {
+                    Callbacks.MessageReceived(currentMessage);
+                }).Start();
+                // Task.Run(() => Callbacks.MessageReceived(currentMessage));
+            }
             return true;
         }
 
@@ -436,36 +395,18 @@ namespace BigQ.Server
             Callbacks = new ServerCallbacks();
 
             #endregion
-
-            #region Initialize-Logging
-
-            _Logging = new LoggingModule(
-                Config.Logging.SyslogServerIp,
-                Config.Logging.SyslogServerPort,
-                Config.Logging.ConsoleLogging,
-                (LoggingModule.Severity)Config.Logging.MinimumSeverity,
-                false,
-                true,
-                true,
-                true,
-                true,
-                false);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server configuration loaded");
-
-            #endregion
-
+             
             #region Set-Class-Variables
              
             _MsgBuilder = new MessageBuilder(Config.GUID);
-            _ConnMgr = new ConnectionManager(_Logging, Config);
-            _ChannelMgr = new ChannelManager(_Logging, Config);
-            _ClientActiveSendMap = new ConcurrentDictionary<string, DateTime>();
-            _AuthMgr = new AuthManager(_Logging, Config);
+            _ConnMgr = new ConnectionManager(Config);
+            _ChannelMgr = new ChannelManager(Config); 
+            _ClientActiveSendMap = new Dictionary<string, DateTime>();
+            _AuthMgr = new AuthManager(Config);
              
             if (Config.Persistence != null && Config.Persistence.EnablePersistence)
             {
-                _PersistenceMgr = new PersistenceManager(_Logging, Config);
+                _PersistenceMgr = new PersistenceManager(Config);
             }
             else
             {
@@ -486,24 +427,17 @@ namespace BigQ.Server
 
             if (Config.ServerChannels != null && Config.ServerChannels.Count > 0)
             {
-                ServerClient CurrentClient = new ServerClient();
-                CurrentClient.Email = null;
-                CurrentClient.Password = null;
-                CurrentClient.ClientGUID = Config.GUID;
-                CurrentClient.IpPort = "127.0.0.1:0";
-                CurrentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-                CurrentClient.UpdatedUtc = CurrentClient.CreatedUtc;
+                ServerClient currClient = new ServerClient();
+                currClient.Email = null;
+                currClient.Password = null;
+                currClient.ClientGUID = Config.GUID;
+                currClient.IpPort = "127.0.0.1:0";
+                currClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+                currClient.UpdatedUtc = currClient.CreatedUtc;
 
                 foreach (Channel curr in Config.ServerChannels)
                 {
-                    if (!AddChannel(CurrentClient, curr))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "Unable to add server channel " + curr.ChannelName);
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Debug, "Added server channel " + curr.ChannelName);
-                    }
+                    AddChannel(currClient, curr);
                 }
             }
 
@@ -514,9 +448,7 @@ namespace BigQ.Server
             if (Config.TcpServer.Enable)
             {
                 #region Start-TCP-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP server: " + Config.TcpServer.Ip + ":" + Config.TcpServer.Port);
-
+                 
                 _WTcpServer = new WatsonTcpServer(
                     Config.TcpServer.Ip,
                     Config.TcpServer.Port);
@@ -533,9 +465,7 @@ namespace BigQ.Server
             if (Config.TcpSslServer.Enable)
             {
                 #region Start-TCP-SSL-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting TCP SSL server: " + Config.TcpSslServer.Ip + ":" + Config.TcpSslServer.Port);
-
+                 
                 _WTcpServer = new WatsonTcpServer(
                     Config.TcpSslServer.Ip,
                     Config.TcpSslServer.Port,
@@ -555,9 +485,7 @@ namespace BigQ.Server
             if (Config.WebsocketServer.Enable)
             {
                 #region Start-Websocket-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket server: " + Config.WebsocketServer.Ip + ":" + Config.WebsocketServer.Port);
-
+                 
                 _WWsServer = new WatsonWsServer(
                     Config.WebsocketServer.Ip,
                     Config.WebsocketServer.Port,
@@ -575,9 +503,7 @@ namespace BigQ.Server
             if (Config.WebsocketSslServer.Enable)
             {
                 #region Start-Websocket-SSL-Server
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Starting websocket SSL server: " + Config.WebsocketSslServer.Ip + ":" + Config.WebsocketSslServer.Port);
-
+                 
                 _WWsSslServer = new WatsonWsServer(
                     Config.WebsocketSslServer.Ip,
                     Config.WebsocketSslServer.Port,
@@ -591,9 +517,7 @@ namespace BigQ.Server
 
                 #endregion
             }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "BigQ server started");
-
+             
             #endregion
         }
          
@@ -601,26 +525,28 @@ namespace BigQ.Server
         {
             if (String.IsNullOrEmpty(ipPort)) return;
             ServerClient currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(ServerClient))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "DestroyClient unable to find client " + ipPort);
-                return;
-            }
-            else
-            {
-                currentClient.Dispose();
-                _ConnMgr.RemoveClient(ipPort);
-                return;
-            }
+            if (currentClient == null || currentClient == default(ServerClient)) return;
+            else currentClient.Dispose();
+            _ConnMgr.RemoveClient(ipPort);
+            if (!String.IsNullOrEmpty(currentClient.ClientGUID)) _ChannelMgr.RemoveClient(currentClient.ClientGUID); 
+            return;
         }
           
         protected virtual void Dispose(bool disposing)
         {
             if (disposing)
             {
-                if (_WTcpServer != null) _WTcpServer.Dispose(); 
-                if (_WWsServer != null) _WWsServer.Dispose();
-                if (_WWsSslServer != null) _WWsSslServer.Dispose();
+                try
+                {
+                    if (_WTcpServer != null) _WTcpServer.Dispose();
+                    if (_WWsServer != null) _WWsServer.Dispose();
+                    if (_WWsSslServer != null) _WWsSslServer.Dispose();
+                }
+                catch (Exception)
+                {
+
+                }
+
                 _AuthMgr.Dispose();
                 if (_CleanupCancellationTokenSource != null) _CleanupCancellationTokenSource.Cancel();
                 return;
@@ -639,28 +565,11 @@ namespace BigQ.Server
             { 
                 #region Wait-for-Client-Active-Send-Lock
 
-                int addLoopCount = 0;
-                while (!_ClientActiveSendMap.TryAdd(message.RecipientGUID, DateTime.Now.ToUniversalTime()))
+                lock (_ClientActiveSendMapLock)
                 {
-                    //
-                    // wait
-                    //
-                    
-                    Task.Delay(25).Wait();
-                    addLoopCount += 25;
-
-                    if (addLoopCount % 250 == 0)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "SendMessage locked send map attempting to add recipient GUID " + message.RecipientGUID + " for " + addLoopCount + "ms");
-                    }
-
-                    if (addLoopCount == 2500)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "SendMessage locked send map attempting to add recipient GUID " + message.RecipientGUID + " for " + addLoopCount + "ms, failing");
-                        return false;
-                    }
+                    _ClientActiveSendMap.Add(message.RecipientGUID, DateTime.Now.ToUniversalTime());
                 }
-
+                 
                 locked = true;
 
                 #endregion
@@ -668,21 +577,16 @@ namespace BigQ.Server
                 #region Send-Message
                  
                 byte[] data = message.ToBytes();
-                 
+
                 if (client.Connection == ConnectionType.Tcp || client.Connection == ConnectionType.TcpSsl) return _WTcpServer.Send(client.IpPort, data);
                 else if (client.Connection == ConnectionType.Websocket) return _WWsServer.SendAsync(client.IpPort, data).Result;
                 else if (client.Connection == ConnectionType.WebsocketSsl) return _WWsSslServer.SendAsync(client.IpPort, data).Result;
-                else
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendMessage unable to discern transport for client " + client.IpPort);
-                    return false;
-                }
+                else return false;
 
                 #endregion
             }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "SendMessage " + client.IpPort, e);
+            catch (Exception)
+            { 
                 return false;
             }
             finally
@@ -691,23 +595,10 @@ namespace BigQ.Server
                        
                 if (locked)
                 {
-                    DateTime removedVal = DateTime.Now;
-                    int removeLoopCount = 0;
-                    while (!_ClientActiveSendMap.TryRemove(message.RecipientGUID, out removedVal))
+                    lock (_ClientActiveSendMapLock)
                     {
-                        Task.Delay(25).Wait();
-                        removeLoopCount += 25;
-
-                        if (!_ClientActiveSendMap.ContainsKey(message.RecipientGUID))
-                        {
-                            // there was (temporarily) a conflict that has been resolved
-                            break;
-                        }
-
-                        if (removeLoopCount % 250 == 0)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "SendMessage locked send map attempting to remove recipient GUID " + message.RecipientGUID + " for " + removeLoopCount + "ms");
-                        }
+                        if (_ClientActiveSendMap.ContainsKey(message.RecipientGUID))
+                            _ClientActiveSendMap.Remove(message.RecipientGUID);
                     }
                 }
                  
@@ -722,25 +613,14 @@ namespace BigQ.Server
                 #region Broadcast-Channel
 
                 List<ServerClient> currChannelMembers = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-                if (currChannelMembers == null || currChannelMembers.Count < 1)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender no members found in channel " + channel.ChannelGUID);
-                    return true;
-                }
+                if (currChannelMembers == null || currChannelMembers.Count < 1) return true;
 
                 message.SenderGUID = client.ClientGUID;
                 foreach (ServerClient curr in currChannelMembers)
-                {
-                    Task.Run(() =>
-                    {
-                        message.RecipientGUID = curr.ClientGUID;
-                        bool ResponseSuccess = false;
-                        ResponseSuccess = QueueClientMessage(curr, message);
-                        if (!ResponseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender error queuing channel message from " + message.SenderGUID + " to member " + message.RecipientGUID + " in channel " + message.ChannelGUID);
-                        }
-                    });
+                { 
+                    message.RecipientGUID = curr.ClientGUID;
+                    bool respSuccess = false;
+                    respSuccess = QueueClientMessage(curr, message); 
                 }
 
                 return true;
@@ -752,25 +632,14 @@ namespace BigQ.Server
                 #region Multicast-Channel-to-Subscribers
 
                 List<ServerClient> currChannelSubscribers = _ChannelMgr.GetChannelSubscribers(channel.ChannelGUID);
-                if (currChannelSubscribers == null || currChannelSubscribers.Count < 1)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender no subscribers found in channel " + channel.ChannelGUID);
-                    return true;
-                }
+                if (currChannelSubscribers == null || currChannelSubscribers.Count < 1) return true;
 
                 message.SenderGUID = client.ClientGUID;
                 foreach (ServerClient curr in currChannelSubscribers)
-                {
-                    Task.Run(() =>
-                    {
-                        message.RecipientGUID = curr.ClientGUID;
-                        bool respSuccess = false;
-                        respSuccess = QueueClientMessage(curr, message);
-                        if (!respSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender error queuing channel message from " + message.SenderGUID + " to subscriber " + message.RecipientGUID + " in channel " + message.ChannelGUID);
-                        }
-                    });
+                { 
+                    message.RecipientGUID = curr.ClientGUID;
+                    bool respSuccess = false;
+                    respSuccess = QueueClientMessage(curr, message);  
                 }
 
                 return true;
@@ -782,24 +651,13 @@ namespace BigQ.Server
                 #region Unicast-Channel-to-Subscriber
 
                 List<ServerClient> currChannelSubscribers = _ChannelMgr.GetChannelSubscribers(channel.ChannelGUID);
-                if (currChannelSubscribers == null || currChannelSubscribers.Count < 1)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender no subscribers found in channel " + channel.ChannelGUID);
-                    return true;
-                }
+                if (currChannelSubscribers == null || currChannelSubscribers.Count < 1) return true;
 
                 message.SenderGUID = client.ClientGUID;
                 ServerClient recipient = currChannelSubscribers[_Random.Next(0, currChannelSubscribers.Count)];
-                Task.Run(() =>
-                {
-                    message.RecipientGUID = recipient.ClientGUID;
-                    bool respSuccess = false;
-                    respSuccess = QueueClientMessage(recipient, message);
-                    if (!respSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender error queuing channel message from " + message.SenderGUID + " to subscriber " + message.RecipientGUID + " in channel " + message.ChannelGUID);
-                    }
-                });
+                message.RecipientGUID = recipient.ClientGUID;
+                bool respSuccess = false;
+                respSuccess = QueueClientMessage(recipient, message);
 
                 return true;
 
@@ -809,7 +667,6 @@ namespace BigQ.Server
             {
                 #region Unknown
 
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelDataSender channel is not designated as broadcast, multicast, or unicast, deleting");
                 return RemoveChannel(channel);
 
                 #endregion
@@ -825,28 +682,16 @@ namespace BigQ.Server
             client.DiskQueueTokenSource = new CancellationTokenSource();
             client.DiskQueueToken = client.DiskQueueTokenSource.Token;
             client.DiskQueueToken.ThrowIfCancellationRequested();
-
-            _Logging.Log(LoggingModule.Severity.Debug, "StartClientQueue starting queue processors for " + client.IpPort);
-
+             
             Task.Run(() => ProcessClientRamQueue(client, client.RamQueueToken), client.RamQueueToken);
             Task.Run(() => ProcessClientDiskQueue(client, client.RamQueueToken), client.DiskQueueToken);
         }
 
         private bool QueueClientMessage(ServerClient client, Message message)
-        { 
-            _Logging.Log(LoggingModule.Severity.Debug, "QueueClientMessage queuing message for client " + client.IpPort + " " + client.ClientGUID + " from " + message.SenderGUID);
-
+        {  
             if (message.Persist)
             {
-                if (!_PersistenceMgr.PersistMessage(message))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "QueueClientMessage unable to queue persistent message for client " + client.IpPort + " " + client.ClientGUID + " from " + message.SenderGUID);
-                    return false;
-                }
-                else
-                {
-                    _Logging.Log(LoggingModule.Severity.Debug, "QueueClientMessage persisted message for client " + client.IpPort + " " + client.ClientGUID + " from " + message.SenderGUID);
-                }
+                if (!_PersistenceMgr.PersistMessage(message)) return false;
             }
             else
             {
@@ -872,30 +717,20 @@ namespace BigQ.Server
 
                     if (currMessage != null)
                     {
-                        if (String.IsNullOrEmpty(currMessage.RecipientGUID))
-                        {
-                            _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientRamQueue unable to deliver message " + currMessage.MessageID + " from " + currMessage.SenderGUID + " (empty recipient), discarding");
-                        }
-                        else
+                        if (!String.IsNullOrEmpty(currMessage.RecipientGUID))
                         {
                             if (!SendMessage(client, currMessage))
                             {
                                 ServerClient tempClient = _ConnMgr.GetClientByGUID(currMessage.RecipientGUID);
                                 if (tempClient == null)
                                 {
-                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientRamQueue recipient " + currMessage.RecipientGUID + " no longer exists, disposing");
                                     client.Dispose();
                                     return;
                                 }
                                 else
                                 {
-                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientRamQueue unable to deliver message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID + ", requeuing (client still exists)");
                                     client.MessageQueue.Add(currMessage);
                                 }
-                            }
-                            else
-                            {
-                                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientRamQueue successfully sent message from " + currMessage.SenderGUID + " to " + currMessage.RecipientGUID);
                             }
                         }
                     } 
@@ -903,24 +738,10 @@ namespace BigQ.Server
 
                 #endregion
             }
-            catch (OperationCanceledException oce)
+            catch (Exception)
             {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientRamQueue canceled for client " + client.IpPort + ": " + oce.Message);
                 return;
-            }
-            catch (Exception e)
-            {
-                if (client != null)
-                {
-                    _Logging.LogException("Server", "ProcessClientRamQueue (" + client.IpPort + ")", e);
-                }
-                else
-                {
-                    _Logging.LogException("Server", "ProcessClientRamQueue (null)", e);
-                }
-
-                return;
-            }
+            }            
         }
          
         private void ProcessClientDiskQueue(ServerClient client, CancellationToken token)
@@ -947,26 +768,21 @@ namespace BigQ.Server
                         foreach (KeyValuePair<int, Message> curr in msgs)
                         {
                             if (!SendMessage(client, curr.Value))
-                            {
-                                _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientDiskQueue unable to send message ID " + curr.Key + ", remaining in queue");
-
+                            { 
                                 ServerClient tempClient = _ConnMgr.GetClientByGUID(client.ClientGUID);
                                 if (tempClient == null)
-                                {
-                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientDiskQueue recipient " + client.ClientGUID + " no longer exists, disposing");
+                                { 
                                     client.Dispose();
                                     return;
                                 }
                                 else
-                                {
-                                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessClientDiskQueue unable to deliver message from " + curr.Value.SenderGUID + " to " + client.ClientGUID);
+                                { 
                                     break;
                                 }
                             }
                             else
                             {
-                                _PersistenceMgr.ExpireMessage(curr.Key);
-                                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientDiskQueue successfully drained message ID " + curr.Key + " to client " + client.ClientGUID);
+                                _PersistenceMgr.ExpireMessage(curr.Key); 
                             }
                         }
                     }
@@ -974,22 +790,8 @@ namespace BigQ.Server
 
                 #endregion
             }
-            catch (OperationCanceledException oce)
+            catch (Exception)
             {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessClientDiskQueue canceled for client " + client.IpPort + ": " + oce.Message);
-                return;
-            }
-            catch (Exception e)
-            {
-                if (client != null)
-                {
-                    _Logging.LogException("Server", "ProcessClientDiskQueue (" + client.IpPort + ")", e);
-                }
-                else
-                {
-                    _Logging.LogException("Server", "ProcessClientDiskQueue (null)", e);
-                }
-
                 return;
             }
         }
@@ -999,31 +801,18 @@ namespace BigQ.Server
         #region Private-Event-Methods
 
         private bool ServerJoinEvent(ServerClient client)
-        { 
-            _Logging.Log(LoggingModule.Severity.Debug, "ServerJoinEvent sending server join notification for " + client.IpPort + " GUID " + client.ClientGUID);
-
-            List<ServerClient> currentClients = _ConnMgr.GetClients(); 
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ServerJoinEvent no clients found on server");
-                return true;
-            }
+        {  
+            List<ServerClient> currentClients = _ConnMgr.GetClients();
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             Message msg = _MsgBuilder.ServerJoinEvent(client);
 
             foreach (ServerClient curr in currentClients)
             {
                 if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
-                {
-                    Task.Run(() =>
-                    {
-                        msg.RecipientGUID = curr.ClientGUID;
-                        bool responseSuccess = QueueClientMessage(curr, msg);
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ServerJoinEvent error queuing server join event to " + msg.RecipientGUID + " (join by " + client.ClientGUID + ")");
-                        }
-                    });
+                { 
+                    msg.RecipientGUID = curr.ClientGUID;
+                    bool responseSuccess = QueueClientMessage(curr, msg);
                 }
             }
 
@@ -1031,15 +820,9 @@ namespace BigQ.Server
         }
 
         private bool ServerLeaveEvent(ServerClient client)
-        { 
-            _Logging.Log(LoggingModule.Severity.Debug, "ServerLeaveEvent sending server leave notification for " + client.IpPort + " GUID " + client.ClientGUID);
-
+        {  
             List<ServerClient> currentClients = _ConnMgr.GetClients();
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ServerLeaveEvent no clients found on server");
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             Message msg = _MsgBuilder.ServerLeaveEvent(client);
 
@@ -1051,14 +834,6 @@ namespace BigQ.Server
                     {
                         msg.RecipientGUID = curr.ClientGUID;
                         bool responseSuccess = QueueClientMessage(curr, msg);
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ServerLeaveEvent error queuing server leave event to " + msg.RecipientGUID + " (leave by " + client.ClientGUID + ")");
-                        }
-                        else
-                        {
-                            _Logging.Log(LoggingModule.Severity.Debug, "ServerLeaveEvent queued server leave event to " + msg.RecipientGUID + " (leave by " + client.ClientGUID + ")");
-                        }
                     }
                 }
             }
@@ -1069,27 +844,16 @@ namespace BigQ.Server
         private bool ChannelJoinEvent(ServerClient client, Channel channel)
         {  
             List<ServerClient> currentClients = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent no clients found in channel " + channel.ChannelGUID);
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             Message msg = _MsgBuilder.ChannelJoinEvent(channel, client);
 
             foreach (ServerClient curr in currentClients)
             {
                 if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
-                {
-                    Task.Run(() =>
-                    {
-                        msg.RecipientGUID = curr.ClientGUID;
-                        bool responseSuccess = QueueClientMessage(curr, msg);
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ChannelJoinEvent error queuing channel join event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (join by " + client.ClientGUID + ")");
-                        }
-                    });
+                { 
+                    msg.RecipientGUID = curr.ClientGUID;
+                    bool responseSuccess = QueueClientMessage(curr, msg); 
                 }
             }
 
@@ -1097,15 +861,9 @@ namespace BigQ.Server
         }
 
         private bool ChannelLeaveEvent(ServerClient client, Channel channel)
-        { 
-            _Logging.Log(LoggingModule.Severity.Debug, "ChannelLeaveEvent sending channel leave notification for " + client.IpPort + " GUID " + client.ClientGUID + " channel " + channel.ChannelGUID);
-
+        {  
             List<ServerClient> currentClients = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent no clients found in channel " + channel.ChannelGUID);
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             Message msg = _MsgBuilder.ChannelLeaveEvent(channel, client);
 
@@ -1113,15 +871,8 @@ namespace BigQ.Server
             {
                 if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
                 {
-                    Task.Run(() =>
-                    {
-                        msg.RecipientGUID = curr.ClientGUID;
-                        bool responseSuccess = QueueClientMessage(curr, msg);
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ChannelLeaveEvent error queuing channel leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + client.ClientGUID + ")");
-                        }
-                    });
+                    msg.RecipientGUID = curr.ClientGUID;
+                    bool responseSuccess = QueueClientMessage(curr, msg);
                 }
             }
 
@@ -1129,34 +880,17 @@ namespace BigQ.Server
         }
 
         private bool ChannelCreateEvent(ServerClient client, Channel channel)
-        { 
-            if (channel.Private)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent skipping create notification for channel " + channel.ChannelGUID + " (private)");
-                return true;
-            }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "ChannelCreateEvent sending channel create notification for " + client.IpPort + " GUID " + client.ClientGUID + " channel " + channel.ChannelGUID);
+        {
+            if (channel.Private) return true;
 
             List<ServerClient> currentClients = _ConnMgr.GetClients();
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent no clients found on server");
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             foreach (ServerClient curr in currentClients)
             {
-                Task.Run(() =>
-                {
-                    Message msg = _MsgBuilder.ChannelCreateEvent(client, channel);
-                    msg.RecipientGUID = curr.ClientGUID;
-                    bool responseSuccess = QueueClientMessage(curr, msg);
-                    if (!responseSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "ChannelCreateEvent error queuing channel create event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + client.ClientGUID + ")");
-                    }
-                });
+                Message msg = _MsgBuilder.ChannelCreateEvent(client, channel);
+                msg.RecipientGUID = curr.ClientGUID;
+                bool responseSuccess = QueueClientMessage(curr, msg);
             }
 
             return true;
@@ -1165,39 +899,26 @@ namespace BigQ.Server
         private bool ChannelDestroyEvent(List<Channel> channels)
         {
             if (channels == null || channels.Count < 1) return false;
+
             foreach (Channel currChannel in channels)
             {
                 if (currChannel.Members != null && currChannel.Members.Count > 0)
                 {
                     foreach (ServerClient currMember in currChannel.Members)
-                    {
-                        Task.Run(() =>
-                        {
-                            Message msg = _MsgBuilder.ChannelDestroyEvent(currMember, currChannel);
-                            msg.RecipientGUID = currMember.ClientGUID;
-                            bool responseSuccess = SendSystemMessage(msg);
-                            if (!responseSuccess)
-                            {
-                                _Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent error sending channel destroy event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currChannel.OwnerGUID + ")");
-                            }
-                        });
+                    { 
+                        Message msg = _MsgBuilder.ChannelDestroyEvent(currMember, currChannel);
+                        msg.RecipientGUID = currMember.ClientGUID;
+                        bool responseSuccess = SendSystemMessage(msg);
                     }
                 }
 
                 if (currChannel.Subscribers != null && currChannel.Subscribers.Count > 0)
                 {
                     foreach (ServerClient currSubscriber in currChannel.Subscribers)
-                    {
-                        Task.Run(() =>
-                        {
-                            Message msg = _MsgBuilder.ChannelDestroyEvent(currSubscriber, currChannel);
-                            msg.RecipientGUID = currSubscriber.ClientGUID;
-                            bool responseSuccess = SendSystemMessage(msg);
-                            if (!responseSuccess)
-                            {
-                                _Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent error sending channel destroy event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + currChannel.OwnerGUID + ")");
-                            }
-                        });
+                    { 
+                        Message msg = _MsgBuilder.ChannelDestroyEvent(currSubscriber, currChannel);
+                        msg.RecipientGUID = currSubscriber.ClientGUID;
+                        bool responseSuccess = SendSystemMessage(msg); 
                     }
                 }
             }
@@ -1206,49 +927,26 @@ namespace BigQ.Server
         }
 
         private bool ChannelDestroyEvent(ServerClient client, Channel channel)
-        { 
-            if (channel.Private)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent skipping destroy notification for channel " + channel.ChannelGUID + " (private)");
-                return true;
-            }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "ChannelDestroyEvent sending channel destroy notification for " + client.IpPort + " GUID " + client.ClientGUID + " channel " + channel.ChannelGUID);
+        {
+            if (channel.Private) return true;
 
             List<ServerClient> currentClients = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent no clients found in channel " + channel.ChannelGUID);
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             foreach (ServerClient curr in currentClients)
             {
-                Task.Run(() =>
-                {
-                    Message msg = _MsgBuilder.ChannelDestroyEvent(client, channel);
-                    msg.RecipientGUID = curr.ClientGUID;
-                    bool responseSuccess = QueueClientMessage(curr, msg);
-                    if (!responseSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "ChannelDestroyEvent error queuing channel leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + client.ClientGUID + ")");
-                    }
-                });
+                Message msg = _MsgBuilder.ChannelDestroyEvent(client, channel);
+                msg.RecipientGUID = curr.ClientGUID;
+                bool responseSuccess = QueueClientMessage(curr, msg);
             }
 
             return true;
         }
 
         private bool SubscriberJoinEvent(ServerClient client, Channel channel)
-        { 
-            _Logging.Log(LoggingModule.Severity.Debug, "SubscriberJoinEvent sending subcriber join notification for " + client.IpPort + " GUID " + client.ClientGUID + " channel " + channel.ChannelGUID);
-
+        {  
             List<ServerClient> currentClients = _ChannelMgr.GetChannelSubscribers(channel.ChannelGUID);
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent no clients found in channel " + channel.ChannelGUID);
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             Message msg = _MsgBuilder.ChannelSubscriberJoinEvent(channel, client);
 
@@ -1256,15 +954,8 @@ namespace BigQ.Server
             {
                 if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
                 {
-                    Task.Run(() =>
-                    {
-                        msg.RecipientGUID = curr.ClientGUID;
-                        bool responseSuccess = QueueClientMessage(curr, msg);
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "SubscriberJoinEvent error queuing subscriber join event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (join by " + client.ClientGUID + ")");
-                        }
-                    });
+                    msg.RecipientGUID = curr.ClientGUID;
+                    bool responseSuccess = QueueClientMessage(curr, msg);
                 }
             }
 
@@ -1272,15 +963,9 @@ namespace BigQ.Server
         }
          
         private bool SubscriberLeaveEvent(ServerClient client, Channel channel)
-        { 
-            _Logging.Log(LoggingModule.Severity.Debug, "SubscriberLeaveEvent sending subscriber leave notification for " + client.IpPort + " GUID " + client.ClientGUID + " channel " + channel.ChannelGUID);
-
+        {  
             List<ServerClient> currentClients = _ChannelMgr.GetChannelSubscribers(channel.ChannelGUID);
-            if (currentClients == null || currentClients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent no clients found in channel " + channel.ChannelGUID);
-                return true;
-            }
+            if (currentClients == null || currentClients.Count < 1) return true;
 
             Message msg = _MsgBuilder.ChannelSubscriberLeaveEvent(channel, client);
 
@@ -1288,15 +973,8 @@ namespace BigQ.Server
             {
                 if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
                 {
-                    Task.Run(() =>
-                    {
-                        msg.RecipientGUID = curr.ClientGUID;
-                        bool responseSuccess = QueueClientMessage(curr, msg);
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "SubscriberLeaveEvent error queuing subscriber leave event to " + msg.RecipientGUID + " for channel " + msg.ChannelGUID + " (leave by " + client.ClientGUID + ")");
-                        }
-                    });
+                    msg.RecipientGUID = curr.ClientGUID;
+                    bool responseSuccess = QueueClientMessage(curr, msg);
                 }
             }
 
@@ -1330,37 +1008,17 @@ namespace BigQ.Server
                     
                     #region Process
 
-                    foreach (KeyValuePair<string, DateTime> curr in _ClientActiveSendMap)
+                    lock (_ClientActiveSendMapLock)
                     {
-                        if (String.IsNullOrEmpty(curr.Key)) continue;
-                        if (DateTime.Compare(DateTime.Now.ToUniversalTime(), curr.Value) > 0)
+                        foreach (KeyValuePair<string, DateTime> curr in _ClientActiveSendMap)
                         {
-                            Task.Run(() =>
+                            if (String.IsNullOrEmpty(curr.Key)) continue;
+                            if (DateTime.Compare(DateTime.Now.ToUniversalTime(), curr.Value) > 0)
                             {
-                                int elapsed = 0;
-                                while (true)
-                                {
-                                    _Logging.Log(LoggingModule.Severity.Debug, "CleanupTask attempting to remove active send map for " + curr.Key + " (elapsed " + elapsed + "ms)");
-                                    if (!_ClientActiveSendMap.ContainsKey(curr.Key))
-                                    {
-                                        _Logging.Log(LoggingModule.Severity.Debug, "CleanupTask key " + curr.Key + " no longer present in active send map, exiting");
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        DateTime removedVal = DateTime.Now;
-                                        if (_ClientActiveSendMap.TryRemove(curr.Key, out removedVal))
-                                        {
-                                            _Logging.Log(LoggingModule.Severity.Debug, "CleanupTask key " + curr.Key + " removed by cleanup task, exiting");
-                                            break;
-                                        }
-                                        Task.Delay(1000).Wait();
-                                        elapsed += 1000;
-                                    }
-                                }
-                            });
-                        }
-                    }
+                                _ClientActiveSendMap.Remove(curr.Key);
+                            }
+                        } 
+                    } 
                     
                     #endregion
                 }
@@ -1369,10 +1027,9 @@ namespace BigQ.Server
             {
                 // do nothing
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _Logging.LogException("Server", "CleanupTask", e);
-                if (Callbacks.ServerStopped != null) Callbacks.ServerStopped();
+
             }
         }
 
@@ -1388,12 +1045,13 @@ namespace BigQ.Server
         
         private Dictionary<string, DateTime> GetAllClientActiveSendMap()
         {
-            if (_ClientActiveSendMap == null || _ClientActiveSendMap.Count < 1) return new Dictionary<string, DateTime>();
-            Dictionary<string, DateTime> ret = _ClientActiveSendMap.ToDictionary(entry => entry.Key, entry => entry.Value);
-            return ret;
+            lock (_ClientActiveSendMapLock)
+            {
+                return new Dictionary<string, DateTime>(_ClientActiveSendMap);
+            }
         }
         
-        private bool AddChannel(ServerClient client, Channel channel)
+        private void AddChannel(ServerClient client, Channel channel)
         { 
             DateTime timestamp = DateTime.Now.ToUniversalTime();
             if (channel.CreatedUtc == null) channel.CreatedUtc = timestamp;
@@ -1404,34 +1062,22 @@ namespace BigQ.Server
             channel.OwnerGUID = client.ClientGUID;
 
             if (_ChannelMgr.ChannelExists(channel.ChannelGUID))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "AddChannel channel GUID " + channel.ChannelGUID + " already exists");
-                return false;
+            { 
+                return;
             }
 
             _ChannelMgr.AddChannel(channel);
-
-            _Logging.Log(LoggingModule.Severity.Debug, "AddChannel successfully added channel with GUID " + channel.ChannelGUID + " for client " + channel.OwnerGUID);
-            return true;
+            return;
         }
 
         private bool RemoveChannel(Channel channel)
         { 
             channel = _ChannelMgr.GetChannelByGUID(channel.ChannelGUID);
-            if (channel == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "RemoveChannel unable to find specified channel");
-                return false;
-            }
-                
-            if (channel.OwnerGUID.Equals(Config.GUID))
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel skipping removal of channel " + channel.ChannelGUID + " (server channel)");
-                return true;
-            }
+            if (channel == null) return false;
 
-            _ChannelMgr.RemoveChannel(channel.ChannelGUID);
-            _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel notifying channel members of channel removal");
+            if (channel.OwnerGUID.Equals(Config.GUID)) return true;
+
+            _ChannelMgr.RemoveChannel(channel.ChannelGUID); 
 
             if (channel.Members != null)
             {
@@ -1442,23 +1088,17 @@ namespace BigQ.Server
                     //
                     Channel tempChannel = channel;
                     List<ServerClient> tempMembers = new List<ServerClient>(channel.Members);
-
-                    Task.Run(() =>
+                     
+                    foreach (ServerClient currentClient in tempMembers)
                     {
-                        foreach (ServerClient currentClient in tempMembers)
-                        {
-                            if (String.Compare(currentClient.ClientGUID, channel.OwnerGUID) != 0)
-                            {
-                                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel notifying channel " + tempChannel.ChannelGUID + " member " + currentClient.ClientGUID + " of channel deletion by owner");
-                                SendSystemMessage(_MsgBuilder.ChannelDeletedByOwner(currentClient, tempChannel));
-                            }
+                        if (String.Compare(currentClient.ClientGUID, channel.OwnerGUID) != 0)
+                        { 
+                            SendSystemMessage(_MsgBuilder.ChannelDeletedByOwner(currentClient, tempChannel));
                         }
-                    }
-                    );
+                    } 
                 }
             }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannel removed channel " + channel.ChannelGUID + " successfully");
+             
             return true;
         }
 
@@ -1480,11 +1120,11 @@ namespace BigQ.Server
         }
 
         private bool AddChannelSubscriber(ServerClient client, Channel channel)
-        {
+        { 
             if (_ChannelMgr.AddChannelSubscriber(channel, client))
             {
                 if (Config.Notification.ChannelJoinNotification)
-                {
+                { 
                     SubscriberJoinEvent(client, channel);
                 }
 
@@ -1504,23 +1144,7 @@ namespace BigQ.Server
 
                 if (Config.Notification.ChannelJoinNotification)
                 {
-                    List<ServerClient> curr = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-                    if (curr != null && channel.Members != null && channel.Members.Count > 0)
-                    {
-                        foreach (ServerClient c in curr)
-                        {
-                            //
-                            // create another reference in case list is modified
-                            //
-                            Channel TempChannel = channel;
-                            Task.Run(() =>
-                            {
-                                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelMember notifying channel " + TempChannel.ChannelGUID + " member " + c.ClientGUID + " of channel leave by member " + client.ClientGUID);
-                                SendSystemMessage(_MsgBuilder.ChannelLeaveEvent(TempChannel, client));
-                            }
-                            );
-                        }
-                    }
+                    ChannelLeaveEvent(client, channel);
                 }
 
                 return true;
@@ -1534,38 +1158,22 @@ namespace BigQ.Server
         }
 
         private bool RemoveChannelSubscriber(ServerClient client, Channel channel)
-        {
-            if (_ChannelMgr.RemoveChannelMember(channel, client))
-            {
+        { 
+            if (_ChannelMgr.RemoveChannelSubscriber(channel, client))
+            { 
                 #region Send-Notifications
 
                 if (Config.Notification.ChannelJoinNotification)
                 {
-                    List<ServerClient> curr = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-                    if (curr != null && channel.Members != null && channel.Members.Count > 0)
-                    {
-                        foreach (ServerClient c in curr)
-                        {
-                            //
-                            // create another reference in case list is modified
-                            //
-                            Channel tempChannel = channel;
-                            Task.Run(() =>
-                            {
-                                _Logging.Log(LoggingModule.Severity.Debug, "RemoveChannelSubscriber notifying channel " + tempChannel.ChannelGUID + " member " + c.ClientGUID + " of channel leave by subscriber " + client.ClientGUID);
-                                SendSystemMessage(_MsgBuilder.ChannelSubscriberLeaveEvent(tempChannel, client));
-                            }
-                            );
-                        }
-                    }
-                }
+                    ChannelLeaveEvent(client, channel);
+                } 
 
                 return true;
 
                 #endregion
             }
             else
-            {
+            { 
                 return false;
             }
         }
@@ -1585,92 +1193,45 @@ namespace BigQ.Server
         #region Private-Message-Processing-Methods
          
         private bool MessageProcessor(ServerClient client, Message message)
-        { 
-            #region Variables-and-Initialization
-
+        {  
             ServerClient currentRecipient = null;
             Channel currentChannel = null;
             Message responseMessage = new Message();
             bool responseSuccess = false; 
-
-            #endregion
-
-            #region Verify-Client-GUID-Present
-
+             
             if (String.IsNullOrEmpty(client.ClientGUID))
             {
                 if (message.Command != MessageCommand.Login)
-                { 
-                    #region Null-GUID-and-Not-Login
-
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor received message from client with no GUID");
-                    responseSuccess = QueueClientMessage(client, _MsgBuilder.LoginRequired());
-                    if (!responseSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue login required message to client " + client.IpPort);
-                    }
-                    return responseSuccess;
-
-                    #endregion 
+                {  
+                    QueueClientMessage(client, _MsgBuilder.LoginRequired());
+                    return false;
                 }
             }
             else
-            {
-                #region Ensure-GUID-Exists
-
+            { 
                 if (String.Compare(client.ClientGUID, Config.GUID) != 0)
                 {
                     ServerClient verifyClient = _ConnMgr.GetClientByGUID(client.ClientGUID);
                     if (verifyClient == null)
                     {
-                        _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor received message from unknown client GUID " + client.ClientGUID + " from " + client.IpPort);
-                        responseSuccess = QueueClientMessage(client, _MsgBuilder.LoginRequired());
-                        if (!responseSuccess)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue login required message to client " + client.IpPort);
-                        }
-                        return responseSuccess;
+                        QueueClientMessage(client, _MsgBuilder.LoginRequired());
+                        return false;
                     }
-                }
-
-                #endregion
+                } 
             }
-
-            #endregion
-            
-            #region Authorize-Message
-
+             
             if (!_AuthMgr.AuthorizeMessage(message))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to authenticate or authorize message of type " + message.Command + " from " + message.Email + " " + message.SenderGUID);
+            { 
                 responseMessage = _MsgBuilder.AuthorizationFailed(message);
-                responseSuccess = QueueClientMessage(client, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue authorization failed message to client " + client.IpPort);
-                }
-                return responseSuccess;
+                QueueClientMessage(client, responseMessage);
+                return false;
             }
-
-            #endregion
-
-            #region Check-Persistence
-
+             
             if (message.Persist)
             {
-                if (Config.Persistence == null || !Config.Persistence.EnablePersistence)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor message from " + client.ClientGUID + " requested persistence but persistence not enabled");
-                    return false;
-                }
+                if (Config.Persistence == null || !Config.Persistence.EnablePersistence) return false;
             }
-
-            #endregion
-
-            #region Process-Administrative-Messages
-             
-            _Logging.Log(LoggingModule.Severity.Debug, "MessageProcessor processing administrative message of type " + message.Command + " from client " + client.IpPort);
-
+              
             switch (message.Command)
             {
                 case MessageCommand.Echo:
@@ -1708,7 +1269,7 @@ namespace BigQ.Server
                     return responseSuccess;
 
                 case MessageCommand.CreateChannel:
-                    responseMessage = ProcessCreateChannelMessage(client, message);
+                    responseMessage = ProcessCreateChannelMessage(client, message); 
                     responseSuccess = QueueClientMessage(client, responseMessage);
                     return responseSuccess;
 
@@ -1746,11 +1307,7 @@ namespace BigQ.Server
                     // Fall through, likely a recipient or channel message
                     break;
             }
-
-            #endregion
-
-            #region Get-Recipient-or-Channel
-
+             
             if (!String.IsNullOrEmpty(message.RecipientGUID))
             {
                 currentRecipient = _ConnMgr.GetClientByGUID(message.RecipientGUID);
@@ -1760,119 +1317,33 @@ namespace BigQ.Server
                 currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
             }
             else
-            {
-                #region Recipient-Not-Supplied
-
-                _Logging.Log(LoggingModule.Severity.Debug, "MessageProcessor no recipient specified either by RecipientGUID or ChannelGUID");
+            { 
                 responseMessage = _MsgBuilder.RecipientNotFound(client, message);
-                responseSuccess = QueueClientMessage(client, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue recipient not found message to " + client.IpPort);
-                }
-                return false;
-
-                #endregion
+                QueueClientMessage(client, responseMessage);
+                return false; 
             }
-
-            #endregion
-
-            #region Process-Recipient-Messages
-
+             
             if (currentRecipient != null)
             {
-                #region Send-to-Recipient
-                 
-                responseSuccess = QueueClientMessage(currentRecipient, message);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue to recipient " + currentRecipient.ClientGUID + ", sent failure notification to sender");
-                }
-                 
-                return responseSuccess;
-
-                #endregion
+                return QueueClientMessage(currentRecipient, message);
             }
             else if (currentChannel != null)
-            {
-                #region Send-to-Channel
-
-                if (currentChannel.Broadcast)
-                {
-                    #region Broadcast-Message
-
-                    responseSuccess = SendChannelMembersMessage(client, currentChannel, message);
-                    if (!responseSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to send to members in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
-                    }
-
-                    return responseSuccess;
-
-                    #endregion
-                }
-                else if (currentChannel.Multicast)
-                {
-                    #region Multicast-Message-to-Subscribers
-
-                    responseSuccess = SendChannelSubscribersMessage(client, currentChannel, message);
-                    if (!responseSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to send to subscribers in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
-                    }
-
-                    return responseSuccess;
-
-                    #endregion
-                }
-                else if (currentChannel.Unicast)
-                {
-                    #region Unicast-Message-to-One-Subscriber
-
-                    responseSuccess = SendChannelSubscriberMessage(client, currentChannel, message);
-                    if (!responseSuccess)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to send to subscriber in channel " + currentChannel.ChannelGUID + ", sent failure notification to sender");
-                    }
-
-                    return responseSuccess;
-
-                    #endregion
-                }
+            { 
+                if (currentChannel.Broadcast) return SendChannelMembersMessage(client, currentChannel, message);
+                else if (currentChannel.Multicast) return SendChannelSubscribersMessage(client, currentChannel, message);
+                else if (currentChannel.Unicast) return SendChannelSubscriberMessage(client, currentChannel, message);
                 else
                 {
-                    #region Unknown-Channel-Type
-
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor channel " + currentChannel.ChannelGUID + " not marked as broadcast, multicast, or unicast, deleting");
-                    if (!RemoveChannel(currentChannel))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to remove channel " + currentChannel.ChannelGUID);
-                    }
-
+                    RemoveChannel(currentChannel);
                     return false;
-
-                    #endregion
-                }
-
-                #endregion
+                } 
             }
             else
             {
-                #region Recipient-Not-Found
-
-                _Logging.Log(LoggingModule.Severity.Debug, "MessageProcessor unable to find either recipient or channel");
                 responseMessage = _MsgBuilder.RecipientNotFound(client, message);
-                responseSuccess = QueueClientMessage(client, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "MessageProcessor unable to queue recipient not found message to client " + client.IpPort);
-                }
+                QueueClientMessage(client, responseMessage);
                 return false;
-
-                #endregion
-            }
-
-            #endregion 
+            } 
         }
 
         private bool SendPrivateMessage(ServerClient sender, ServerClient rcpt, Message message)
@@ -1881,37 +1352,25 @@ namespace BigQ.Server
             Message responseMessage = new Message();
              
             responseSuccess = QueueClientMessage(rcpt, message.Redact());
-             
-            #region Send-Success-or-Failure-to-Sender
-
+              
             if (message.SyncRequest)
-            {
-                #region Sync-Request
-
+            { 
                 //
                 // do not send notifications for success/fail on a sync message
                 //
 
-                return true;
-
-                #endregion
+                return true; 
             }
             else if (message.SyncResponse)
-            {
-                #region Sync-Response
-
+            { 
                 //
                 // do not send notifications for success/fail on a sync message
                 //
 
-                return true;
-
-                #endregion
+                return true; 
             }
             else
-            {
-                #region Async
-
+            { 
                 if (responseSuccess)
                 {
                     if (Config.Notification.MsgAcknowledgement)
@@ -1926,262 +1385,138 @@ namespace BigQ.Server
                     responseMessage = _MsgBuilder.MessageQueueFailure(sender, message);
                     responseSuccess = QueueClientMessage(sender, responseMessage);
                     return false;
-                }
-
-                #endregion
-            }
-
-            #endregion 
+                } 
+            } 
         }
 
         private bool SendChannelMembersMessage(ServerClient sender, Channel channel, Message message)
         { 
             if (String.IsNullOrEmpty(message.ChannelName)) message.ChannelName = channel.ChannelName;
-             
-            #region Variables
-
+              
             bool responseSuccess = false;
-            Message responseMessage = new Message();
-
-            #endregion
-
-            #region Verify-Channel-Membership
+            Message responseMessage = new Message(); 
 
             if (!IsChannelMember(sender, channel))
             {
                 responseMessage = _MsgBuilder.NotChannelMember(sender, message, channel);
-                responseSuccess = QueueClientMessage(sender, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage unable to queue not channel member message to " + sender.IpPort);
-                }
+                QueueClientMessage(sender, responseMessage);
                 return false;
             }
 
-            #endregion
-
-            #region Send-to-Channel-and-Return-Success
-
-            Task.Run(() =>
-            {
-                responseSuccess = ChannelDataSender(sender, channel, message.Redact());
-            });
+            responseSuccess = ChannelDataSender(sender, channel, message.Redact());
 
             if (Config.Notification.MsgAcknowledgement)
             {
                 responseMessage = _MsgBuilder.MessageQueueSuccess(sender, message);
-                responseSuccess = QueueClientMessage(sender, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendChannelMembersMessage unable to queue message queue success notification to " + sender.IpPort);
-                }
+                QueueClientMessage(sender, responseMessage);
             }
-            return true;
 
-            #endregion 
+            return true;
         }
 
         private bool SendChannelSubscribersMessage(ServerClient sender, Channel channel, Message message)
         {  
             if (String.IsNullOrEmpty(message.ChannelName)) message.ChannelName = channel.ChannelName;
-             
-            #region Variables
-
+              
             bool responseSuccess = false;
             Message responseMessage = new Message();
-
-            #endregion
-
-            #region Verify-Channel-Membership
-
+             
             if (!IsChannelMember(sender, channel))
             {
                 responseMessage = _MsgBuilder.NotChannelMember(sender, message, channel);
-                responseSuccess = QueueClientMessage(sender, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage unable to queue not channel member message to " + sender.IpPort);
-                }
+                QueueClientMessage(sender, responseMessage);
                 return false;
             }
-
-            #endregion
-
-            #region Send-to-Channel-Subscribers-and-Return-Success
-
-            Task.Run(() =>
-            {
-                responseSuccess = ChannelDataSender(sender, channel, message.Redact());
-            });
+              
+            responseSuccess = ChannelDataSender(sender, channel, message.Redact());
 
             if (Config.Notification.MsgAcknowledgement)
             {
                 responseMessage = _MsgBuilder.MessageQueueSuccess(sender, message);
-                responseSuccess = QueueClientMessage(sender, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscribersMessage unable to queue message queue success mesage to " + sender.IpPort);
-                }
+                QueueClientMessage(sender, responseMessage);
             }
-            return true;
 
-            #endregion 
+            return true;
         }
         
         private bool SendChannelSubscriberMessage(ServerClient sender, Channel channel, Message message)
         {  
             if (String.IsNullOrEmpty(message.ChannelName)) message.ChannelName = channel.ChannelName;
-             
-            #region Variables
-
+              
             bool responseSuccess = false;
             Message responseMessage = new Message();
-
-            #endregion
-
-            #region Verify-Channel-Membership
-
+             
             if (!IsChannelMember(sender, channel))
             {
                 responseMessage = _MsgBuilder.NotChannelMember(sender, message, channel);
-                responseSuccess = QueueClientMessage(sender, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage unable to queue not channel member message to " + sender.IpPort);
-                }
+                QueueClientMessage(sender, responseMessage);
                 return false;
             }
-
-            #endregion
-
-            #region Send-to-Channel-Subscriber-and-Return-Success
-
-            Task.Run(() =>
-            {
-                responseSuccess = ChannelDataSender(sender, channel, message.Redact());
-            });
+             
+            responseSuccess = ChannelDataSender(sender, channel, message.Redact());
 
             if (Config.Notification.MsgAcknowledgement)
             {
                 responseMessage = _MsgBuilder.MessageQueueSuccess(sender, message);
                 responseSuccess = QueueClientMessage(sender, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendChannelSubscriberMessage unable to queue message queue success mesage to " + sender.IpPort);
-                }
             }
-            return true;
 
-            #endregion 
+            return true;
         }
 
         private bool SendSystemMessage(Message message)
-        {  
-            #region Create-System-Client-Object
-
-            ServerClient currentClient = new ServerClient();
-            currentClient.Email = null;
-            currentClient.Password = null;
-            currentClient.ClientGUID = Config.GUID;
-            currentClient.Name = "Server";
-            currentClient.IpPort = "127.0.0.1:0";
-            currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-            currentClient.UpdatedUtc = currentClient.CreatedUtc;
-
-            #endregion
-
-            #region Variables
-
-            ServerClient currentRecipient = new ServerClient();
-            Channel currentChannel = new Channel();
-            Message responseMessage = new Message();
-            bool responseSuccess = false;
-
-            #endregion
-
-            #region Get-Recipient-or-Channel
-
-            if (!String.IsNullOrEmpty(message.RecipientGUID))
+        {
+            try
             {
-                currentRecipient = _ConnMgr.GetClientByGUID(message.RecipientGUID);
-            }
-            else if (!String.IsNullOrEmpty(message.ChannelGUID))
-            {
-                currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            }
-            else
-            {
-                #region Recipient-Not-Supplied
+                ServerClient currentClient = new ServerClient();
+                currentClient.Email = null;
+                currentClient.Password = null;
+                currentClient.ClientGUID = Config.GUID;
+                currentClient.Name = "Server";
+                currentClient.IpPort = "127.0.0.1:0";
+                currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
+                currentClient.UpdatedUtc = currentClient.CreatedUtc;
 
-                _Logging.Log(LoggingModule.Severity.Debug, "SendSystemMessage no recipient specified either by RecipientGUID or ChannelGUID");
-                return false;
+                ServerClient currentRecipient = new ServerClient();
+                Channel currentChannel = new Channel();
+                Message responseMessage = new Message();
 
-                #endregion
-            }
-
-            #endregion
-
-            #region Process-Recipient-Messages
-
-            if (currentRecipient != null)
-            {
-                #region Send-to-Recipient
-
-                responseSuccess = QueueClientMessage(currentRecipient, message.Redact());
-                if (responseSuccess)
+                if (!String.IsNullOrEmpty(message.RecipientGUID))
                 {
-                    _Logging.Log(LoggingModule.Severity.Debug, "SendSystemMessage successfully queued message to recipient " + currentRecipient.ClientGUID);
-                    return true;
+                    currentRecipient = _ConnMgr.GetClientByGUID(message.RecipientGUID);
+                }
+                else if (!String.IsNullOrEmpty(message.ChannelGUID))
+                {
+                    currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
                 }
                 else
                 {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage unable to queue message to recipient " + currentRecipient.ClientGUID);
                     return false;
                 }
 
-                #endregion
-            }
-            else if (currentChannel != null)
-            {
-                #region Send-to-Channel-and-Return-Success
-
-                responseSuccess = ChannelDataSender(currentClient, currentChannel, message.Redact());
-                if (responseSuccess)
+                if (currentRecipient != null)
                 {
-                    _Logging.Log(LoggingModule.Severity.Debug, "SendSystemMessage successfully sent message to channel " + currentChannel.ChannelGUID);
-                    return true;
+                    return QueueClientMessage(currentRecipient, message.Redact());
+                }
+                else if (currentChannel != null)
+                {
+                    return ChannelDataSender(currentClient, currentChannel, message.Redact());
                 }
                 else
                 {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage unable to send message to channel " + currentChannel.ChannelGUID);
+                    responseMessage = _MsgBuilder.RecipientNotFound(currentClient, message);
+                    QueueClientMessage(currentClient, responseMessage);
                     return false;
                 }
-
-                #endregion
             }
-            else
-            {
-                #region Recipient-Not-Found
-
-                _Logging.Log(LoggingModule.Severity.Debug, "Unable to find either recipient or channel");
-                responseMessage = _MsgBuilder.RecipientNotFound(currentClient, message);
-                responseSuccess = QueueClientMessage(currentClient, responseMessage);
-                if (!responseSuccess)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "SendSystemMessage unable to queue recipient not found message to " + currentClient.IpPort);
-                }
+            catch (Exception)
+            { 
                 return false;
-
-                #endregion
             }
-
-                    #endregion
         }
 
         private bool SendSystemPrivateMessage(ServerClient rcpt, Message message)
-        {
-            #region Create-System-Client-Object
-
+        { 
             ServerClient currentClient = new ServerClient();
             currentClient.Email = null;
             currentClient.Password = null;
@@ -2190,34 +1525,15 @@ namespace BigQ.Server
             currentClient.IpPort = "127.0.0.1:0";
             currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentClient.UpdatedUtc = currentClient.CreatedUtc;
-
-            #endregion
-
-            #region Variables
-
-            Channel currentChannel = new Channel();
-            bool responseSuccess = false;
-
-            #endregion
-
-            #region Process-Recipient-Messages
-
-            responseSuccess = QueueClientMessage(rcpt, message.Redact());
-            if (!responseSuccess)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "SendSystemPrivateMessage unable to queue message to " + rcpt.IpPort);
-            }
-            return responseSuccess;
-
-            #endregion 
+             
+            Channel currentChannel = new Channel(); 
+            return QueueClientMessage(rcpt, message.Redact());
         }
 
         private bool SendSystemChannelMessage(Channel channel, Message message)
         {  
             if (String.IsNullOrEmpty(message.ChannelName)) message.ChannelName = channel.ChannelName;
-             
-            #region Create-System-Client-Object
-
+              
             ServerClient currentClient = new ServerClient();
             currentClient.Email = null;
             currentClient.Password = null;
@@ -2226,26 +1542,15 @@ namespace BigQ.Server
             currentClient.IpPort = "127.0.0.1:0";
             currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
             currentClient.UpdatedUtc = currentClient.CreatedUtc;
-
-            #endregion
-
-            #region Override-Channel-Variables
-
+             
             //
             // This is necessary so the message goes to members instead of subscribers
             // in case the channel is configured as a multicast channel
             //
             channel.Broadcast = true;
             channel.Multicast = false;               
-
-            #endregion
-                
-            #region Send-to-Channel
-
-            bool responseSuccess = ChannelDataSender(currentClient, channel, message);
-            return responseSuccess;
-
-            #endregion 
+             
+            return ChannelDataSender(currentClient, channel, message);
         }
 
         #endregion
@@ -2299,7 +1604,11 @@ namespace BigQ.Server
                 {
                     if (Callbacks.ClientLogin != null)
                     {
-                        Task.Run(() => Callbacks.ClientLogin(client));
+                        new Thread(delegate ()
+                        {
+                            Callbacks.ClientLogin(client);
+                        }).Start();
+                        // Task.Run(() => Callbacks.ClientLogin(client));
                     }
                 }
 
@@ -2307,7 +1616,11 @@ namespace BigQ.Server
                 {
                     if (Config.Notification.ServerJoinNotification)
                     {
-                        Task.Run(() => ServerJoinEvent(client));
+                        new Thread(delegate ()
+                        {
+                            ServerJoinEvent(client);
+                        }).Start();
+                        // Task.Run(() => ServerJoinEvent(client));
                     }
                 } 
             }
@@ -2340,124 +1653,53 @@ namespace BigQ.Server
         private Message ProcessJoinChannelMessage(ServerClient client, Message message)
         { 
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = null;
 
-            if (currentChannel == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessJoinChannelMessage unable to find channel " + currentChannel.ChannelGUID);
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
+            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
             else
             {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessJoinChannelMessage adding client " + client.IpPort + " as member to channel " + currentChannel.ChannelGUID);
+                // AddChannelMember handles notifications
                 if (!AddChannelMember(client, currentChannel))
                 {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessJoinChannelMessage error while adding " + client.IpPort + " " + client.ClientGUID + " as member of channel " + currentChannel.ChannelGUID);
-                    responseMessage = _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
-                    return responseMessage;
+                    return _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
                 }
                 else
                 {
-                    responseMessage = _MsgBuilder.ChannelJoinSuccess(client, message, currentChannel);
-                    return responseMessage;
+                    return _MsgBuilder.ChannelJoinSuccess(client, message, currentChannel);
                 }
             } 
         }
 
         private Message ProcessSubscribeChannelMessage(ServerClient client, Message message)
-        { 
+        {
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = null;
-
-            if (currentChannel == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessSubscribeChannelMessage unable to find channel " + currentChannel.ChannelGUID);
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
-
-            if (currentChannel.Broadcast)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessSubscribeChannelMessage channel marked as broadcast, calling ProcessJoinChannelMessage");
-                return ProcessJoinChannelMessage(client, message);
-            }
-                
-            #region Add-Member
-
-            _Logging.Log(LoggingModule.Severity.Debug, "ProcessSubscribeChannelMessage adding client " + client.IpPort + " as subscriber to channel " + currentChannel.ChannelGUID);
-            if (!AddChannelMember(client, currentChannel))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessSubscribeChannelMessage error while adding " + client.IpPort + " " + client.ClientGUID + " as member of channel " + currentChannel.ChannelGUID);
-                responseMessage = _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
-                return responseMessage;
-            }
-
-            #endregion
-
-            #region Add-Subscriber
-
-            if (!AddChannelSubscriber(client, currentChannel))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessSubscribeChannelMessage error while adding " + client.IpPort + " " + client.ClientGUID + " as subscriber to channel " + currentChannel.ChannelGUID);
-                responseMessage = _MsgBuilder.ChannelSubscribeFailure(client, message, currentChannel);
-                return responseMessage;
-            }
-
-            #endregion
-
-            #region Return
-
-            responseMessage = _MsgBuilder.ChannelSubscribeSuccess(client, message, currentChannel);
-            return responseMessage;
-
-            #endregion 
+            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
+            if (currentChannel.Broadcast) return ProcessJoinChannelMessage(client, message);
+            // AddChannelMember and AddChannelSubscriber handle notifications
+            if (!AddChannelMember(client, currentChannel)) return  _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
+            if (!AddChannelSubscriber(client, currentChannel)) return _MsgBuilder.ChannelSubscribeFailure(client, message, currentChannel); 
+            return _MsgBuilder.ChannelSubscribeSuccess(client, message, currentChannel);
         }
 
         private Message ProcessLeaveChannelMessage(ServerClient client, Message message)
         { 
-            Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = new Message();
+            Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID); 
 
-            if (currentChannel == null)
-            {
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
+            if (currentChannel == null)return _MsgBuilder.ChannelNotFound(client, message);
             else
             {
                 if (client.ClientGUID.Equals(currentChannel.OwnerGUID)) 
                 {
-                    #region Owner-Abandoning-Channel
-
-                    if (!RemoveChannel(currentChannel))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "ProcessLeaveChannelMessage unable to remove owner " + client.IpPort + " from channel " + message.ChannelGUID);
-                        return _MsgBuilder.ChannelLeaveFailure(client, message, currentChannel);
-                    }
-                    else
-                    {
-                        return _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel);
-                    }
-
-                    #endregion
+                    if (!RemoveChannel(currentChannel)) return _MsgBuilder.ChannelLeaveFailure(client, message, currentChannel);
+                    else return _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel);
                 }
                 else
-                {
-                    #region Member-Leaving-Channel
-
-                    if (!RemoveChannelMember(client, currentChannel))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "ProcessLeaveChannelMessage unable to remove member " + client.IpPort + " " + client.ClientGUID + " from channel " + message.ChannelGUID);
-                        return _MsgBuilder.ChannelLeaveFailure(client, message, currentChannel);
-                    }
+                { 
+                    if (!RemoveChannelMember(client, currentChannel)) return _MsgBuilder.ChannelLeaveFailure(client, message, currentChannel);
                     else
                     {
                         if (Config.Notification.ChannelJoinNotification) ChannelLeaveEvent(client, currentChannel);
                         return _MsgBuilder.ChannelLeaveSuccess(client, message, currentChannel);
                     }
-
-                    #endregion
                 }
             } 
         }
@@ -2465,146 +1707,71 @@ namespace BigQ.Server
         private Message ProcessUnsubscribeChannelMessage(ServerClient client, Message message)
         { 
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = new Message();
 
-            if (currentChannel == null)
-            {
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
-                
-            if (currentChannel.Broadcast)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessUnsubscribeChannelMessage channel marked as broadcast, calling ProcessLeaveChannelMessage");
-                return ProcessLeaveChannelMessage(client, message);
-            }
-                
+            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
+            if (currentChannel.Broadcast) return ProcessLeaveChannelMessage(client, message);
             if (client.ClientGUID.Equals(currentChannel.OwnerGUID))
-            {
-                #region Owner-Abandoning-Channel
-
-                if (!RemoveChannel(currentChannel))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessUnsubscribeChannelMessage unable to remove owner " + client.IpPort + " from channel " + message.ChannelGUID);
-                    return _MsgBuilder.ChannelUnsubscribeFailure(client, message, currentChannel);
-                }
-                else
-                {
-                    return _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel);
-                }
-
-                #endregion
+            { 
+                if (!RemoveChannel(currentChannel)) return _MsgBuilder.ChannelUnsubscribeFailure(client, message, currentChannel); 
+                else return _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel); 
             }
             else
-            {
-                #region Subscriber-Leaving-Channel
-
-                if (!RemoveChannelSubscriber(client, currentChannel))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessUnsubscribeChannelMessage unable to remove subscrber " + client.IpPort + " " + client.ClientGUID + " from channel " + message.ChannelGUID);
-                    return _MsgBuilder.ChannelUnsubscribeFailure(client, message, currentChannel);
-                }
+            { 
+                if (!RemoveChannelSubscriber(client, currentChannel)) return _MsgBuilder.ChannelUnsubscribeFailure(client, message, currentChannel); 
                 else
-                {
-                    if (Config.Notification.ChannelJoinNotification) ChannelLeaveEvent(client, currentChannel);
-                    return _MsgBuilder.ChannelUnsubscribeSuccess(client, message, currentChannel);
-                }
-
-                #endregion
+                { 
+                    Message ret = _MsgBuilder.ChannelUnsubscribeSuccess(client, message, currentChannel);
+                    return ret;
+                } 
             } 
         }
 
         private Message ProcessCreateChannelMessage(ServerClient client, Message message)
         { 
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = new Message();
 
             if (currentChannel == null)
             {
-                Channel requestChannel = Channel.FromMessage(client, message);
-                if (requestChannel == null)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage unable to build Channel from Message data");
-                    responseMessage = _MsgBuilder.DataError(client, message, "unable to create Channel from supplied message data");
-                    return responseMessage;
-                }
+                Channel requestChannel = Channel.FromMessage(client, message); 
+                if (requestChannel == null) return _MsgBuilder.DataError(client, message, "Unable to create channel from supplied message data");
                 else
-                {
+                { 
                     currentChannel = _ChannelMgr.GetChannelByName(requestChannel.ChannelName);
-                    if (currentChannel != null)
-                    {
-                        responseMessage = _MsgBuilder.ChannelAlreadyExists(client, message, currentChannel);
-                        return responseMessage;
-                    }
+                    if (currentChannel != null) return _MsgBuilder.ChannelAlreadyExists(client, message, currentChannel);
                     else
-                    {
-                        if (String.IsNullOrEmpty(requestChannel.ChannelGUID))
-                        {
-                            requestChannel.ChannelGUID = Guid.NewGuid().ToString();
-                            _Logging.Log(LoggingModule.Severity.Debug, "ProcessCreateChannelMessage adding GUID " + requestChannel.ChannelGUID + " to request (not supplied by requestor)");
-                        }
-
+                    { 
+                        if (String.IsNullOrEmpty(requestChannel.ChannelGUID)) requestChannel.ChannelGUID = Guid.NewGuid().ToString();
                         requestChannel.OwnerGUID = client.ClientGUID;
-
-                        if (!AddChannel(client, requestChannel))
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage error while adding channel " + currentChannel.ChannelGUID);
-                            responseMessage = _MsgBuilder.ChannelCreateFailure(client, message);
-                            return responseMessage;
-                        }
-                        else
-                        {
-                            ChannelCreateEvent(client, requestChannel);
-                        }
-
+                         
+                        AddChannel(client, requestChannel); 
+                        ChannelCreateEvent(client, requestChannel);
+                         
                         if (!AddChannelSubscriber(client, requestChannel))
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "ProcessCreateChannelMessage error while adding channel member " + client.IpPort + " to channel " + currentChannel.ChannelGUID);
-                            responseMessage = _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
-                            return responseMessage;
-                        }
-
-                        responseMessage = _MsgBuilder.ChannelCreateSuccess(client, message, requestChannel);
-                        return responseMessage;
+                        { 
+                            return _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
+                        } 
+                        return _MsgBuilder.ChannelCreateSuccess(client, message, requestChannel);
                     }
                 }
             }
             else
             {
-                responseMessage = _MsgBuilder.ChannelAlreadyExists(client, message, currentChannel);
-                return responseMessage;
+                return _MsgBuilder.ChannelAlreadyExists(client, message, currentChannel);
             } 
         }
 
         private Message ProcessDeleteChannelMessage(ServerClient client, Message message)
         { 
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = new Message();
-
-            if (currentChannel == null)
-            {
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
-
-            if (String.Compare(currentChannel.OwnerGUID, client.ClientGUID) != 0)
-            {
-                responseMessage = _MsgBuilder.ChannelDeleteFailure(client, message, currentChannel);
-                return responseMessage;
-            }
-
-            if (!RemoveChannel(currentChannel))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessDeleteChannelMessage unable to remove channel " + currentChannel.ChannelGUID);
-                responseMessage = _MsgBuilder.ChannelDeleteFailure(client, message, currentChannel);
-            }
+            
+            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
+            if (String.Compare(currentChannel.OwnerGUID, client.ClientGUID) != 0) return _MsgBuilder.ChannelDeleteFailure(client, message, currentChannel);
+            if (!RemoveChannel(currentChannel)) return _MsgBuilder.ChannelDeleteFailure(client, message, currentChannel);
             else
             {
-                responseMessage = _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel);
                 ChannelDestroyEvent(client, currentChannel);
+                return _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel);
             }
-
-            return responseMessage; 
         }
 
         private Message ProcessListChannelsMessage(ServerClient client, Message message)
@@ -2615,9 +1782,7 @@ namespace BigQ.Server
 
             ret = _ChannelMgr.GetChannels();
             if (ret == null || ret.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessListChannelsMessage no channels retrieved");
-
+            { 
                 message = message.Redact();
                 message.SyncResponse = message.SyncRequest;
                 message.SyncRequest = false;
@@ -2674,24 +1839,13 @@ namespace BigQ.Server
         private Message ProcessListChannelMembersMessage(ServerClient client, Message message)
         { 
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-            Message responseMessage = new Message();
             List<ServerClient> clients = new List<ServerClient>();
             List<ServerClient> ret = new List<ServerClient>();
 
-            if (currentChannel == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessListChannelMembersMessage null channel after retrieval by GUID");
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
+            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
 
             clients = _ChannelMgr.GetChannelMembers(currentChannel.ChannelGUID);
-            if (clients == null || clients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessListChannelMembersMessage channel " + currentChannel.ChannelGUID + " has no members");
-                responseMessage = _MsgBuilder.ChannelNoMembers(client, message, currentChannel);
-                return responseMessage;
-            }
+            if (clients == null || clients.Count < 1) return _MsgBuilder.ChannelNoMembers(client, message, currentChannel);
             else
             {
                 foreach (ServerClient curr in clients)
@@ -2729,26 +1883,14 @@ namespace BigQ.Server
             List<ServerClient> clients = new List<ServerClient>();
             List<ServerClient> ret = new List<ServerClient>();
 
-            if (currentChannel == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessListChannelSubscribersMessage null channel after retrieval by GUID");
-                responseMessage = _MsgBuilder.ChannelNotFound(client, message);
-                return responseMessage;
-            }
-
+            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
             if (currentChannel.Broadcast)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessListChannelSubscribersMessage channel is broadcast, calling ProcessListChannelMembers");
+            { 
                 return ProcessListChannelMembersMessage(client, message);
             }
 
             clients = _ChannelMgr.GetChannelSubscribers(currentChannel.ChannelGUID);
-            if (clients == null || clients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "ProcessListChannelSubscribersMessage channel " + currentChannel.ChannelGUID + " has no subscribers");
-                responseMessage = _MsgBuilder.ChannelNoSubscribers(client, message, currentChannel);
-                return responseMessage;
-            }
+            if (clients == null || clients.Count < 1) return _MsgBuilder.ChannelNoSubscribers(client, message, currentChannel);
             else
             { 
                 foreach (ServerClient curr in clients)
@@ -2774,7 +1916,7 @@ namespace BigQ.Server
                 message.ChannelGUID = currentChannel.ChannelGUID;
                 message.CreatedUtc = DateTime.Now.ToUniversalTime();
                 message.Success = true;
-                message.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(ret));
+                message.Data = SuccessData.ToBytes(null, ret);
                 return message;
             } 
         }
@@ -2785,11 +1927,7 @@ namespace BigQ.Server
             List<ServerClient> ret = new List<ServerClient>();
 
             clients = _ConnMgr.GetClients();
-            if (clients == null || clients.Count < 1)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "ProcessListClientsMessage no clients retrieved");
-                return null;
-            }
+            if (clients == null || clients.Count < 1) return null;
             else
             { 
                 foreach (ServerClient curr in clients)

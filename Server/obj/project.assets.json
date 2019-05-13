@@ -2,13 +2,12 @@
   "version": 3,
   "targets": {
     ".NETFramework,Version=v4.6.2": {
-      "BigQ.Core/2.1.1": {
+      "BigQ.Core/2.1.6": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
+          "WatsonTcp": "1.3.6",
           "WatsonWebsocket": "1.2.4"
         },
         "compile": {
@@ -65,15 +64,6 @@
         },
         "runtime": {
           "lib/net452/SqliteWrapper.dll": {}
-        }
-      },
-      "SyslogLogging/1.0.10": {
-        "type": "package",
-        "compile": {
-          "lib/net452/LoggingModule.dll": {}
-        },
-        "runtime": {
-          "lib/net452/LoggingModule.dll": {}
         }
       },
       "System.Data.SQLite/1.0.110": {
@@ -135,7 +125,7 @@
           "lib/net46/System.Data.SQLite.Linq.dll": {}
         }
       },
-      "WatsonTcp/1.3.5": {
+      "WatsonTcp/1.3.6": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -158,13 +148,12 @@
       }
     },
     ".NETStandard,Version=v2.0": {
-      "BigQ.Core/2.1.1": {
+      "BigQ.Core/2.1.6": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
+          "WatsonTcp": "1.3.6",
           "WatsonWebsocket": "1.2.4"
         },
         "compile": {
@@ -230,15 +219,6 @@
           "lib/netstandard2.0/SqliteWrapper.dll": {}
         }
       },
-      "SyslogLogging/1.0.10": {
-        "type": "package",
-        "compile": {
-          "lib/netstandard2.0/LoggingModule.dll": {}
-        },
-        "runtime": {
-          "lib/netstandard2.0/LoggingModule.dll": {}
-        }
-      },
       "System.Data.SQLite/1.0.110": {
         "type": "package",
         "dependencies": {
@@ -272,7 +252,7 @@
           }
         }
       },
-      "WatsonTcp/1.3.5": {
+      "WatsonTcp/1.3.6": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -296,14 +276,14 @@
     }
   },
   "libraries": {
-    "BigQ.Core/2.1.1": {
-      "sha512": "pnj5QsQO3lyQMIEgxpKBDqCcxAYGP8EfLIwFHKMR5alyUy3Ha7Eu2nyjs19tYJXtCU38WVI1EIIKf6JPvJp0/g==",
+    "BigQ.Core/2.1.6": {
+      "sha512": "6TxB33W6YmBK9TLx/YKLaGtIgdUYtXRkRlpWC01YSSJRpbWWUErr0g9c1gPo6L0b9jDkCwkyTQKHBd3zvCkjKg==",
       "type": "package",
-      "path": "bigq.core/2.1.1",
+      "path": "bigq.core/2.1.6",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "bigq.core.2.1.1.nupkg.sha512",
+        "bigq.core.2.1.6.nupkg.sha512",
         "bigq.core.nuspec",
         "lib/net462/Core.dll",
         "lib/netstandard2.0/Core.dll"
@@ -593,19 +573,6 @@
         "sqlitehelper.nuspec"
       ]
     },
-    "SyslogLogging/1.0.10": {
-      "sha512": "yi5UmWevLYRhZy1FR5YbyobICaOIxrpJX9vzCWXDR6W7xUycPT3EtNpYiLI7B5rxf2a3J8rOk++CRtIwEUwJtg==",
-      "type": "package",
-      "path": "sysloglogging/1.0.10",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "lib/net452/LoggingModule.dll",
-        "lib/netstandard2.0/LoggingModule.dll",
-        "sysloglogging.1.0.10.nupkg.sha512",
-        "sysloglogging.nuspec"
-      ]
-    },
     "System.Data.SQLite/1.0.110": {
       "sha512": "YFUBQ4BzxzLhq/TOVg8wipF+YbpFHrfMx1dkhgpfTDsiLnpt/2oqRmI0ti48rNhNjR0ZPW5TLCdNA4zrHiNy0g==",
       "type": "package",
@@ -727,16 +694,16 @@
         "system.data.sqlite.linq.nuspec"
       ]
     },
-    "WatsonTcp/1.3.5": {
-      "sha512": "lWFqwKhJ1PFE2/u6Y5q8pJkvhSw3+ybtc4IRyGsX1IlDe31ckh130QOdbzmmkvZFE96WL+6UCMCCQcc7Ch4gRA==",
+    "WatsonTcp/1.3.6": {
+      "sha512": "3J+pE/WoW1oHZZ+5lQY7C603x4SUOwXsrRa9jz3QZwHYXHV+mr9mFnMvth4JCLLloKAhxx5ahagJPxDsTKhQTA==",
       "type": "package",
-      "path": "watsontcp/1.3.5",
+      "path": "watsontcp/1.3.6",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.3.5.nupkg.sha512",
+        "watsontcp.1.3.6.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
@@ -756,21 +723,13 @@
   },
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Core >= 2.1.1",
-      "Newtonsoft.Json >= 12.0.2",
-      "SqliteHelper >= 1.0.11",
-      "SyslogLogging >= 1.0.10",
-      "WatsonTcp >= 1.3.5",
-      "WatsonWebsocket >= 1.2.4"
+      "BigQ.Core >= 2.1.6",
+      "SqliteHelper >= 1.0.11"
     ],
     ".NETStandard,Version=v2.0": [
-      "BigQ.Core >= 2.1.1",
+      "BigQ.Core >= 2.1.6",
       "NETStandard.Library >= 2.0.3",
-      "Newtonsoft.Json >= 12.0.2",
-      "SqliteHelper >= 1.0.11",
-      "SyslogLogging >= 1.0.10",
-      "WatsonTcp >= 1.3.5",
-      "WatsonWebsocket >= 1.2.4"
+      "SqliteHelper >= 1.0.11"
     ]
   },
   "packageFolders": {
@@ -778,7 +737,7 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
-    "version": "2.1.3",
+    "version": "2.1.6",
     "restore": {
       "projectUniqueName": "C:\\Code\\BigQ\\BigQ-2.1\\Server\\Server.csproj",
       "projectName": "BigQ.Server",
@@ -821,27 +780,11 @@
         "dependencies": {
           "BigQ.Core": {
             "target": "Package",
-            "version": "[2.1.1, )"
-          },
-          "Newtonsoft.Json": {
-            "target": "Package",
-            "version": "[12.0.2, )"
+            "version": "[2.1.6, )"
           },
           "SqliteHelper": {
             "target": "Package",
             "version": "[1.0.11, )"
-          },
-          "SyslogLogging": {
-            "target": "Package",
-            "version": "[1.0.10, )"
-          },
-          "WatsonTcp": {
-            "target": "Package",
-            "version": "[1.3.5, )"
-          },
-          "WatsonWebsocket": {
-            "target": "Package",
-            "version": "[1.2.4, )"
           }
         }
       },
@@ -849,7 +792,7 @@
         "dependencies": {
           "BigQ.Core": {
             "target": "Package",
-            "version": "[2.1.1, )"
+            "version": "[2.1.6, )"
           },
           "NETStandard.Library": {
             "suppressParent": "All",
@@ -857,25 +800,9 @@
             "version": "[2.0.3, )",
             "autoReferenced": true
           },
-          "Newtonsoft.Json": {
-            "target": "Package",
-            "version": "[12.0.2, )"
-          },
           "SqliteHelper": {
             "target": "Package",
             "version": "[1.0.11, )"
-          },
-          "SyslogLogging": {
-            "target": "Package",
-            "version": "[1.0.10, )"
-          },
-          "WatsonTcp": {
-            "target": "Package",
-            "version": "[1.3.5, )"
-          },
-          "WatsonWebsocket": {
-            "target": "Package",
-            "version": "[1.2.4, )"
           }
         },
         "imports": [

@@ -1,20 +1,34 @@
 ﻿using System;
+using System.Runtime.Serialization;
 using System.Text;
+
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Converters;
 
 namespace BigQ.Core
 {
     /// <summary>
     /// The available event types.
     /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum EventTypes
     {
+        [EnumMember(Value = "ClientJoinedServer")]
         ClientJoinedServer,
+        [EnumMember(Value = "ClientLeftServer")]
         ClientLeftServer,
+        [EnumMember(Value = "ClientJoinedChannel")]
         ClientJoinedChannel,
+        [EnumMember(Value = "ClientLeftChannel")]
         ClientLeftChannel,
+        [EnumMember(Value = "SubscriberJoinedChannel")]
         SubscriberJoinedChannel,
+        [EnumMember(Value = "SubscriberLeftChannel")]
         SubscriberLeftChannel,
+        [EnumMember(Value = "ChannelCreated")]
         ChannelCreated,
+        [EnumMember(Value = "ChannelDestroyed")]
         ChannelDestroyed
     }
 

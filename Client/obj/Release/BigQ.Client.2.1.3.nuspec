@@ -24,7 +24,7 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="C:\code\bigq\BigQ-2.1\Client\bin\Release\net462\Client.dll" target="lib\net462\Client.dll" />
-    <file src="C:\code\bigq\BigQ-2.1\Client\bin\Release\netstandard2.0\Client.dll" target="lib\netstandard2.0\Client.dll" />
+    <file src="C:\Code\BigQ\BigQ-2.1\Client\bin\Release\net462\Client.dll" target="lib\net462\Client.dll" />
+    <file src="C:\Code\BigQ\BigQ-2.1\Client\bin\Release\netstandard2.0\Client.dll" target="lib\netstandard2.0\Client.dll" />
   </files>
 </package>

@@ -1,8 +1,8 @@
-﻿using BigQ.Core;
-using SyslogLogging;
+﻿using BigQ.Core; 
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,17 +18,18 @@ namespace BigQ.Server.Managers
         #region Private-Members
 
         private bool _Disposed = false;
-
-        private LoggingModule _Logging;
+         
         private ServerConfiguration _Config;
 
         private string _UsersLastModified;
-        private ConcurrentList<User> _Users;
+        private readonly object _UsersLock = new object();
+        private List<User> _Users = new List<User>();
         private CancellationTokenSource _UsersCancellationTokenSource;
         private CancellationToken _UsersCancellationToken;
 
         private string _PermissionsLastModified;
-        private ConcurrentList<Permission> _Permissions;
+        private readonly object _PermissionsLock = new object();
+        private List<Permission> _Permissions = new List<Permission>();
         private CancellationTokenSource _PermissionsCancellationTokenSource;
         private CancellationToken _PermissionsCancellationToken;
 
@@ -39,14 +40,11 @@ namespace BigQ.Server.Managers
         /// <summary>
         /// Instantiate the object.
         /// </summary>
-        /// <param name="logging">LoggingModule instance.</param>
         /// <param name="config">ServerConfiguration instance.</param>
-        public AuthManager(LoggingModule logging, ServerConfiguration config)
+        public AuthManager(ServerConfiguration config)
         {
-            if (logging == null) throw new ArgumentNullException(nameof(logging));
             if (config == null) throw new ArgumentNullException(nameof(config));
 
-            _Logging = logging;
             _Config = config;
 
             _UsersCancellationTokenSource = new CancellationTokenSource();
@@ -78,104 +76,57 @@ namespace BigQ.Server.Managers
         /// <param name="ip">IP address of the user.</param>
         /// <returns>True if allowed.</returns>
         public bool AllowConnection(string email, string ip)
-        {
-            try
-            {
-                if (_Users != null && _Users.Count > 0)
+        { 
+            if (_Users != null && _Users.Count > 0)
+            { 
+                if (String.IsNullOrEmpty(email)) return false;
+                if (String.IsNullOrEmpty(ip)) return false;
+                      
+                User currUser = GetUser(email);
+                if (currUser == null || currUser == default(User)) return false;
+
+                if (String.IsNullOrEmpty(currUser.Permission))
                 {
-                    #region Check-for-Null-Values
+                    #region No-Permissions-Only-Check-IP
 
-                    if (String.IsNullOrEmpty(email))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "AllowConnection no email supplied");
-                        return false;
-                    }
-
-                    if (String.IsNullOrEmpty(ip))
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "AllowConnection no IP supplied");
-                        return false;
-                    }
-
-                    #endregion
-
-                    #region Users-List-Present
-
-                    User currUser = GetUser(email);
-                    if (currUser == null)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "AllowConnection unable to find entry for email " + email);
-                        return false;
-                    }
-
-                    if (String.IsNullOrEmpty(currUser.Permission))
-                    {
-                        #region No-Permissions-Only-Check-IP
-
-                        if (currUser.IPWhiteList == null || currUser.IPWhiteList.Count < 1)
-                        {
-                            // deault permit
-                            return true;
-                        }
-                        else
-                        {
-                            if (currUser.IPWhiteList.Contains(ip)) return true;
-                            return false;
-                        }
-
-                        #endregion
+                    if (currUser.IPWhiteList == null || currUser.IPWhiteList.Count < 1)
+                    { 
+                        return true;
                     }
                     else
                     {
-                        #region Check-Permissions-Object
-
-                        Permission currPermission = GetPermission(currUser.Permission);
-                        if (currPermission == null)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "AllowConnection permission entry " + currUser.Permission + " not found for user " + email);
-                            return false;
-                        }
-
-                        if (!currPermission.Login)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "AllowConnection login permission denied in permission entry " + currUser.Permission + " for user " + email);
-                            return false;
-                        }
-
-                        #endregion
-
-                        #region Check-IP
-
-                        if (currUser.IPWhiteList == null || currUser.IPWhiteList.Count < 1)
-                        {
-                            // deault permit
-                            return true;
-                        }
-                        else
-                        {
-                            if (currUser.IPWhiteList.Contains(ip)) return true;
-                            return false;
-                        }
-
-                        #endregion
+                        if (currUser.IPWhiteList.Contains(ip)) return true;
+                        return false;
                     }
 
                     #endregion
                 }
                 else
                 {
-                    #region Default-Permit
+                    #region Check-Permissions-Object
 
-                    return true;
+                    Permission currPermission = GetPermission(currUser.Permission);
+                    if (currPermission == null || currPermission == default(Permission)) return false;
+                    if (!currPermission.Login) return false;
 
                     #endregion
-                }
+
+                    #region Check-IP
+
+                    if (currUser.IPWhiteList == null || currUser.IPWhiteList.Count < 1) return true;
+                    else
+                    {
+                        if (currUser.IPWhiteList.Contains(ip)) return true;
+                        return false;
+                    }
+
+                    #endregion
+                } 
             }
-            catch (Exception e)
+            else
             {
-                _Logging.LogException("Server", "AllowConnection", e);
-                return false;
-            }
+                return true; // default permit
+            } 
         }
 
         /// <summary>
@@ -184,102 +135,38 @@ namespace BigQ.Server.Managers
         /// <param name="message">The Message object.</param>
         /// <returns>True if authorized.</returns>
         public bool AuthorizeMessage(Message message)
-        {
-            try
+        { 
+            if (message == null) return false;
+            if (_Users == null || _Users.Count < 1) return true;
+                  
+            if (!String.IsNullOrEmpty(message.Email))
             {
-                #region Check-for-Null-Values
+                #region Authenticate-Credentials
 
-                if (message == null)
+                User currUser = GetUser(message.Email);
+                if (currUser == null || currUser == default(User)) return false;
+                if (!String.IsNullOrEmpty(currUser.Password)) 
                 {
-                    _Logging.Log(LoggingModule.Severity.Warn, "AuthorizeMessage null message supplied");
-                    return false;
-                }
-
-                if (_Users == null || _Users.Count < 1)
-                {
-                    // default permit
-                    return true;
+                    if (String.Compare(currUser.Password, message.Password) != 0) return false;
                 }
 
                 #endregion
 
-                #region Process
+                #region Verify-Permissions
 
-                if (!String.IsNullOrEmpty(message.Email))
-                {
-                    #region Authenticate-Credentials
-
-                    User currUser = GetUser(message.Email);
-                    if (currUser == null)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "AuthenticateUser unable to find user " + message.Email);
-                        return false;
-                    }
-
-                    if (!String.IsNullOrEmpty(currUser.Password))
-                    {
-                        if (String.Compare(currUser.Password, message.Password) != 0)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "AuthenticateUser invalid password supplied for user " + message.Email);
-                            return false;
-                        }
-                    }
-
-                    #endregion
-
-                    #region Verify-Permissions
-
-                    if (String.IsNullOrEmpty(currUser.Permission))
-                    {
-                        // default permit
-                        // Logging.Log(LoggingModule.Severity.Debug, "AuthenticateUser default permit in use (user " + CurrentMessage.Email + " has null permission list)");
-                        return true;
-                    }
-                     
-                    Permission currPermission = GetPermission(currUser.Permission);
-                    if (currPermission == null)
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "AuthorizeMessage unable to find permission " + currUser.Permission + " for user " + currUser.Email);
-                        return false;
-                    }
-
-                    if (currPermission.Permissions == null || currPermission.Permissions.Count < 1)
-                    {
-                        // default permit
-                        // Logging.Log(LoggingModule.Severity.Debug, "AuthorizeMessage default permit in use (no permissions found for permission name " + currUser.Permission);
-                        return true;
-                    }
-
-                    if (currPermission.Permissions.Contains(message.Command.ToString()))
-                    {
-                        // Logging.Log(LoggingModule.Severity.Debug, "AuthorizeMessage found permission for command " + CurrentMessage.Command + " in permission " + currUser.Permission + " for user " + currUser.Email);
-                        return true;
-                    }
-                    else
-                    {
-                        _Logging.Log(LoggingModule.Severity.Warn, "AuthorizeMessage permission " + currPermission.Name + " does not contain command " + message.Command + " for user " + currUser.Email);
-                        return false;
-                    }
-
-                    #endregion
-                }
-                else
-                {
-                    #region No-Material
-
-                    _Logging.Log(LoggingModule.Severity.Warn, "AuthenticateUser no authentication material supplied");
-                    return false;
-
-                    #endregion
-                }
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "AuthorizeMessage", e);
+                if (String.IsNullOrEmpty(currUser.Permission)) return true; // default permit
+                Permission currPermission = GetPermission(currUser.Permission);
+                if (currPermission == null || currPermission == default(Permission)) return false;
+                if (currPermission.Permissions == null || currPermission.Permissions.Count < 1) return true; // default permit
+                if (currPermission.Permissions.Contains(message.Command.ToString())) return true;
                 return false;
+
+                #endregion
             }
+            else
+            {
+                return false; // no material
+            } 
         }
 
         /// <summary>
@@ -288,20 +175,12 @@ namespace BigQ.Server.Managers
         /// <returns>List of User objects.</returns>
         public List<User> GetCurrentUsersFile()
         {
-            if (_Users == null || _Users.Count < 1)
+            lock (_UsersLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "GetCurrentUsersFile no users listed or no users file");
-                return null;
+                if (_Users == null || _Users.Count < 1) return null;
+                List<User> ret = new List<User>(_Users);
+                return ret;
             }
-
-            List<User> ret = new List<User>();
-            foreach (User curr in _Users)
-            {
-                ret.Add(curr);
-            }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "GetCurrentUsersFile returning " + ret.Count + " users");
-            return ret;
         }
 
         /// <summary>
@@ -310,20 +189,11 @@ namespace BigQ.Server.Managers
         /// <returns>List of Permission objects.</returns>
         public List<Permission> GetCurrentPermissionsFile()
         {
-            if (_Permissions == null || _Permissions.Count < 1)
+            lock (_PermissionsLock)
             {
-                _Logging.Log(LoggingModule.Severity.Warn, "GetCurrentPermissionsFile no permissions listed or no permissions file");
-                return null;
+                if (_Permissions == null || _Permissions.Count < 1) return null;
+                return new List<Permission>(_Permissions);
             }
-
-            List<Permission> ret = new List<Permission>();
-            foreach (Permission curr in _Permissions)
-            {
-                ret.Add(curr);
-            }
-
-            _Logging.Log(LoggingModule.Severity.Debug, "GetCurrentPermissionsFile returning " + ret.Count + " permissions");
-            return ret;
         }
 
         #endregion
@@ -369,17 +239,7 @@ namespace BigQ.Server.Managers
                     }
 
                     #endregion
-
-                    #region Check-if-Exists
-
-                    if (!File.Exists(_Config.Files.UsersFile))
-                    {
-                        _Users = new ConcurrentList<User>();
-                        continue;
-                    }
-
-                    #endregion
-
+                     
                     #region Process
 
                     string tempTimestamp = "";
@@ -388,9 +248,7 @@ namespace BigQ.Server.Managers
                     if (String.IsNullOrEmpty(_UsersLastModified))
                     {
                         #region First-Read
-
-                        _Logging.Log(LoggingModule.Severity.Debug, "MonitorUsersFile loading " + _Config.Files.UsersFile);
-
+                         
                         //
                         // get timestamp
                         //
@@ -400,20 +258,17 @@ namespace BigQ.Server.Managers
                         // read and store
                         //
                         fileContents = File.ReadAllText(_Config.Files.UsersFile);
-                        if (String.IsNullOrEmpty(fileContents))
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile empty file found at " + _Config.Files.UsersFile);
-                            continue;
-                        }
+                        if (String.IsNullOrEmpty(fileContents)) continue;
 
                         try
                         {
-                            _Users = Common.DeserializeJson<ConcurrentList<User>>(Encoding.UTF8.GetBytes(fileContents));
+                            lock (_UsersLock)
+                            {
+                                _Users = Common.DeserializeJson<List<User>>(Encoding.UTF8.GetBytes(fileContents));
+                            }
                         }
-                        catch (Exception EInner)
+                        catch (Exception)
                         {
-                            _Logging.LogException("Server", "MonitorUsersFile", EInner);
-                            _Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile unable to deserialize contents of " + _Config.Files.UsersFile);
                             continue;
                         }
 
@@ -432,9 +287,7 @@ namespace BigQ.Server.Managers
                         // compare and update
                         //
                         if (String.Compare(_UsersLastModified, tempTimestamp) != 0)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Debug, "MonitorUsersFile loading " + _Config.Files.UsersFile);
-
+                        { 
                             //
                             // get timestamp
                             //
@@ -444,20 +297,17 @@ namespace BigQ.Server.Managers
                             // read and store
                             //
                             fileContents = File.ReadAllText(_Config.Files.UsersFile);
-                            if (String.IsNullOrEmpty(fileContents))
-                            {
-                                _Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile empty file found at " + _Config.Files.UsersFile);
-                                continue;
-                            }
+                            if (String.IsNullOrEmpty(fileContents)) continue;
 
                             try
                             {
-                                _Users = Common.DeserializeJson<ConcurrentList<User>>(Encoding.UTF8.GetBytes(fileContents));
+                                lock (_UsersLock)
+                                {
+                                    _Users = Common.DeserializeJson<List<User>>(Encoding.UTF8.GetBytes(fileContents));
+                                }
                             }
-                            catch (Exception EInner)
-                            {
-                                _Logging.LogException("Server", "MonitorUsersFile", EInner);
-                                _Logging.Log(LoggingModule.Severity.Warn, "MonitorUsersFile unable to deserialize contents of " + _Config.Files.UsersFile);
+                            catch (Exception)
+                            { 
                                 continue;
                             }
                         }
@@ -472,9 +322,9 @@ namespace BigQ.Server.Managers
             {
                 // do nothing
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _Logging.LogException("Server", "MonitorUsersFile", e);
+
             }
         }
 
@@ -501,11 +351,7 @@ namespace BigQ.Server.Managers
 
                     #region Check-if-Exists
 
-                    if (!File.Exists(_Config.Files.PermissionsFile))
-                    {
-                        _Permissions = new ConcurrentList<Permission>();
-                        continue;
-                    }
+                    if (!File.Exists(_Config.Files.PermissionsFile)) continue;
 
                     #endregion
 
@@ -517,9 +363,7 @@ namespace BigQ.Server.Managers
                     if (String.IsNullOrEmpty(_PermissionsLastModified))
                     {
                         #region First-Read
-
-                        _Logging.Log(LoggingModule.Severity.Debug, "MonitorPermissionsFile loading " + _Config.Files.PermissionsFile);
-
+                         
                         //
                         // get timestamp
                         //
@@ -529,20 +373,17 @@ namespace BigQ.Server.Managers
                         // read and store
                         //
                         fileContents = File.ReadAllText(_Config.Files.PermissionsFile);
-                        if (String.IsNullOrEmpty(fileContents))
-                        {
-                            _Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile empty file found at " + _Config.Files.PermissionsFile);
-                            continue;
-                        }
+                        if (String.IsNullOrEmpty(fileContents)) continue;
 
                         try
                         {
-                            _Permissions = Common.DeserializeJson<ConcurrentList<Permission>>(Encoding.UTF8.GetBytes(fileContents));
+                            lock (_PermissionsLock)
+                            {
+                                _Permissions = Common.DeserializeJson<List<Permission>>(Encoding.UTF8.GetBytes(fileContents));
+                            }
                         }
-                        catch (Exception EInner)
-                        {
-                            _Logging.LogException("Server", "MonitorPermissionsFile", EInner);
-                            _Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile unable to deserialize contents of " + _Config.Files.PermissionsFile);
+                        catch (Exception)
+                        { 
                             continue;
                         }
 
@@ -561,9 +402,7 @@ namespace BigQ.Server.Managers
                         // compare and update
                         //
                         if (String.Compare(_PermissionsLastModified, tempTimestamp) != 0)
-                        {
-                            _Logging.Log(LoggingModule.Severity.Debug, "MonitorPermissionsFile loading " + _Config.Files.PermissionsFile);
-
+                        { 
                             //
                             // get timestamp
                             //
@@ -573,20 +412,17 @@ namespace BigQ.Server.Managers
                             // read and store
                             //
                             fileContents = File.ReadAllText(_Config.Files.PermissionsFile);
-                            if (String.IsNullOrEmpty(fileContents))
-                            {
-                                _Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile empty file found at " + _Config.Files.PermissionsFile);
-                                continue;
-                            }
+                            if (String.IsNullOrEmpty(fileContents)) continue;
 
                             try
                             {
-                                _Permissions = Common.DeserializeJson<ConcurrentList<Permission>>(Encoding.UTF8.GetBytes(fileContents));
+                                lock (_PermissionsLock)
+                                {
+                                    _Permissions = Common.DeserializeJson<List<Permission>>(Encoding.UTF8.GetBytes(fileContents));
+                                }
                             }
-                            catch (Exception EInner)
-                            {
-                                _Logging.LogException("Server", "MonitorPermissionsFile", EInner);
-                                _Logging.Log(LoggingModule.Severity.Warn, "MonitorPermissionsFile unable to deserialize contents of " + _Config.Files.PermissionsFile);
+                            catch (Exception)
+                            { 
                                 continue;
                             }
                         }
@@ -601,124 +437,55 @@ namespace BigQ.Server.Managers
             {
                 // do nothing
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _Logging.LogException("Server", "MonitorPermissionsFile", e);
+
             }
         }
 
         private User GetUser(string email)
         {
-            try
-            {
-                #region Check-for-Null-Values
+            if (String.IsNullOrEmpty(email)) return null;
 
-                if (_Users == null || _Users.Count < 1) return null;
-
-                if (String.IsNullOrEmpty(email))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "GetUser null email supplied");
-                    return null;
-                }
-
-                #endregion
-
-                #region Process
-
-                foreach (User currUser in _Users)
-                {
-                    if (String.IsNullOrEmpty(currUser.Email)) continue;
-                    if (currUser.Email.ToLower().Equals(email.ToLower()))
-                    {
-                        return currUser;
-                    }
-                }
-
-                _Logging.Log(LoggingModule.Severity.Warn, "GetUser unable to find email " + email);
-                return null;
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "GetUser", e);
-                return null;
+            lock (_UsersLock)
+            { 
+                if (_Users == null || _Users.Count < 1) return null; 
+                User ret = _Users.FirstOrDefault(u => u.Email.ToLower().Equals(email.ToLower()));
+                if (ret == default(User)) return null;
+                return ret;
             }
         }
 
         private Permission GetUserPermission(string email)
         {
-            try
+            if (String.IsNullOrEmpty(email)) return null;
+            Permission ret = null;
+
+            lock (_PermissionsLock)
             {
-                #region Check-for-Null-Values
-
-                if (_Permissions == null || _Permissions.Count < 1) return null;
-                if (_Users == null || _Users.Count < 1) return null;
-
-                if (String.IsNullOrEmpty(email))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "GetUserPermissions null email supplied");
-                    return null;
-                }
-
-                #endregion
-
-                #region Process
-
+                if (_Permissions == null || _Permissions.Count < 1) return null; 
+                  
                 User currUser = GetUser(email);
-                if (currUser == null)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "GetUserPermission unable to find user " + email);
-                    return null;
-                }
-
+                if (currUser == null) return null;
                 if (String.IsNullOrEmpty(currUser.Permission)) return null;
-                return GetPermission(currUser.Permission);
 
-                #endregion
-            }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "GetUserPermissions", e);
-                return null;
+                ret = _Permissions.FirstOrDefault(p => p.Name.ToLower().Equals(currUser.Permission.ToLower()));
+                if (ret == default(Permission)) return null;
+                return ret;
             }
         }
 
         private Permission GetPermission(string permission)
         {
-            try
-            {
-                #region Check-for-Null-Values
+            if (String.IsNullOrEmpty(permission)) return null;
 
+            lock (_PermissionsLock)
+            { 
                 if (_Permissions == null || _Permissions.Count < 1) return null;
-                if (String.IsNullOrEmpty(permission))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "GetPermission null permission supplied");
-                    return null;
-                }
 
-                #endregion
-
-                #region Process
-
-                foreach (Permission currPermission in _Permissions)
-                {
-                    if (String.IsNullOrEmpty(currPermission.Name)) continue;
-                    if (permission.ToLower().Equals(currPermission.Name.ToLower()))
-                    {
-                        return currPermission;
-                    }
-                }
-
-                _Logging.Log(LoggingModule.Severity.Warn, "GetPermission permission " + permission + " not found");
-                return null;
-
-                #endregion
-            }
-            catch (Exception e)
-            {
-                _Logging.LogException("Server", "GetPermission", e);
-                return null;
+                Permission ret = _Permissions.FirstOrDefault(p => p.Name.ToLower().Equals(permission.ToLower()));
+                if (ret == default(Permission)) return null;
+                return ret;
             }
         }
 

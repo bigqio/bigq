@@ -1,44 +1,18 @@
 {
   "runtimeTarget": {
     "name": ".NETCoreApp,Version=v2.2",
-    "signature": "945de0a8d30ec23a1034489d2aca574894483ce5"
+    "signature": "286efc02a26d346c95d05b189fbf0760cecedb64"
   },
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v2.2": {
       "ClientTest/1.0.0": {
         "dependencies": {
-          "BigQ.Client": "2.1.1",
-          "BigQ.Core": "2.1.1"
+          "BigQ.Client": "2.1.6",
+          "BigQ.Core": "2.1.6"
         },
         "runtime": {
           "ClientTest.dll": {}
-        }
-      },
-      "BigQ.Client/2.1.1": {
-        "dependencies": {
-          "BigQ.Core": "2.1.1"
-        },
-        "runtime": {
-          "lib/netstandard2.0/Client.dll": {
-            "assemblyVersion": "2.1.1.0",
-            "fileVersion": "2.1.1.0"
-          }
-        }
-      },
-      "BigQ.Core/2.1.1": {
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.2",
-          "SyslogLogging": "1.0.10",
-          "WatsonTcp": "1.3.5",
-          "WatsonWebsocket": "1.2.4"
-        },
-        "runtime": {
-          "lib/netstandard2.0/Core.dll": {
-            "assemblyVersion": "2.1.1.0",
-            "fileVersion": "2.1.1.0"
-          }
         }
       },
       "Microsoft.CSharp/4.5.0": {},
@@ -50,22 +24,14 @@
           }
         }
       },
-      "SyslogLogging/1.0.10": {
-        "runtime": {
-          "lib/netstandard2.0/LoggingModule.dll": {
-            "assemblyVersion": "1.0.10.0",
-            "fileVersion": "1.0.10.0"
-          }
-        }
-      },
-      "WatsonTcp/1.3.5": {
+      "WatsonTcp/1.3.6": {
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
         },
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "1.3.5.0",
-            "fileVersion": "1.3.5.0"
+            "assemblyVersion": "1.3.6.0",
+            "fileVersion": "1.3.6.0"
           }
         }
       },
@@ -76,6 +42,22 @@
             "fileVersion": "1.2.4.0"
           }
         }
+      },
+      "BigQ.Client/2.1.6": {
+        "runtime": {
+          "Client.dll": {}
+        }
+      },
+      "BigQ.Core/2.1.6": {
+        "dependencies": {
+          "Microsoft.CSharp": "4.5.0",
+          "Newtonsoft.Json": "12.0.2",
+          "WatsonTcp": "1.3.6",
+          "WatsonWebsocket": "1.2.4"
+        },
+        "runtime": {
+          "Core.dll": {}
+        }
       }
     }
   },
@@ -84,20 +66,6 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
-    },
-    "BigQ.Client/2.1.1": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-BJmeGTeZ6HMuoXYYTPmdwjVDF77YX7lodSyBuLHgMzpKBFR4ACxfn8d7Gn6UcU80J+DUuWL2GTtW4Db38mGTKw==",
-      "path": "bigq.client/2.1.1",
-      "hashPath": "bigq.client.2.1.1.nupkg.sha512"
-    },
-    "BigQ.Core/2.1.1": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-pnj5QsQO3lyQMIEgxpKBDqCcxAYGP8EfLIwFHKMR5alyUy3Ha7Eu2nyjs19tYJXtCU38WVI1EIIKf6JPvJp0/g==",
-      "path": "bigq.core/2.1.1",
-      "hashPath": "bigq.core.2.1.1.nupkg.sha512"
     },
     "Microsoft.CSharp/4.5.0": {
       "type": "package",
@@ -113,19 +81,12 @@
       "path": "newtonsoft.json/12.0.2",
       "hashPath": "newtonsoft.json.12.0.2.nupkg.sha512"
     },
-    "SyslogLogging/1.0.10": {
+    "WatsonTcp/1.3.6": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-yi5UmWevLYRhZy1FR5YbyobICaOIxrpJX9vzCWXDR6W7xUycPT3EtNpYiLI7B5rxf2a3J8rOk++CRtIwEUwJtg==",
-      "path": "sysloglogging/1.0.10",
-      "hashPath": "sysloglogging.1.0.10.nupkg.sha512"
-    },
-    "WatsonTcp/1.3.5": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-lWFqwKhJ1PFE2/u6Y5q8pJkvhSw3+ybtc4IRyGsX1IlDe31ckh130QOdbzmmkvZFE96WL+6UCMCCQcc7Ch4gRA==",
-      "path": "watsontcp/1.3.5",
-      "hashPath": "watsontcp.1.3.5.nupkg.sha512"
+      "sha512": "sha512-3J+pE/WoW1oHZZ+5lQY7C603x4SUOwXsrRa9jz3QZwHYXHV+mr9mFnMvth4JCLLloKAhxx5ahagJPxDsTKhQTA==",
+      "path": "watsontcp/1.3.6",
+      "hashPath": "watsontcp.1.3.6.nupkg.sha512"
     },
     "WatsonWebsocket/1.2.4": {
       "type": "package",
@@ -133,6 +94,16 @@
       "sha512": "sha512-RsARdxPUgY72wE25bPCeGB32x4gdiytqa4RHPCL/LgtgXWquJv/rxjXlXBUUgLLMjjGWdSsEpyz4z2bv+k59jQ==",
       "path": "watsonwebsocket/1.2.4",
       "hashPath": "watsonwebsocket.1.2.4.nupkg.sha512"
+    },
+    "BigQ.Client/2.1.6": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "BigQ.Core/2.1.6": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
     }
   }
 }

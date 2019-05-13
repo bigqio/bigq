@@ -13,9 +13,9 @@ As of v2.0.2, BigQ is now targeted to both .NET Core 2.0 and .NET Framework 4.6.
 
 First things first - do you need help or have feedback?  Contact me at joel dot christner at gmail dot com or file an issue here!
 
-## New in v2.0.4
+## New in v2.1.x
 
-- Migrate from Mono.Data.Sqlite to System.Data.SQLite
+- Refactor to reduce code complexity, improve performance, and improve stability
 
 ## Description
 
@@ -40,7 +40,7 @@ Core use cases for BigQ:
 
 ## Performance
 
-Performance in BigQ is good, however, connection and channel management both have high overhead.  If you have a use case with lots of client joins/exits, BigQ may not be suitable for your environment.  We'd love your help in making BigQ more efficient!
+Performance in BigQ is good, however, connection and channel management both have high overhead.  If you have a use case with lots of client joins/exits, or channel/creates/destroys, BigQ may not be suitable for your environment.  We'd love your help in making BigQ more efficient.  As of now, client join/exit and channel create/destroy can occur roughly every two to three seconds.
 
 ## Components
 
@@ -214,6 +214,7 @@ mono --server myapp.exe
 Notes from previous versions (starting with v1.5.0) will be moved here.
 
 v2.0.x
+- Migrate from Mono.Data.Sqlite to System.Data.SQLite
 - Retarget to .NET Core 2.0 and .NET Framework 4.6.2
 - Major refactor and simplification for better code manageability
 - Separate logic for client and server functions, removed client dependencies within the server

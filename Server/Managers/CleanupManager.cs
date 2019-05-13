@@ -1,7 +1,5 @@
 ﻿using BigQ.Core;
-using SyslogLogging;
-using System;
-using System.Collections.Concurrent;
+using System; 
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,10 +15,10 @@ namespace BigQ.Server.Managers
         #region Private-Members
 
         private bool _Disposed = false;
-
-        private LoggingModule _Logging;
+         
         private ServerConfiguration _Config;
-        private ConcurrentDictionary<string, DateTime> _ActiveSendMap;
+        private readonly object _ActiveSendMapLock = new object();
+        private Dictionary<string, DateTime> _ActiveSendMap = new Dictionary<string, DateTime>();
 
         private CancellationTokenSource _TokenSource;
         private CancellationToken _Token;
@@ -31,19 +29,15 @@ namespace BigQ.Server.Managers
 
         /// <summary>
         /// Instantiate the object.
-        /// </summary>
-        /// <param name="logging">LoggingModule instance.</param>
+        /// </summary> 
         /// <param name="config">ServerConfiguration instance.</param>
-        /// <param name="activeSendMap">Active send map ConcurrentDictionary instance.</param>
-        public CleanupManager(
-            LoggingModule logging, 
+        /// <param name="activeSendMap">Active send map instance.</param>
+        public CleanupManager( 
             ServerConfiguration config, 
-            ConcurrentDictionary<string, DateTime> activeSendMap)
-        {
-            if (logging == null) throw new ArgumentNullException(nameof(logging));
+            Dictionary<string, DateTime> activeSendMap)
+        { 
             if (config == null) throw new ArgumentNullException(nameof(config));
-
-            _Logging = logging;
+             
             _Config = config;
             _ActiveSendMap = activeSendMap;
 
@@ -109,35 +103,15 @@ namespace BigQ.Server.Managers
 
                     #region Process
 
-                    foreach (KeyValuePair<string, DateTime> curr in _ActiveSendMap)
+                    lock (_ActiveSendMapLock)
                     {
-                        if (String.IsNullOrEmpty(curr.Key)) continue;
-                        if (DateTime.Compare(DateTime.Now.ToUniversalTime(), curr.Value) > 0)
+                        foreach (KeyValuePair<string, DateTime> curr in _ActiveSendMap)
                         {
-                            Task.Run(() =>
+                            if (String.IsNullOrEmpty(curr.Key)) continue;
+                            if (DateTime.Compare(DateTime.Now.ToUniversalTime(), curr.Value) > 0)
                             {
-                                int elapsed = 0;
-                                while (true)
-                                {
-                                    _Logging.Log(LoggingModule.Severity.Debug, "CleanupTask attempting to remove active send map for " + curr.Key + " (elapsed " + elapsed + "ms)");
-                                    if (!_ActiveSendMap.ContainsKey(curr.Key))
-                                    {
-                                        _Logging.Log(LoggingModule.Severity.Debug, "CleanupTask key " + curr.Key + " no longer present in active send map, exiting");
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        DateTime removedVal = DateTime.Now;
-                                        if (_ActiveSendMap.TryRemove(curr.Key, out removedVal))
-                                        {
-                                            _Logging.Log(LoggingModule.Severity.Debug, "CleanupTask key " + curr.Key + " removed by cleanup task, exiting");
-                                            break;
-                                        }
-                                        Task.Delay(1000).Wait();
-                                        elapsed += 1000;
-                                    }
-                                }
-                            }, _Token);
+                                if (_ActiveSendMap.ContainsKey(curr.Key)) _ActiveSendMap.Remove(curr.Key);
+                            }
                         }
                     }
 
@@ -148,9 +122,9 @@ namespace BigQ.Server.Managers
             {
                 // do nothing
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                _Logging.LogException("Server", "CleanupTask", e);
+
             }
         }
 

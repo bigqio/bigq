@@ -1,34 +1,60 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using System.Text;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Converters;
 
 namespace BigQ.Core
 {
     /// <summary>
     /// Types of errors included in error responses.
     /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum ErrorTypes
     {
+        [EnumMember(Value = "Unknown")]
         Unknown,
+        [EnumMember(Value = "ServerError")]
         ServerError,
+        [EnumMember(Value = "RecipientNotFound")]
         RecipientNotFound,
+        [EnumMember(Value = "ChannelNotFound")]
         ChannelNotFound,
+        [EnumMember(Value = "BadRequest")]
         BadRequest,
+        [EnumMember(Value = "AuthenticationFailed")]
         AuthenticationFailed,
+        [EnumMember(Value = "AuthorizationFailed")]
         AuthorizationFailed,
+        [EnumMember(Value = "LoginRequired")]
         LoginRequired,
+        [EnumMember(Value = "UnknownCommand")]
         UnknownCommand,
+        [EnumMember(Value = "NotAChannelMember")]
         NotAChannelMember,
+        [EnumMember(Value = "UnableToQueue")]
         UnableToQueue,
+        [EnumMember(Value = "NoChannelMembers")]
         NoChannelMembers,
+        [EnumMember(Value = "NoChannelSubscribers")]
         NoChannelSubscribers,
+        [EnumMember(Value = "ChannelAlreadyExists")]
         ChannelAlreadyExists,
+        [EnumMember(Value = "UnableToCreateChannel")]
         UnableToCreateChannel,
+        [EnumMember(Value = "UnableToDeleteChannel")]
         UnableToDeleteChannel,
+        [EnumMember(Value = "UnableToJoinChannel")]
         UnableToJoinChannel,
+        [EnumMember(Value = "UnableToLeaveChannel")]
         UnableToLeaveChannel,
+        [EnumMember(Value = "UnableToSubscribeChannel")]
         UnableToSubscribeChannel,
+        [EnumMember(Value = "UnableToUnsubscribeChannel")]
         UnableToUnsubscribeChannel,
+        [EnumMember(Value = "DataError")]
         DataError
     }
 

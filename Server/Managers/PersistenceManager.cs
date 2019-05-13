@@ -1,6 +1,5 @@
 ﻿using BigQ.Core;
 using SqliteWrapper;
-using SyslogLogging;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -21,8 +20,7 @@ namespace BigQ.Server.Managers
         #region Private-Members
 
         private bool _Disposed = false;
-
-        private LoggingModule _Logging;
+         
         private ServerConfiguration _Config; 
         private DatabaseClient _Database;
 
@@ -32,34 +30,17 @@ namespace BigQ.Server.Managers
 
         /// <summary>
         /// Instantiate the persistence manager.
-        /// </summary>
-        /// <param name="logging">LoggingModule instance.</param>
+        /// </summary> 
         /// <param name="config">ServerConfiguration instance.</param>
-        public PersistenceManager(LoggingModule logging, ServerConfiguration config)
-        {
-            if (logging == null) throw new ArgumentNullException(nameof(logging));
+        public PersistenceManager(ServerConfiguration config)
+        { 
             if (config == null) throw new ArgumentNullException(nameof(config)); 
+             
+            _Config = config;
 
-            _Logging = logging;
-            _Config = config; 
-
-            if (config.Persistence == null || !config.Persistence.EnablePersistence)
-            {
-                _Logging.Log(LoggingModule.Severity.Debug, "PersistenceManager disabled by configuration");
-                return;
-            }
-
-            if (String.IsNullOrEmpty(config.Files.PersistenceDatabaseFile))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "PersistenceManager no database file defined, disabling");
-                return;
-            }
-
-            if (config.Persistence.ExpirationIntervalMs < 1000)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "PersistenceManager invalid expiration interval, must be at least 1000ms, disabling");
-                return;
-            }
+            if (config.Persistence == null || !config.Persistence.EnablePersistence) return;
+            if (String.IsNullOrEmpty(config.Files.PersistenceDatabaseFile)) return;
+            if (config.Persistence.ExpirationIntervalMs < 1000) return;
 
             InitializeDatabase();
             Task.Run(() => ExpirationTask());
@@ -85,11 +66,7 @@ namespace BigQ.Server.Managers
         /// <returns>Boolean indicating success.</returns>
         public bool PersistMessage(Message msg)
         {
-            if (msg == null)
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "PersistMessage null message supplied");
-                return false;
-            }
+            if (msg == null) return false;
 
             DateTime ts = DateTime.Now.ToUniversalTime();
             double createdTs = DateTimeToEpoch(ts);
@@ -99,59 +76,52 @@ namespace BigQ.Server.Managers
             {
                 DateTime msgExpTs = Convert.ToDateTime(msg.ExpirationUtc);
                 double msgExpEpoch = DateTimeToEpoch(msgExpTs);
-                if (msgExpEpoch > expTs)
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "PersistenceManager specified expiration exceeds max, using max");
-                }
-                else
-                {
-                    expTs = msgExpEpoch;
-                }
+                if (msgExpEpoch < expTs) expTs = msgExpEpoch;
             }
 
             string query = 
                 "BEGIN TRANSACTION; " +
                 "INSERT INTO Messages (" +
-                "   CreatedUtc " +
-                "  ,ExpirationUtc " +
-                "  ,SenderGuid " +
-                "  ,SenderName " +
-                "  ,RecipientGuid " +
-                "  ,ChannelGuid " +
-                "  ,ChannelName " +
-                "  ,MessageId " +
-                "  ,ConversationId " +
-                "  ,MessageSeqnum " +
-                "  ,ContentType " +
-                "  ,ContentLength ";
+                "  CreatedUtc, " +
+                "  ExpirationUtc, " +
+                "  SenderGuid, " +
+                "  SenderName, " +
+                "  RecipientGuid, " +
+                "  ChannelGuid, " +
+                "  ChannelName, " +
+                "  MessageId, " +
+                "  ConversationId, " +
+                "  MessageSeqnum, " +
+                "  ContentType, " +
+                "  ContentLength ";
 
             if (msg.UserHeaders != null && msg.UserHeaders.Count > 0)
-                query += "  ,UserHeaders ";
+                query += ",UserHeaders ";
 
             if (msg.Data != null && msg.Data.Length > 0)
-                query += "  ,Data ";
+                query += ",Data ";
             
             query += 
                 ") " +
                 "VALUES (" +
-                "   '" + createdTs + "' " +
-                "  ,'" + expTs + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.SenderGUID) + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.SenderName) + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.RecipientGUID) + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.ChannelGUID) + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.ChannelName) + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.MessageID) + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.ConversationID) + "' " +
-                "  ,'" + msg.MessageSeqnum + "' " +
-                "  ,'" + DatabaseClient.SanitizeString(msg.ContentType) + "' " +
-                "  ,'" + msg.ContentLength + "' ";
+                "  '" + createdTs + "', " +
+                "  '" + expTs + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.SenderGUID) + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.SenderName) + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.RecipientGUID) + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.ChannelGUID) + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.ChannelName) + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.MessageID) + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.ConversationID) + "', " +
+                "  '" + msg.MessageSeqnum + "', " +
+                "  '" + DatabaseClient.SanitizeString(msg.ContentType) + "', " +
+                "  '" + msg.ContentLength + "' ";
 
             if (msg.UserHeaders != null && msg.UserHeaders.Count > 0)
-                query += "  ,'" + EncodeHeaders(msg.UserHeaders) + "' ";
+                query += ",'" + EncodeHeaders(msg.UserHeaders) + "' ";
 
             if (msg.Data != null && msg.Data.Length > 0)
-                query += "  ,X'" + EncodeData(msg.Data) + "' ";
+                query += ",X'" + EncodeData(msg.Data) + "' ";
 
             query +=
                 "); " +
@@ -159,14 +129,7 @@ namespace BigQ.Server.Managers
                 "COMMIT; ";
 
             DataTable result = _Database.Query(query);
-            if (Helper.DataTableIsNullOrEmpty(result))
-            {
-                _Logging.Log(LoggingModule.Severity.Warn, "PersistMessage unable to persist message from " +
-                    msg.SenderGUID + " " + msg.SenderName + " to " +
-                    "recipient " + msg.RecipientGUID + " " +
-                    "channel " + msg.ChannelGUID);
-                return false;
-            }
+            if (Helper.DataTableIsNullOrEmpty(result)) return false;
 
             return true;
         }
@@ -203,12 +166,7 @@ namespace BigQ.Server.Managers
             {
                 Message m = null;
                 int id = -1;
-                if (!DataRowToMessage(curr, out m, out id))
-                {
-                    _Logging.Log(LoggingModule.Severity.Warn, "GetMessagesForRecipient error parsing message for GUID " + guid);
-                    continue;
-                }
-
+                if (!DataRowToMessage(curr, out m, out id)) continue; 
                 msgs.Add(id, m);
             }
         }

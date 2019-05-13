@@ -27,22 +27,12 @@ namespace BigQ.Core
         /// Settings related to message persistence.
         /// </summary>
         public PersistenceSettings Persistence;
-         
-        /// <summary>
-        /// Settings related to logging.
-        /// </summary>
-        public LoggingSettings Logging;
-
+          
         /// <summary>
         /// Settings related to notifications sent by the server.
         /// </summary>
         public NotificationSettings Notification;
-
-        /// <summary>
-        /// Settings related to debugging server behavior and log messages.
-        /// </summary>
-        public DebugSettings Debug;
-
+         
         /// <summary>
         /// Settings related to the BigQ TCP server (no SSL).
         /// </summary>
@@ -131,38 +121,7 @@ namespace BigQ.Core
             /// </summary>
             public int RefreshIntervalMs;
         }
-         
-        /// <summary>
-        /// Settings related to logging.
-        /// </summary>
-        public class LoggingSettings
-        {
-            /// <summary>
-            /// Enable or disable console logging.
-            /// </summary>
-            public bool ConsoleLogging;
-
-            /// <summary>
-            /// Enable or disable syslog logging.
-            /// </summary>
-            public bool SyslogLogging;
-
-            /// <summary>
-            /// IP address of the syslog server.
-            /// </summary>
-            public string SyslogServerIp;
-
-            /// <summary>
-            /// UDP port of the syslog server.
-            /// </summary>
-            public int SyslogServerPort;
-
-            /// <summary>
-            /// Minimum severity required to send log messages.
-            /// </summary>
-            public int MinimumSeverity;
-        }
-
+          
         /// <summary>
         /// Settings related to notifications sent by the server.
         /// </summary>
@@ -183,28 +142,7 @@ namespace BigQ.Core
             /// </summary>
             public bool ChannelJoinNotification;
         }
-
-        /// <summary>
-        /// Settings related to debugging server behavior and log messages.
-        /// </summary>
-        public class DebugSettings
-        {
-            /// <summary>
-            /// Enable or disable debugging.
-            /// </summary>
-            public bool Enable;
-             
-            /// <summary>
-            /// Enable or disable log messages related to connection management.
-            /// </summary>
-            public bool ConnectionMgmt;
-
-            /// <summary>
-            /// Enable or disable log messages related to channel management.
-            /// </summary>
-            public bool ChannelMgmt;
-        }
-
+         
         /// <summary>
         /// Settings related to the BigQ TCP server (no SSL).
         /// </summary>
@@ -360,10 +298,8 @@ namespace BigQ.Core
         public void ValidateConfig()
         { 
             if (Files == null) throw new ArgumentException("Files section must not be null.");
-            if (Persistence == null) throw new ArgumentException("Persistence section must not be null."); 
-            if (Logging == null) throw new ArgumentException("Logging section must not be null.");
-            if (Notification == null) throw new ArgumentException("Notification section must not be null.");
-            if (Debug == null) throw new ArgumentException("Debug section must not be null.");
+            if (Persistence == null) throw new ArgumentException("Persistence section must not be null.");  
+            if (Notification == null) throw new ArgumentException("Notification section must not be null."); 
             if (TcpServer == null) throw new ArgumentException("TcpServer section must not be null.");
             if (TcpSslServer == null) throw new ArgumentException("TcpSslServer section must not be null.");
             if (WebsocketServer == null) throw new ArgumentException("WebsocketServer section must not be null.");
@@ -435,26 +371,14 @@ namespace BigQ.Core
             ret.Persistence.EnablePersistence = true;
             ret.Persistence.DebugDatabase = false;
             ret.Persistence.MaxExpirationSeconds = 30; 
-            ret.Persistence.RefreshIntervalMs = 1000;
-            ret.Persistence.ExpirationIntervalMs = 3000;
-             
-            ret.Logging = new LoggingSettings();
-            ret.Logging.ConsoleLogging = true;
-            ret.Logging.SyslogLogging = false;
-            ret.Logging.SyslogServerIp = "127.0.0.1";
-            ret.Logging.SyslogServerPort = 514;
-            ret.Logging.MinimumSeverity = 1;
-
+            ret.Persistence.RefreshIntervalMs = 5000;
+            ret.Persistence.ExpirationIntervalMs = 15000;
+              
             ret.Notification = new NotificationSettings();
             ret.Notification.MsgAcknowledgement = false;
             ret.Notification.ServerJoinNotification = true;
             ret.Notification.ChannelJoinNotification = true;
-
-            ret.Debug = new DebugSettings();
-            ret.Debug.Enable = false;
-            ret.Debug.ConnectionMgmt = false;
-            ret.Debug.ChannelMgmt = false; 
-
+             
             ret.TcpServer = new TcpServerSettings();
             ret.TcpServer.Enable = true;
             ret.TcpServer.Ip = "127.0.0.1";

@@ -279,7 +279,7 @@ namespace BigQ.Core
         }
 
         public Message ChannelCreateSuccess(ServerClient currentClient, Message currentMessage, Channel currentChannel)
-        {
+        { 
             currentMessage = currentMessage.Redact();
             currentMessage.RecipientGUID = currentMessage.SenderGUID;
             currentMessage.SenderGUID = ServerGUID;
@@ -289,7 +289,7 @@ namespace BigQ.Core
             currentMessage.SyncResponse = currentMessage.SyncRequest;
             currentMessage.SyncRequest = false;
             currentMessage.Data = SuccessData.ToBytes("Channel created successfully", currentChannel.ChannelGUID);
-            return currentMessage;
+            return currentMessage; 
         }
 
         public Message ChannelCreateFailure(ServerClient currentClient, Message currentMessage)
