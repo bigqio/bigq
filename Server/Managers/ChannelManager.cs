@@ -311,11 +311,11 @@ namespace BigQ.Server.Managers
         public bool AddChannelMember(Channel channel, ServerClient client)
         {
             if (channel == null)
-            {
+            { 
                 return false;
             }
             if (client == null)
-            {
+            { 
                 return false;
             }
              
@@ -323,19 +323,19 @@ namespace BigQ.Server.Managers
             {
                 Channel curr = _Channels.FirstOrDefault(c => c.Value.ChannelGUID.ToLower().Equals(channel.ChannelGUID.ToLower())).Value;
                 if (curr == null || curr == default(Channel))
-                {
+                { 
                     return false;
                 }
 
                 ServerClient sc = curr.Members.FirstOrDefault(m => m.ClientGUID.ToLower().Equals(client.ClientGUID.ToLower()));
                 if (sc == null || sc == default(ServerClient)) 
-                {
+                { 
                     curr.Members.Add(client);
                     _Channels.Remove(curr.ChannelGUID);
                     _Channels.Add(curr.ChannelGUID, curr); 
                 }
                 else
-                {
+                { 
                     curr.Members.Remove(sc);
                     curr.Members.Add(client); 
                     _Channels.Remove(curr.ChannelGUID);
@@ -547,30 +547,25 @@ namespace BigQ.Server.Managers
         public bool RemoveChannelSubscriber(Channel channel, ServerClient client)
         {
             if (channel == null)
-            {
-                Console.WriteLine("Null channel");
+            { 
                 return false;
             }
             if (client == null)
-            {
-                Console.WriteLine("Null client");
+            { 
                 return false;
             }
-
-            Console.WriteLine("Acquiring channel lock");
+             
             lock (_ChannelsLock)
             {
                 Channel curr = _Channels.FirstOrDefault(c => c.Value.ChannelGUID.ToLower().Equals(channel.ChannelGUID.ToLower())).Value;
                 if (curr == null || curr == default(Channel))
-                {
-                    Console.WriteLine("Unable to find channel");
+                { 
                     return false;
                 }
 
                 ServerClient sc = curr.Subscribers.FirstOrDefault(m => m.ClientGUID.ToLower().Equals(client.ClientGUID.ToLower()));
                 if (sc == null || sc == default(ServerClient))
-                {
-                    Console.WriteLine("Unable to find client");
+                { 
                     return false;
                 }
 
@@ -579,12 +574,10 @@ namespace BigQ.Server.Managers
                     List<ServerClient> updated = curr.Subscribers.Where(m => !m.ClientGUID.ToLower().Equals(client.ClientGUID.ToLower())).ToList();
                     curr.Subscribers = updated;
                     _Channels.Remove(curr.ChannelGUID);
-                    _Channels.Add(curr.ChannelGUID, curr);
-                    Console.WriteLine("Channel " + curr.ChannelGUID + " now has " + curr.Subscribers.Count + " subscribers");
+                    _Channels.Add(curr.ChannelGUID, curr); 
                     return true;
                 }
-
-                Console.WriteLine("No subscribers");
+                 
                 return false;
             }
         }

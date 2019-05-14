@@ -11,4 +11,3 @@ C:\Code\BigQ\BigQ-2.1\Client\obj\Debug\net462\Client.csproj.CopyComplete
 C:\Code\BigQ\BigQ-2.1\Client\obj\Debug\net462\Client.dll
 C:\Code\BigQ\BigQ-2.1\Client\obj\Debug\net462\Client.pdb
 C:\Code\BigQ\BigQ-2.1\Client\obj\Debug\net462\Client.csprojAssemblyReference.cache
-C:\Code\BigQ\BigQ-2.1\Client\bin\Debug\net462\Core.pdb

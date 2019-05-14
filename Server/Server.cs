@@ -1,6 +1,5 @@
-﻿using BigQ.Core;
-using BigQ.Server.Managers; 
-using System; 
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using WatsonTcp;
 using WatsonWebsocket;
+
+using BigQ.Core;
+using BigQ.Server.Managers;
 
 namespace BigQ.Server
 {
@@ -674,7 +676,7 @@ namespace BigQ.Server
         }
 
         private void StartClientQueue(ServerClient client)
-        {
+        { 
             client.RamQueueTokenSource = new CancellationTokenSource();
             client.RamQueueToken = client.RamQueueTokenSource.Token;
             client.RamQueueToken.ThrowIfCancellationRequested();
@@ -684,17 +686,17 @@ namespace BigQ.Server
             client.DiskQueueToken.ThrowIfCancellationRequested();
              
             Task.Run(() => ProcessClientRamQueue(client, client.RamQueueToken), client.RamQueueToken);
-            Task.Run(() => ProcessClientDiskQueue(client, client.RamQueueToken), client.DiskQueueToken);
+            Task.Run(() => ProcessClientDiskQueue(client, client.RamQueueToken), client.DiskQueueToken); 
         }
 
         private bool QueueClientMessage(ServerClient client, Message message)
-        {  
+        { 
             if (message.Persist)
-            {
+            { 
                 if (!_PersistenceMgr.PersistMessage(message)) return false;
             }
             else
-            {
+            { 
                 client.MessageQueue.Add(message);
             }
 
@@ -739,7 +741,7 @@ namespace BigQ.Server
                 #endregion
             }
             catch (Exception)
-            {
+            { 
                 return;
             }            
         }
@@ -842,22 +844,29 @@ namespace BigQ.Server
         }
 
         private bool ChannelJoinEvent(ServerClient client, Channel channel)
-        {  
-            List<ServerClient> currentClients = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
-            if (currentClients == null || currentClients.Count < 1) return true;
-
-            Message msg = _MsgBuilder.ChannelJoinEvent(channel, client);
-
-            foreach (ServerClient curr in currentClients)
+        {
+            try
             {
-                if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
-                { 
-                    msg.RecipientGUID = curr.ClientGUID;
-                    bool responseSuccess = QueueClientMessage(curr, msg); 
-                }
-            }
+                List<ServerClient> currentClients = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
+                if (currentClients == null || currentClients.Count < 1) return true;
 
-            return true;
+                Message msg = _MsgBuilder.ChannelJoinEvent(channel, client);
+
+                foreach (ServerClient curr in currentClients)
+                {
+                    if (String.Compare(curr.ClientGUID, client.ClientGUID) != 0)
+                    {
+                        msg.RecipientGUID = curr.ClientGUID;
+                        bool responseSuccess = QueueClientMessage(curr, msg);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception)
+            { 
+                return false;
+            }
         }
 
         private bool ChannelLeaveEvent(ServerClient client, Channel channel)
@@ -1105,7 +1114,7 @@ namespace BigQ.Server
         private bool AddChannelMember(ServerClient client, Channel channel)
         {
             if (_ChannelMgr.AddChannelMember(channel, client))
-            {
+            { 
                 if (Config.Notification.ChannelJoinNotification)
                 {
                     ChannelJoinEvent(client, channel);
@@ -1114,7 +1123,7 @@ namespace BigQ.Server
                 return true;
             }
             else
-            {
+            { 
                 return false;
             }
         }
@@ -1197,7 +1206,7 @@ namespace BigQ.Server
             ServerClient currentRecipient = null;
             Channel currentChannel = null;
             Message responseMessage = new Message();
-            bool responseSuccess = false; 
+            bool responseSuccess = false;
              
             if (String.IsNullOrEmpty(client.ClientGUID))
             {
@@ -1598,6 +1607,10 @@ namespace BigQ.Server
 
                 return message;
             }
+            catch (Exception)
+            { 
+                return null;
+            }
             finally
             { 
                 if (runClientLoginTask)
@@ -1651,22 +1664,34 @@ namespace BigQ.Server
         }
 
         private Message ProcessJoinChannelMessage(ServerClient client, Message message)
-        { 
-            Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
-
-            if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
-            else
+        {
+            try
             {
-                // AddChannelMember handles notifications
-                if (!AddChannelMember(client, currentChannel))
-                {
-                    return _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
+                Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
+
+                if (currentChannel == null)
+                { 
+                    return _MsgBuilder.ChannelNotFound(client, message);
                 }
                 else
-                {
-                    return _MsgBuilder.ChannelJoinSuccess(client, message, currentChannel);
+                { 
+                    // AddChannelMember handles notifications
+                    if (!AddChannelMember(client, currentChannel))
+                    { 
+                        Message ret = _MsgBuilder.ChannelJoinFailure(client, message, currentChannel); 
+                        return ret;
+                    }
+                    else
+                    { 
+                        Message ret = _MsgBuilder.ChannelJoinSuccess(client, message, currentChannel); 
+                        return ret;
+                    }
                 }
-            } 
+            }
+            catch (Exception)
+            { 
+                return null;
+            }
         }
 
         private Message ProcessSubscribeChannelMessage(ServerClient client, Message message)

@@ -2,7 +2,7 @@
   "version": 3,
   "targets": {
     ".NETFramework,Version=v4.6.2": {
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
@@ -61,7 +61,7 @@
       }
     },
     ".NETStandard,Version=v2.0": {
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
@@ -142,14 +142,14 @@
     }
   },
   "libraries": {
-    "BigQ.Core/2.1.6": {
-      "sha512": "6TxB33W6YmBK9TLx/YKLaGtIgdUYtXRkRlpWC01YSSJRpbWWUErr0g9c1gPo6L0b9jDkCwkyTQKHBd3zvCkjKg==",
+    "BigQ.Core/2.1.7": {
+      "sha512": "Mf7aEnPC6AKoRT1ehq+5SSp/l0lyM1Ae0SbI1z/94HsrazNM/+TcElIJSsvy6jRmx7hhMTtdA4fK460GLahAKg==",
       "type": "package",
-      "path": "bigq.core/2.1.6",
+      "path": "bigq.core/2.1.7",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "bigq.core.2.1.6.nupkg.sha512",
+        "bigq.core.2.1.7.nupkg.sha512",
         "bigq.core.nuspec",
         "lib/net462/Core.dll",
         "lib/netstandard2.0/Core.dll"
@@ -425,10 +425,10 @@
   },
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Core >= 2.1.6"
+      "BigQ.Core >= 2.1.7"
     ],
     ".NETStandard,Version=v2.0": [
-      "BigQ.Core >= 2.1.6",
+      "BigQ.Core >= 2.1.7",
       "NETStandard.Library >= 2.0.3"
     ]
   },
@@ -437,7 +437,7 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
-    "version": "2.1.6",
+    "version": "2.1.7",
     "restore": {
       "projectUniqueName": "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj",
       "projectName": "BigQ.Client",
@@ -480,7 +480,7 @@
         "dependencies": {
           "BigQ.Core": {
             "target": "Package",
-            "version": "[2.1.6, )"
+            "version": "[2.1.7, )"
           }
         }
       },
@@ -488,7 +488,7 @@
         "dependencies": {
           "BigQ.Core": {
             "target": "Package",
-            "version": "[2.1.6, )"
+            "version": "[2.1.7, )"
           },
           "NETStandard.Library": {
             "suppressParent": "All",

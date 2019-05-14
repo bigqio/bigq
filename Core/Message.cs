@@ -66,7 +66,7 @@ namespace BigQ.Core
         /// <summary>
         /// Timestamp indicating when the persistent message should expire.
         /// </summary>
-        public DateTime ExpirationUtc;
+        public DateTime? ExpirationUtc;
 
         /// <summary>
         /// Unique identifier for the message.
@@ -284,6 +284,17 @@ namespace BigQ.Core
                         }
                         break;
 
+                    case "synctimeoutms":
+                        try
+                        {
+                            SyncTimeoutMs = Convert.ToInt32(val);
+                        }
+                        catch (Exception)
+                        {
+                            throw new ArgumentException("SyncTimeoutMs must be of form convertible to integer.");
+                        }
+                        break;
+
                     case "persist":
                         try
                         {
@@ -428,6 +439,7 @@ namespace BigQ.Core
                 " Success " + Success + Environment.NewLine;
 
             ret += " | Sync Request " + SyncRequest + 
+                " Sync Timeout " + SyncTimeoutMs + 
                 " Sync Response " + SyncResponse + 
                 " Persist " + Persist + Environment.NewLine;
 
@@ -534,8 +546,11 @@ namespace BigQ.Core
             headerSb.Append("Command: " + Command.ToString());
             headerSb.Append("\r\n");
 
-            headerSb.Append("ExpirationUtc: " + ExpirationUtc.ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.ffffff"));
-            headerSb.Append("\r\n");
+            if (ExpirationUtc != null)
+            {
+                headerSb.Append("ExpirationUtc: " + Convert.ToDateTime(ExpirationUtc).ToUniversalTime().ToString("MM/dd/yyyy HH:mm:ss.ffffff"));
+                headerSb.Append("\r\n");
+            }
             
             if (!String.IsNullOrEmpty(MessageID))
             {

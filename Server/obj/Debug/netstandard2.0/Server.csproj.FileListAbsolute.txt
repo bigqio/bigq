@@ -7,6 +7,3 @@ C:\Code\BigQ\BigQ-2.1\Server\obj\Debug\netstandard2.0\Server.AssemblyInfoInputs.
 C:\Code\BigQ\BigQ-2.1\Server\obj\Debug\netstandard2.0\Server.AssemblyInfo.cs
 C:\Code\BigQ\BigQ-2.1\Server\obj\Debug\netstandard2.0\Server.dll
 C:\Code\BigQ\BigQ-2.1\Server\obj\Debug\netstandard2.0\Server.pdb
-C:\Code\BigQ\BigQ-2.1\Server\bin\Debug\netstandard2.0\Core.dll
-C:\Code\BigQ\BigQ-2.1\Server\bin\Debug\netstandard2.0\Core.pdb
-C:\Code\BigQ\BigQ-2.1\Server\obj\Debug\netstandard2.0\Server.csproj.CopyComplete

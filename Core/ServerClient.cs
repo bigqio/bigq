@@ -70,7 +70,7 @@ namespace BigQ.Core
         /// <summary>
         /// A blocking collection containing the messages that are queued for delivery to this client.
         /// </summary>
-        public BlockingCollection<Message> MessageQueue;
+        public BlockingCollection<Message> MessageQueue = new BlockingCollection<Message>();
 
         /// <summary>
         /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
@@ -91,7 +91,7 @@ namespace BigQ.Core
         /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
         /// </summary>
         public CancellationToken DiskQueueToken;
-
+         
         #endregion
 
         #region Private-Members

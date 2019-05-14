@@ -294,7 +294,7 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -310,10 +310,11 @@
           "bin/placeholder/BigQ.Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.6": {
+      "BigQ.Server/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
+          "BigQ.Core": "2.1.6",
           "SqliteHelper": "1.0.11"
         },
         "compile": {
@@ -853,7 +854,7 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -869,10 +870,11 @@
           "bin/placeholder/BigQ.Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.6": {
+      "BigQ.Server/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
+          "BigQ.Core": "2.1.6",
           "SqliteHelper": "1.0.11"
         },
         "compile": {
@@ -1013,7 +1015,7 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
@@ -1029,10 +1031,11 @@
           "bin/placeholder/BigQ.Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.6": {
+      "BigQ.Server/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
+          "BigQ.Core": "2.1.6",
           "SqliteHelper": "1.0.11"
         },
         "compile": {
@@ -1155,7 +1158,7 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
@@ -1171,10 +1174,11 @@
           "bin/placeholder/BigQ.Core.dll": {}
         }
       },
-      "BigQ.Server/2.1.6": {
+      "BigQ.Server/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
+          "BigQ.Core": "2.1.6",
           "SqliteHelper": "1.0.11"
         },
         "compile": {
@@ -2216,12 +2220,12 @@
         "watsonwebsocket.nuspec"
       ]
     },
-    "BigQ.Core/2.1.6": {
+    "BigQ.Core/2.1.7": {
       "type": "project",
       "path": "../Core/Core.csproj",
       "msbuildProject": "../Core/Core.csproj"
     },
-    "BigQ.Server/2.1.6": {
+    "BigQ.Server/2.1.7": {
       "type": "project",
       "path": "../Server/Server.csproj",
       "msbuildProject": "../Server/Server.csproj"
@@ -2229,13 +2233,13 @@
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
-      "BigQ.Core >= 2.1.6",
-      "BigQ.Server >= 2.1.6",
+      "BigQ.Core >= 2.1.7",
+      "BigQ.Server >= 2.1.7",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Core >= 2.1.6",
-      "BigQ.Server >= 2.1.6"
+      "BigQ.Core >= 2.1.7",
+      "BigQ.Server >= 2.1.7"
     ]
   },
   "packageFolders": {

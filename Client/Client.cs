@@ -201,6 +201,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = null;
             request.Data = null;
 
@@ -244,6 +245,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = null;
             request.Data = null;
 
@@ -283,6 +285,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = null;
             request.Data = null;
 
@@ -325,6 +328,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -375,6 +379,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -414,6 +419,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -444,6 +450,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -474,6 +481,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -504,6 +512,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -544,6 +553,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = currentChannel.ChannelGUID;
             request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
 
@@ -584,6 +594,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = currentChannel.ChannelGUID;
             request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
 
@@ -624,6 +635,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = currentChannel.ChannelGUID;
             request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
 
@@ -654,6 +666,7 @@ namespace BigQ.Client
             request.RecipientGUID = Config.ServerGUID;
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = guid;
             request.Data = null;
 
@@ -746,27 +759,28 @@ namespace BigQ.Client
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (data == null) throw new ArgumentNullException(nameof(data));
 
-            Message message = new Message();
-            message.Email = Config.Email;
-            message.Password = Config.Password;
-            message.Command = MessageCommand.MessagePrivate;
-            message.CreatedUtc = DateTime.Now.ToUniversalTime();
-            message.MessageID = Guid.NewGuid().ToString();
-            message.SenderGUID = Config.ClientGUID;
-            message.SenderName = Config.Name;
-            message.RecipientGUID = guid;
-            message.ChannelGUID = null;
-            message.SyncRequest = true;
-            message.SyncTimeoutMs = Config.SyncTimeoutMs;
-            message.SyncResponse = false;
-            message.Data = data;
+            Message request = new Message();
+            request.Email = Config.Email;
+            request.Password = Config.Password;
+            request.Command = MessageCommand.MessagePrivate;
+            request.CreatedUtc = DateTime.Now.ToUniversalTime();
+            request.MessageID = Guid.NewGuid().ToString();
+            request.SenderGUID = Config.ClientGUID;
+            request.SenderName = Config.Name;
+            request.RecipientGUID = guid;
+            request.ChannelGUID = null;
+            request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
+            request.SyncResponse = false;
+            request.Data = data;
 
-            if (!AddSyncRequest(message.MessageID)) return false;
-            if (!SendMessage(message)) return false;
+            if (!AddSyncRequest(request.MessageID)) return false;
+            if (!SendMessage(request)) return false;
             int timeoutMs = Config.SyncTimeoutMs;
-            if (message.SyncTimeoutMs > 0) timeoutMs = Convert.ToInt32(message.SyncTimeoutMs);
+            if (request.SyncTimeoutMs > 0) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
 
-            return GetSyncResponse(message.MessageID, timeoutMs, out response);
+            return GetSyncResponse(request.MessageID, timeoutMs, out response);
         }
 
         /// <summary>
@@ -794,6 +808,7 @@ namespace BigQ.Client
             if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
             request.SyncRequest = true;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.RecipientGUID = Config.ServerGUID;
 
             if (!AddSyncRequest(request.MessageID)) return false;
@@ -885,6 +900,7 @@ namespace BigQ.Client
             request.SyncRequest = true;
             request.SyncResponse = false;
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.Data = data;
 
             if (!AddSyncRequest(request.MessageID)) return false;
@@ -978,7 +994,7 @@ namespace BigQ.Client
 
         private bool WatsonMessageReceived(byte[] data)
         {
-            Message curr = new Message(data);
+            Message curr = new Message(data); 
             HandleMessage(curr);
             return true;
         }

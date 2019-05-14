@@ -247,9 +247,12 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.6": {
+      "BigQ.Client/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
+        "dependencies": {
+          "BigQ.Core": "2.1.6"
+        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -257,7 +260,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -771,9 +774,12 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.6": {
+      "BigQ.Client/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
+        "dependencies": {
+          "BigQ.Core": "2.1.6"
+        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -781,7 +787,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -841,9 +847,12 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.6": {
+      "BigQ.Client/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
+        "dependencies": {
+          "BigQ.Core": "2.1.6"
+        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -851,7 +860,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
@@ -911,9 +920,12 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.6": {
+      "BigQ.Client/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
+        "dependencies": {
+          "BigQ.Core": "2.1.6"
+        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -921,7 +933,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
@@ -1805,12 +1817,12 @@
         "watsonwebsocket.nuspec"
       ]
     },
-    "BigQ.Client/2.1.6": {
+    "BigQ.Client/2.1.7": {
       "type": "project",
       "path": "../Client/Client.csproj",
       "msbuildProject": "../Client/Client.csproj"
     },
-    "BigQ.Core/2.1.6": {
+    "BigQ.Core/2.1.7": {
       "type": "project",
       "path": "../Core/Core.csproj",
       "msbuildProject": "../Core/Core.csproj"
@@ -1818,13 +1830,13 @@
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
-      "BigQ.Client >= 2.1.6",
-      "BigQ.Core >= 2.1.6",
+      "BigQ.Client >= 2.1.7",
+      "BigQ.Core >= 2.1.7",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Client >= 2.1.6",
-      "BigQ.Core >= 2.1.6"
+      "BigQ.Client >= 2.1.7",
+      "BigQ.Core >= 2.1.7"
     ]
   },
   "packageFolders": {

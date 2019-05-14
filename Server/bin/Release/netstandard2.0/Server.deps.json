@@ -1,15 +1,15 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v2.0/",
-    "signature": "b68b1f3d6722a439a22df79b3a93ee6dbae927b0"
+    "signature": "19b2e365fc72adc3a46584a10fa187bd62d14f46"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "Server/2.1.6": {
+      "Server/2.1.7": {
         "dependencies": {
-          "BigQ.Core": "2.1.6",
+          "BigQ.Core": "2.1.7",
           "NETStandard.Library": "2.0.3",
           "SqliteHelper": "1.0.11"
         },
@@ -17,7 +17,7 @@
           "Server.dll": {}
         }
       },
-      "BigQ.Core/2.1.6": {
+      "BigQ.Core/2.1.7": {
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
@@ -26,8 +26,8 @@
         },
         "runtime": {
           "lib/netstandard2.0/Core.dll": {
-            "assemblyVersion": "2.1.6.0",
-            "fileVersion": "2.1.6.0"
+            "assemblyVersion": "2.1.7.0",
+            "fileVersion": "2.1.7.0"
           }
         }
       },
@@ -101,17 +101,17 @@
     }
   },
   "libraries": {
-    "Server/2.1.6": {
+    "Server/2.1.7": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "BigQ.Core/2.1.6": {
+    "BigQ.Core/2.1.7": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-6TxB33W6YmBK9TLx/YKLaGtIgdUYtXRkRlpWC01YSSJRpbWWUErr0g9c1gPo6L0b9jDkCwkyTQKHBd3zvCkjKg==",
-      "path": "bigq.core/2.1.6",
-      "hashPath": "bigq.core.2.1.6.nupkg.sha512"
+      "sha512": "sha512-Mf7aEnPC6AKoRT1ehq+5SSp/l0lyM1Ae0SbI1z/94HsrazNM/+TcElIJSsvy6jRmx7hhMTtdA4fK460GLahAKg==",
+      "path": "bigq.core/2.1.7",
+      "hashPath": "bigq.core.2.1.7.nupkg.sha512"
     },
     "Microsoft.CSharp/4.5.0": {
       "type": "package",
