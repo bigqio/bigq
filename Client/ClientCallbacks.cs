@@ -1,13 +1,7 @@
-﻿using BigQ.Core;
-using Newtonsoft.Json.Linq; 
-using System; 
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using WatsonTcp;
-using WatsonWebsocket;
+﻿using System;  
+using System.Threading.Tasks; 
+
+using BigQ.Core;
 
 namespace BigQ.Client
 {
@@ -24,40 +18,40 @@ namespace BigQ.Client
         /// The message is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<Message, bool> AsyncMessageReceived;
+        public Func<Message, Task> AsyncMessageReceived = null;
 
         /// <summary>
         /// Delegate method called when a synchronous message is received.
         /// The message is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<Message, byte[]> SyncMessageReceived;
+        public Func<Message, Task<byte[]>> SyncMessageReceived = null;
 
         /// <summary>
         /// Delegate method called when the server connection is severed.
         /// A response of true is expected.
         /// </summary>
-        public Func<bool> ServerDisconnected;
+        public Func<Task> ServerDisconnected = null;
 
         /// <summary>
         /// Delegate method called when the server connection is restored.
         /// A response of true is expected.
         /// </summary>
-        public Func<bool> ServerConnected;
+        public Func<Task> ServerConnected = null;
 
         /// <summary>
         /// Delegate method called when a client joins the server.
         /// The client GUID is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, bool> ClientJoinedServer;
+        public Func<string, Task> ClientJoinedServer = null;
 
         /// <summary>
         /// Delegate method called when a client leaves the server.
         /// The client GUID is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, bool> ClientLeftServer;
+        public Func<string, Task> ClientLeftServer = null;
 
         /// <summary>
         /// Delegate method called when a client joins a channel.
@@ -65,7 +59,7 @@ namespace BigQ.Client
         /// The channel GUID is the second parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, string, bool> ClientJoinedChannel;
+        public Func<string, string, Task> ClientJoinedChannel = null;
 
         /// <summary>
         /// Delegate method called when a client leaves a channel.
@@ -73,7 +67,7 @@ namespace BigQ.Client
         /// The channel GUID is the second parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, string, bool> ClientLeftChannel;
+        public Func<string, string, Task> ClientLeftChannel = null;
 
         /// <summary>
         /// Delegate method called when a subscriber joins a channel.
@@ -81,7 +75,7 @@ namespace BigQ.Client
         /// The channel GUID is the second parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, string, bool> SubscriberJoinedChannel;
+        public Func<string, string, Task> SubscriberJoinedChannel = null;
 
         /// <summary>
         /// Delegate method called when a subscriber leaves a channel.
@@ -89,47 +83,35 @@ namespace BigQ.Client
         /// The channel GUID is the second parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, string, bool> SubscriberLeftChannel;
+        public Func<string, string, Task> SubscriberLeftChannel = null;
 
         /// <summary>
         /// Delegate method called when a public channel is created.
         /// The channel GUID is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, bool> ChannelCreated;
+        public Func<string, Task> ChannelCreated = null;
 
         /// <summary>
         /// Delegate method called when a public channel is destroyed.
         /// The channel GUID is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<string, bool> ChannelDestroyed;
-         
+        public Func<string, Task> ChannelDestroyed = null;
+
         #endregion
 
         #region Private-Members
 
         #endregion
-         
+
         #region Constructors-and-Factories
 
         /// <summary>
         /// Instantiates the object.
         /// </summary>
         public ClientCallbacks()
-        {
-            AsyncMessageReceived = null;
-            SyncMessageReceived = null;
-            ServerDisconnected = null;
-            ServerConnected = null;
-            ClientJoinedServer = null;
-            ClientLeftServer = null;
-            ClientJoinedChannel = null;
-            ClientLeftChannel = null;
-            SubscriberJoinedChannel = null;
-            SubscriberLeftChannel = null;
-            ChannelCreated = null;
-            ChannelDestroyed = null; 
+        { 
         }
 
         #endregion

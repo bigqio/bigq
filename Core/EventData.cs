@@ -118,10 +118,6 @@ namespace BigQ.Core
 
         #region Private-Methods
 
-        #endregion
-
-        #region Factory
-
-        #endregion
+        #endregion 
     }
 }

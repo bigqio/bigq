@@ -1,27 +1,27 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v2.0/",
-    "signature": "94b2ee531bf10c74fc4cd3425015fa1d62ba7cc4"
+    "signature": "05f3872432fffa0ae56feaf13e3ddd14bd15034c"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "Client/2.1.7": {
+      "Client/2.2.0": {
         "dependencies": {
-          "BigQ.Core": "2.1.7",
+          "BigQ.Core": "2.2.0",
           "NETStandard.Library": "2.0.3"
         },
         "runtime": {
           "Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.2.0": {
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "runtime": {
           "lib/netstandard2.0/Core.dll": {
@@ -52,39 +52,39 @@
           }
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
         },
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "1.3.6.0",
-            "fileVersion": "1.3.6.0"
+            "assemblyVersion": "1.3.12.0",
+            "fileVersion": "1.3.12.0"
           }
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "runtime": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {
-            "assemblyVersion": "1.2.4.0",
-            "fileVersion": "1.2.4.0"
+            "assemblyVersion": "1.3.0.0",
+            "fileVersion": "1.3.0.0"
           }
         }
       }
     }
   },
   "libraries": {
-    "Client/2.1.7": {
+    "Client/2.2.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "BigQ.Core/2.1.7": {
+    "BigQ.Core/2.2.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Mf7aEnPC6AKoRT1ehq+5SSp/l0lyM1Ae0SbI1z/94HsrazNM/+TcElIJSsvy6jRmx7hhMTtdA4fK460GLahAKg==",
-      "path": "bigq.core/2.1.7",
-      "hashPath": "bigq.core.2.1.7.nupkg.sha512"
+      "sha512": "sha512-RE/S06bRVBSaGb9dCxPDW1LXosCH54VwHngMKtotXX/weQCcpN4mR+3deGwYAZy7iiqWKhYGj8d+UPjNA3tuqQ==",
+      "path": "bigq.core/2.2.0",
+      "hashPath": "bigq.core.2.2.0.nupkg.sha512"
     },
     "Microsoft.CSharp/4.5.0": {
       "type": "package",
@@ -114,19 +114,19 @@
       "path": "newtonsoft.json/12.0.2",
       "hashPath": "newtonsoft.json.12.0.2.nupkg.sha512"
     },
-    "WatsonTcp/1.3.6": {
+    "WatsonTcp/1.3.12": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-3J+pE/WoW1oHZZ+5lQY7C603x4SUOwXsrRa9jz3QZwHYXHV+mr9mFnMvth4JCLLloKAhxx5ahagJPxDsTKhQTA==",
-      "path": "watsontcp/1.3.6",
-      "hashPath": "watsontcp.1.3.6.nupkg.sha512"
+      "sha512": "sha512-tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
+      "path": "watsontcp/1.3.12",
+      "hashPath": "watsontcp.1.3.12.nupkg.sha512"
     },
-    "WatsonWebsocket/1.2.4": {
+    "WatsonWebsocket/1.3.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-RsARdxPUgY72wE25bPCeGB32x4gdiytqa4RHPCL/LgtgXWquJv/rxjXlXBUUgLLMjjGWdSsEpyz4z2bv+k59jQ==",
-      "path": "watsonwebsocket/1.2.4",
-      "hashPath": "watsonwebsocket.1.2.4.nupkg.sha512"
+      "sha512": "sha512-c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
+      "path": "watsonwebsocket/1.3.0",
+      "hashPath": "watsonwebsocket.1.3.0.nupkg.sha512"
     }
   }
 }

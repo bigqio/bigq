@@ -17,3 +17,5 @@ C:\Code\BigQ\BigQ-2.1\Server\obj\Release\net462\Server.csproj.CopyComplete
 C:\Code\BigQ\BigQ-2.1\Server\obj\Release\net462\Server.dll
 C:\Code\BigQ\BigQ-2.1\Server\obj\Release\net462\Server.pdb
 C:\code\bigq\bigq-2.1\Server\obj\Release\net462\Server.csprojAssemblyReference.cache
+C:\code\bigq\BigQ-2.1\Server\bin\Release\net462\x64\SQLite.Interop.dll
+C:\code\bigq\BigQ-2.1\Server\bin\Release\net462\x86\SQLite.Interop.dll

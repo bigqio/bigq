@@ -1,13 +1,7 @@
-﻿using BigQ.Core;
-using BigQ.Server.Managers; 
-using System; 
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
+﻿using System; 
 using System.Threading.Tasks;
-using WatsonTcp;
-using WatsonWebsocket;
+
+using BigQ.Core;
 
 namespace BigQ.Server
 {
@@ -23,34 +17,34 @@ namespace BigQ.Server
         /// The message received is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<Message, bool> MessageReceived;
+        public Func<Message, Task> MessageReceived = null;
 
         /// <summary>
         /// Delegate method called when the server stops.
         /// A response of true is expected.
         /// </summary>
-        public Func<bool> ServerStopped;
+        public Func<Task> ServerStopped = null;
 
         /// <summary>
         /// Delegate method called when a client connects to the server.
         /// The client object is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<ServerClient, bool> ClientConnected;
+        public Func<ServerClient, Task> ClientConnected = null;
 
         /// <summary>
         /// Delegate method called when a client issues the login command.
         /// The client object is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<ServerClient, bool> ClientLogin;
+        public Func<ServerClient, Task> ClientLogin = null;
 
         /// <summary>
         /// Delegate method called when the connection to the server is severed.
         /// The client object is the first parameter.
         /// A response of true is expected.
         /// </summary>
-        public Func<ServerClient, bool> ClientDisconnected;
+        public Func<ServerClient, Task> ClientDisconnected = null;
 
         #endregion
 
@@ -64,12 +58,7 @@ namespace BigQ.Server
         /// Instantiate the object.
         /// </summary>
         public ServerCallbacks()
-        {
-            MessageReceived = null;
-            ServerStopped = null;
-            ClientConnected = null;
-            ClientLogin = null;
-            ClientDisconnected = null;
+        { 
         }
          
         #endregion

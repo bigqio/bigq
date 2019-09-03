@@ -226,7 +226,7 @@
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -238,7 +238,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -247,12 +247,9 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.7": {
+      "BigQ.Client/2.2.0": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
-        "dependencies": {
-          "BigQ.Core": "2.1.7"
-        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -260,14 +257,14 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.8": {
+      "BigQ.Core/2.2.0": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "compile": {
           "bin/placeholder/BigQ.Core.dll": {}
@@ -753,7 +750,7 @@
           "runtimes/win-x86/native/hostfxr.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -765,7 +762,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -774,12 +771,9 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.7": {
+      "BigQ.Client/2.2.0": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
-        "dependencies": {
-          "BigQ.Core": "2.1.7"
-        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -787,14 +781,14 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.8": {
+      "BigQ.Core/2.2.0": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "compile": {
           "bin/placeholder/BigQ.Core.dll": {}
@@ -826,7 +820,7 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -838,7 +832,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -847,12 +841,9 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.7": {
+      "BigQ.Client/2.2.0": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
-        "dependencies": {
-          "BigQ.Core": "2.1.7"
-        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -860,14 +851,14 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.8": {
+      "BigQ.Core/2.2.0": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "compile": {
           "bin/placeholder/BigQ.Core.dll": {}
@@ -899,7 +890,7 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -911,7 +902,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -920,12 +911,9 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.1.7": {
+      "BigQ.Client/2.2.0": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
-        "dependencies": {
-          "BigQ.Core": "2.1.7"
-        },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
         },
@@ -933,14 +921,14 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.8": {
+      "BigQ.Core/2.2.0": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "compile": {
           "bin/placeholder/BigQ.Core.dll": {}
@@ -1791,38 +1779,38 @@
         "version.txt"
       ]
     },
-    "WatsonTcp/1.3.6": {
-      "sha512": "3J+pE/WoW1oHZZ+5lQY7C603x4SUOwXsrRa9jz3QZwHYXHV+mr9mFnMvth4JCLLloKAhxx5ahagJPxDsTKhQTA==",
+    "WatsonTcp/1.3.12": {
+      "sha512": "tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
       "type": "package",
-      "path": "watsontcp/1.3.6",
+      "path": "watsontcp/1.3.12",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.3.6.nupkg.sha512",
+        "watsontcp.1.3.12.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
-    "WatsonWebsocket/1.2.4": {
-      "sha512": "RsARdxPUgY72wE25bPCeGB32x4gdiytqa4RHPCL/LgtgXWquJv/rxjXlXBUUgLLMjjGWdSsEpyz4z2bv+k59jQ==",
+    "WatsonWebsocket/1.3.0": {
+      "sha512": "c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
       "type": "package",
-      "path": "watsonwebsocket/1.2.4",
+      "path": "watsonwebsocket/1.3.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonWebsocket.dll",
         "lib/netstandard2.0/WatsonWebsocket.dll",
-        "watsonwebsocket.1.2.4.nupkg.sha512",
+        "watsonwebsocket.1.3.0.nupkg.sha512",
         "watsonwebsocket.nuspec"
       ]
     },
-    "BigQ.Client/2.1.7": {
+    "BigQ.Client/2.2.0": {
       "type": "project",
       "path": "../Client/Client.csproj",
       "msbuildProject": "../Client/Client.csproj"
     },
-    "BigQ.Core/2.1.8": {
+    "BigQ.Core/2.2.0": {
       "type": "project",
       "path": "../Core/Core.csproj",
       "msbuildProject": "../Core/Core.csproj"
@@ -1830,13 +1818,13 @@
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
-      "BigQ.Client >= 2.1.7",
-      "BigQ.Core >= 2.1.8",
+      "BigQ.Client >= 2.2.0",
+      "BigQ.Core >= 2.2.0",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Client >= 2.1.7",
-      "BigQ.Core >= 2.1.8"
+      "BigQ.Client >= 2.2.0",
+      "BigQ.Core >= 2.2.0"
     ]
   },
   "packageFolders": {

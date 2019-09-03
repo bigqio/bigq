@@ -2,6 +2,9 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -152,7 +155,7 @@ namespace BigQ.Server
         /// </summary>
         /// <param name="guid">GUID of the channel.</param>
         /// <returns>List of ServerClient objects.</returns>
-        public List<ServerClient> ListChannelMembers(string guid)
+        public List<ServerClient> ListMembers(string guid)
         {
             return _ChannelMgr.GetChannelMembers(guid);
         }
@@ -162,7 +165,7 @@ namespace BigQ.Server
         /// </summary>
         /// <param name="guid">GUID of the channel.</param>
         /// <returns>List of ServerClient objects.</returns>
-        public List<ServerClient> ListChannelSubscribers(string guid)
+        public List<ServerClient> ListSubscribers(string guid)
         {
             return _ChannelMgr.GetChannelSubscribers(guid);
         }
@@ -175,20 +178,12 @@ namespace BigQ.Server
         {
             return _ConnMgr.GetClients();
         }
-          
-        /// <summary>
-        /// Clear the list of client GUIDs to which the server is currently transmitting messages.  This API should only be used for debugging when advised by support.
-        /// </summary>
-        public void ClearClientActiveSend()
-        {
-            _ClientActiveSendMap.Clear();
-        }
-         
+           
         /// <summary>
         /// Retrieve all objects in the user configuration file defined in the server configuration file.
         /// </summary>
         /// <returns></returns>
-        public List<User> ListCurrentUsersFile()
+        public List<User> ListUsersFile()
         {
             return _AuthMgr.GetCurrentUsersFile();
         }
@@ -197,7 +192,7 @@ namespace BigQ.Server
         /// Retrieve all objects in the permissions configuration file defined in the server configuration file.
         /// </summary>
         /// <returns></returns>
-        public List<Permission> ListCurrentPermissionsFile()
+        public List<Permission> ListPermissionsFile()
         {
             return _AuthMgr.GetCurrentPermissionsFile();
         }
@@ -221,11 +216,9 @@ namespace BigQ.Server
             newChannel.ChannelName = name;
             newChannel.OwnerGUID = Config.GUID;
             newChannel.CreatedUtc = timestamp;
-            newChannel.UpdatedUtc = timestamp;
-            newChannel.Private = isPrivate;
-            newChannel.Broadcast = true;
-            newChannel.Multicast = false;
-            newChannel.Unicast = false;
+            if (isPrivate) newChannel.Visibility = ChannelVisibility.Private;
+            else newChannel.Visibility = ChannelVisibility.Public;
+            newChannel.Type = ChannelType.Broadcast;
             newChannel.Members = new List<ServerClient>();
             newChannel.Subscribers = new List<ServerClient>();
             
@@ -253,11 +246,9 @@ namespace BigQ.Server
             newChannel.ChannelName = name;
             newChannel.OwnerGUID = Config.GUID;
             newChannel.CreatedUtc = timestamp;
-            newChannel.UpdatedUtc = timestamp;
-            newChannel.Private = isPrivate;
-            newChannel.Broadcast = false;
-            newChannel.Multicast = false;
-            newChannel.Unicast = true;
+            if (isPrivate) newChannel.Visibility = ChannelVisibility.Private;
+            else newChannel.Visibility = ChannelVisibility.Public;
+            newChannel.Type = ChannelType.Unicast;
             newChannel.Members = new List<ServerClient>();
             newChannel.Subscribers = new List<ServerClient>();
 
@@ -285,11 +276,9 @@ namespace BigQ.Server
             newChannel.ChannelName = name;
             newChannel.OwnerGUID = Config.GUID;
             newChannel.CreatedUtc = timestamp;
-            newChannel.UpdatedUtc = timestamp;
-            newChannel.Private = isPrivate;
-            newChannel.Broadcast = false;
-            newChannel.Multicast = true;
-            newChannel.Unicast = false;
+            if (isPrivate) newChannel.Visibility = ChannelVisibility.Private;
+            else newChannel.Visibility = ChannelVisibility.Public;
+            newChannel.Type = ChannelType.Multicast;
             newChannel.Members = new List<ServerClient>();
             newChannel.Subscribers = new List<ServerClient>();
 
@@ -344,9 +333,12 @@ namespace BigQ.Server
             _ConnMgr.AddClient(currentClient);
             return true;
         }
-         
-        private bool WatsonWebsocketClientConnected(string ipPort, IDictionary<string, string> qs)
-    { 
+
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task<bool> WatsonWebsocketClientConnected(HttpListenerRequest req)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        {
+            string ipPort = req.RemoteEndPoint.Address.ToString() + ":" + req.RemoteEndPoint.Port;
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Websocket);
             _ConnMgr.AddClient(currentClient); 
             return true; 
@@ -433,8 +425,7 @@ namespace BigQ.Server
                 currClient.Password = null;
                 currClient.ClientGUID = Config.GUID;
                 currClient.IpPort = "127.0.0.1:0";
-                currClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-                currClient.UpdatedUtc = currClient.CreatedUtc;
+                currClient.CreatedUtc = DateTime.Now.ToUniversalTime(); 
 
                 foreach (Channel curr in Config.ServerChannels)
                 {
@@ -511,7 +502,7 @@ namespace BigQ.Server
                     true,
                     Config.WebsocketSslServer.AcceptInvalidCerts,
                     null,
-                    WatsonWebsocketSslClientConnected,
+                    WatsonWebsocketClientConnected,
                     WatsonClientDisconnected,
                     WatsonMessageReceived,
                     Config.WebsocketServer.Debug);
@@ -604,7 +595,7 @@ namespace BigQ.Server
 
         private bool ChannelDataSender(ServerClient client, Channel channel, Message message)
         {
-            if (channel.Broadcast)
+            if (channel.Type == ChannelType.Broadcast)
             {
                 #region Broadcast-Channel
 
@@ -623,7 +614,7 @@ namespace BigQ.Server
 
                 #endregion
             }
-            else if (channel.Multicast)
+            else if (channel.Type == ChannelType.Multicast)
             {
                 #region Multicast-Channel-to-Subscribers
 
@@ -642,7 +633,7 @@ namespace BigQ.Server
 
                 #endregion
             }
-            else if (channel.Unicast)
+            else if (channel.Type == ChannelType.Unicast)
             {
                 #region Unicast-Channel-to-Subscriber
 
@@ -884,7 +875,7 @@ namespace BigQ.Server
 
         private bool ChannelCreateEvent(ServerClient client, Channel channel)
         {
-            if (channel.Private) return true;
+            if (channel.Visibility == ChannelVisibility.Private) return true;
 
             List<ServerClient> currentClients = _ConnMgr.GetClients();
             if (currentClients == null || currentClients.Count < 1) return true;
@@ -931,7 +922,7 @@ namespace BigQ.Server
 
         private bool ChannelDestroyEvent(ServerClient client, Channel channel)
         {
-            if (channel.Private) return true;
+            if (channel.Visibility == ChannelVisibility.Private) return true;
 
             List<ServerClient> currentClients = _ChannelMgr.GetChannelMembers(channel.ChannelGUID);
             if (currentClients == null || currentClients.Count < 1) return true;
@@ -1057,8 +1048,7 @@ namespace BigQ.Server
         private void AddChannel(ServerClient client, Channel channel)
         { 
             DateTime timestamp = DateTime.Now.ToUniversalTime();
-            if (channel.CreatedUtc == null) channel.CreatedUtc = timestamp;
-            if (channel.UpdatedUtc == null) channel.UpdatedUtc = timestamp;
+            if (channel.CreatedUtc == null) channel.CreatedUtc = timestamp; 
             channel.Members = new List<ServerClient>();
             channel.Members.Add(client);
             channel.Subscribers = new List<ServerClient>();
@@ -1332,9 +1322,9 @@ namespace BigQ.Server
             }
             else if (currentChannel != null)
             { 
-                if (currentChannel.Broadcast) return SendChannelMembersMessage(client, currentChannel, message);
-                else if (currentChannel.Multicast) return SendChannelSubscribersMessage(client, currentChannel, message);
-                else if (currentChannel.Unicast) return SendChannelSubscriberMessage(client, currentChannel, message);
+                if (currentChannel.Type == ChannelType.Broadcast) return SendChannelMembersMessage(client, currentChannel, message);
+                else if (currentChannel.Type == ChannelType.Multicast) return SendChannelSubscribersMessage(client, currentChannel, message);
+                else if (currentChannel.Type == ChannelType.Unicast) return SendChannelSubscriberMessage(client, currentChannel, message);
                 else
                 {
                     RemoveChannel(currentChannel);
@@ -1477,8 +1467,7 @@ namespace BigQ.Server
                 currentClient.ClientGUID = Config.GUID;
                 currentClient.Name = "Server";
                 currentClient.IpPort = "127.0.0.1:0";
-                currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-                currentClient.UpdatedUtc = currentClient.CreatedUtc;
+                currentClient.CreatedUtc = DateTime.Now.ToUniversalTime(); 
 
                 ServerClient currentRecipient = new ServerClient();
                 Channel currentChannel = new Channel();
@@ -1526,8 +1515,7 @@ namespace BigQ.Server
             currentClient.ClientGUID = Config.GUID;
             currentClient.Name = "Server";
             currentClient.IpPort = "127.0.0.1:0";
-            currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-            currentClient.UpdatedUtc = currentClient.CreatedUtc;
+            currentClient.CreatedUtc = DateTime.Now.ToUniversalTime(); 
              
             Channel currentChannel = new Channel(); 
             return QueueClientMessage(rcpt, message.Redact());
@@ -1544,15 +1532,13 @@ namespace BigQ.Server
             currentClient.Name = "Server";
             currentClient.IpPort = "127.0.0.1:0";
             currentClient.CreatedUtc = DateTime.Now.ToUniversalTime();
-            currentClient.UpdatedUtc = currentClient.CreatedUtc;
-             
+
             //
             // This is necessary so the message goes to members instead of subscribers
             // in case the channel is configured as a multicast channel
             //
-            channel.Broadcast = true;
-            channel.Multicast = false;               
-             
+            channel.Type = ChannelType.Broadcast;
+
             return ChannelDataSender(currentClient, channel, message);
         }
 
@@ -1692,7 +1678,7 @@ namespace BigQ.Server
         {
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
             if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
-            if (currentChannel.Broadcast) return ProcessJoinChannelMessage(client, message);
+            if (currentChannel.Type == ChannelType.Broadcast) return ProcessJoinChannelMessage(client, message);
             // AddChannelMember and AddChannelSubscriber handle notifications
             if (!AddChannelMember(client, currentChannel)) return  _MsgBuilder.ChannelJoinFailure(client, message, currentChannel);
             if (!AddChannelSubscriber(client, currentChannel)) return _MsgBuilder.ChannelSubscribeFailure(client, message, currentChannel); 
@@ -1728,7 +1714,7 @@ namespace BigQ.Server
             Channel currentChannel = _ChannelMgr.GetChannelByGUID(message.ChannelGUID);
 
             if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
-            if (currentChannel.Broadcast) return ProcessLeaveChannelMessage(client, message);
+            if (currentChannel.Type == ChannelType.Broadcast) return ProcessLeaveChannelMessage(client, message);
             if (client.ClientGUID.Equals(currentChannel.OwnerGUID))
             { 
                 if (!RemoveChannel(currentChannel)) return _MsgBuilder.ChannelUnsubscribeFailure(client, message, currentChannel); 
@@ -1823,11 +1809,8 @@ namespace BigQ.Server
                     currentChannel.ChannelName = curr.ChannelName;
                     currentChannel.OwnerGUID = curr.OwnerGUID;
                     currentChannel.CreatedUtc = curr.CreatedUtc;
-                    currentChannel.UpdatedUtc = curr.UpdatedUtc;
-                    currentChannel.Private = curr.Private;
-                    currentChannel.Broadcast = curr.Broadcast;
-                    currentChannel.Multicast = curr.Multicast;
-                    currentChannel.Unicast = curr.Unicast;
+                    currentChannel.Visibility = curr.Visibility;
+                    currentChannel.Type = curr.Type;
 
                     if (currentChannel.OwnerGUID.Equals(client.ClientGUID))
                     {
@@ -1835,7 +1818,7 @@ namespace BigQ.Server
                         continue;
                     }
 
-                    if (!currentChannel.Private)
+                    if (currentChannel.Visibility == ChannelVisibility.Public)
                     {
                         filtered.Add(currentChannel);
                         continue;
@@ -1874,8 +1857,7 @@ namespace BigQ.Server
                     temp.Name = curr.Name;
                     temp.Email = curr.Email;
                     temp.ClientGUID = curr.ClientGUID;
-                    temp.CreatedUtc = curr.CreatedUtc;
-                    temp.UpdatedUtc = curr.UpdatedUtc;
+                    temp.CreatedUtc = curr.CreatedUtc; 
                     temp.IpPort = curr.IpPort;
                     temp.Connection = curr.Connection; 
                     
@@ -1903,7 +1885,7 @@ namespace BigQ.Server
             List<ServerClient> ret = new List<ServerClient>();
 
             if (currentChannel == null) return _MsgBuilder.ChannelNotFound(client, message);
-            if (currentChannel.Broadcast)
+            if (currentChannel.Type == ChannelType.Broadcast)
             { 
                 return ProcessListChannelMembersMessage(client, message);
             }
@@ -1919,8 +1901,7 @@ namespace BigQ.Server
                     temp.Name = curr.Name;
                     temp.Email = curr.Email;
                     temp.ClientGUID = curr.ClientGUID;
-                    temp.CreatedUtc = curr.CreatedUtc;
-                    temp.UpdatedUtc = curr.UpdatedUtc;
+                    temp.CreatedUtc = curr.CreatedUtc;  
                     temp.IpPort = curr.IpPort;
                     temp.Connection = curr.Connection;
                     
@@ -1958,8 +1939,7 @@ namespace BigQ.Server
                     temp.Name = curr.Name;
                     temp.Password = null;
                     temp.ClientGUID = curr.ClientGUID;
-                    temp.CreatedUtc = curr.CreatedUtc;
-                    temp.UpdatedUtc = curr.UpdatedUtc;
+                    temp.CreatedUtc = curr.CreatedUtc; 
                     
                     ret.Add(temp);
                 } 

@@ -78,13 +78,7 @@ namespace BigQ.Core
         #endregion
 
         #region Private-Methods
-
-        //
-        //
-        // Not applicable
-        //
-        //
-
+         
         #endregion
     }
 }

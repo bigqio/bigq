@@ -11,13 +11,7 @@ namespace BigQ.Core
     public class Message
     {
         #region Public-Members
-
-        //
-        //
-        // Standard Headers
-        //
-        //
-
+         
         /// <summary>
         /// Email address of the client.  Primarily used in authentication (future).
         /// </summary>
@@ -137,7 +131,7 @@ namespace BigQ.Core
         #region Constructors-and-Factories
 
         /// <summary>
-        /// Do not use.  This is used internally by BigQ libraries.
+        /// Instantiate the object.
         /// </summary>
         public Message()
         {

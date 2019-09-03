@@ -15,3 +15,4 @@ C:\code\bigq\BigQ-2.1\Core\obj\Debug\netstandard2.0\Core.AssemblyInfoInputs.cach
 C:\code\bigq\BigQ-2.1\Core\obj\Debug\netstandard2.0\Core.AssemblyInfo.cs
 C:\code\bigq\BigQ-2.1\Core\obj\Debug\netstandard2.0\Core.dll
 C:\code\bigq\BigQ-2.1\Core\obj\Debug\netstandard2.0\Core.pdb
+C:\code\bigq\BigQ-2.1\Core\obj\Debug\netstandard2.0\Core.csprojAssemblyReference.cache

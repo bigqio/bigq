@@ -2,13 +2,13 @@
   "version": 3,
   "targets": {
     ".NETFramework,Version=v4.6.2": {
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.2.0": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "compile": {
           "lib/net462/Core.dll": {}
@@ -52,12 +52,12 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "SqliteHelper/1.0.11": {
+      "SqliteHelper/1.0.13": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "System.Data.SQLite": "1.0.110",
-          "System.Data.SQLite.Core": "1.0.110"
+          "System.Data.SQLite": "1.0.111",
+          "System.Data.SQLite.Core": "1.0.111"
         },
         "compile": {
           "lib/net452/SqliteWrapper.dll": {}
@@ -66,15 +66,15 @@
           "lib/net452/SqliteWrapper.dll": {}
         }
       },
-      "System.Data.SQLite/1.0.110": {
+      "System.Data.SQLite/1.0.111": {
         "type": "package",
         "dependencies": {
-          "System.Data.SQLite.Core": "1.0.110",
-          "System.Data.SQLite.EF6": "1.0.110",
-          "System.Data.SQLite.Linq": "1.0.110"
+          "System.Data.SQLite.Core": "1.0.111",
+          "System.Data.SQLite.EF6": "1.0.111",
+          "System.Data.SQLite.Linq": "1.0.111"
         }
       },
-      "System.Data.SQLite.Core/1.0.110": {
+      "System.Data.SQLite.Core/1.0.111": {
         "type": "package",
         "compile": {
           "lib/net46/System.Data.SQLite.dll": {}
@@ -83,7 +83,7 @@
           "lib/net46/System.Data.SQLite.dll": {}
         },
         "build": {
-          "build/net46/_._": {}
+          "build/net46/System.Data.SQLite.Core.targets": {}
         },
         "runtimeTargets": {
           "runtimes/linux-x64/native/netstandard2.0/SQLite.Interop.dll": {
@@ -104,7 +104,7 @@
           }
         }
       },
-      "System.Data.SQLite.EF6/1.0.110": {
+      "System.Data.SQLite.EF6/1.0.111": {
         "type": "package",
         "dependencies": {
           "EntityFramework": "6.2.0"
@@ -116,7 +116,7 @@
           "lib/net46/System.Data.SQLite.EF6.dll": {}
         }
       },
-      "System.Data.SQLite.Linq/1.0.110": {
+      "System.Data.SQLite.Linq/1.0.111": {
         "type": "package",
         "compile": {
           "lib/net46/System.Data.SQLite.Linq.dll": {}
@@ -125,7 +125,7 @@
           "lib/net46/System.Data.SQLite.Linq.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -137,7 +137,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -148,13 +148,13 @@
       }
     },
     ".NETStandard,Version=v2.0": {
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.2.0": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.6",
-          "WatsonWebsocket": "1.2.4"
+          "WatsonTcp": "1.3.12",
+          "WatsonWebsocket": "1.3.0"
         },
         "compile": {
           "lib/netstandard2.0/Core.dll": {}
@@ -205,12 +205,12 @@
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
         }
       },
-      "SqliteHelper/1.0.11": {
+      "SqliteHelper/1.0.13": {
         "type": "package",
         "dependencies": {
           "Microsoft.CSharp": "4.5.0",
-          "System.Data.SQLite": "1.0.110",
-          "System.Data.SQLite.Core": "1.0.110"
+          "System.Data.SQLite": "1.0.111",
+          "System.Data.SQLite.Core": "1.0.111"
         },
         "compile": {
           "lib/netstandard2.0/SqliteWrapper.dll": {}
@@ -219,13 +219,13 @@
           "lib/netstandard2.0/SqliteWrapper.dll": {}
         }
       },
-      "System.Data.SQLite/1.0.110": {
+      "System.Data.SQLite/1.0.111": {
         "type": "package",
         "dependencies": {
-          "System.Data.SQLite.Core": "1.0.110"
+          "System.Data.SQLite.Core": "1.0.111"
         }
       },
-      "System.Data.SQLite.Core/1.0.110": {
+      "System.Data.SQLite.Core/1.0.111": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/System.Data.SQLite.dll": {}
@@ -252,7 +252,7 @@
           }
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -264,7 +264,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -276,14 +276,14 @@
     }
   },
   "libraries": {
-    "BigQ.Core/2.1.7": {
-      "sha512": "Mf7aEnPC6AKoRT1ehq+5SSp/l0lyM1Ae0SbI1z/94HsrazNM/+TcElIJSsvy6jRmx7hhMTtdA4fK460GLahAKg==",
+    "BigQ.Core/2.2.0": {
+      "sha512": "RE/S06bRVBSaGb9dCxPDW1LXosCH54VwHngMKtotXX/weQCcpN4mR+3deGwYAZy7iiqWKhYGj8d+UPjNA3tuqQ==",
       "type": "package",
-      "path": "bigq.core/2.1.7",
+      "path": "bigq.core/2.2.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "bigq.core.2.1.7.nupkg.sha512",
+        "bigq.core.2.2.0.nupkg.sha512",
         "bigq.core.nuspec",
         "lib/net462/Core.dll",
         "lib/netstandard2.0/Core.dll"
@@ -560,34 +560,34 @@
         "newtonsoft.json.nuspec"
       ]
     },
-    "SqliteHelper/1.0.11": {
-      "sha512": "viAp3li4gBdlzatDxxbQ0kKfTaLwjN/QZcQKd3CFf2psxw2cRo6Fo28jaiul+VwQvATZR0dRbs9QpuWEtc5/ug==",
+    "SqliteHelper/1.0.13": {
+      "sha512": "kiQYiyjXM3vWbZSXNRqNQIyIUAfMSoJMchTm40ymxQcIHW4mVJjgZpT8WLbCWGiotxCPLwTCK6vwVjbc3FGgXQ==",
       "type": "package",
-      "path": "sqlitehelper/1.0.11",
+      "path": "sqlitehelper/1.0.13",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/SqliteWrapper.dll",
         "lib/netstandard2.0/SqliteWrapper.dll",
-        "sqlitehelper.1.0.11.nupkg.sha512",
+        "sqlitehelper.1.0.13.nupkg.sha512",
         "sqlitehelper.nuspec"
       ]
     },
-    "System.Data.SQLite/1.0.110": {
-      "sha512": "YFUBQ4BzxzLhq/TOVg8wipF+YbpFHrfMx1dkhgpfTDsiLnpt/2oqRmI0ti48rNhNjR0ZPW5TLCdNA4zrHiNy0g==",
+    "System.Data.SQLite/1.0.111": {
+      "sha512": "Erg05KGL/sntCBd2ApJGK1A5e1CjyBRlizAXWjrHCH5mvH/V/je1iOZ+2B3NHXDhQZuwi5Zp4KCIm4w1YAALyQ==",
       "type": "package",
-      "path": "system.data.sqlite/1.0.110",
+      "path": "system.data.sqlite/1.0.111",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "system.data.sqlite.1.0.110.nupkg.sha512",
+        "system.data.sqlite.1.0.111.nupkg.sha512",
         "system.data.sqlite.nuspec"
       ]
     },
-    "System.Data.SQLite.Core/1.0.110": {
-      "sha512": "x7xZ0oBWycJch9ShAFwTQRPJ2HEo5NmXyhx/LFJvSbCBQVXnHc9rIAeLo1VXzDFbfbtPl3HFpFhriEnUkS2L0Q==",
+    "System.Data.SQLite.Core/1.0.111": {
+      "sha512": "HfCHIp+Pyvoy81BPmH/9FTTe8HSf4A6LibGDmTT5O4NZVo6g9LitcxHEx31F20dglPhTPb1smuFc2j5CC/7uBw==",
       "type": "package",
-      "path": "system.data.sqlite.core/1.0.110",
+      "path": "system.data.sqlite.core/1.0.111",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -628,14 +628,14 @@
         "runtimes/osx-x64/native/netstandard2.0/SQLite.Interop.dll",
         "runtimes/win-x64/native/netstandard2.0/SQLite.Interop.dll",
         "runtimes/win-x86/native/netstandard2.0/SQLite.Interop.dll",
-        "system.data.sqlite.core.1.0.110.nupkg.sha512",
+        "system.data.sqlite.core.1.0.111.nupkg.sha512",
         "system.data.sqlite.core.nuspec"
       ]
     },
-    "System.Data.SQLite.EF6/1.0.110": {
-      "sha512": "Z8ByCBNBXFTfMzIoff4RnQK5CSX5EaX+ucnS5BPYXcbK/AIMnr/zvCKRVmiG2/7si3XS/rte1ZSjIfGPOCMpLQ==",
+    "System.Data.SQLite.EF6/1.0.111": {
+      "sha512": "w9Hpmuqa/kRLLdPHqZkv5g0eCqwYTKSf6sle2Lb0LNymEOjMIXKtsnt3/+5oHnJBmx+fxmkX27fP61naP/FQ0Q==",
       "type": "package",
-      "path": "system.data.sqlite.ef6/1.0.110",
+      "path": "system.data.sqlite.ef6/1.0.111",
       "hasTools": true,
       "files": [
         ".nupkg.metadata",
@@ -660,7 +660,7 @@
         "lib/net45/System.Data.SQLite.EF6.dll",
         "lib/net451/System.Data.SQLite.EF6.dll",
         "lib/net46/System.Data.SQLite.EF6.dll",
-        "system.data.sqlite.ef6.1.0.110.nupkg.sha512",
+        "system.data.sqlite.ef6.1.0.111.nupkg.sha512",
         "system.data.sqlite.ef6.nuspec",
         "tools/net40/install.ps1",
         "tools/net45/install.ps1",
@@ -668,10 +668,10 @@
         "tools/net46/install.ps1"
       ]
     },
-    "System.Data.SQLite.Linq/1.0.110": {
-      "sha512": "CQisDxizq0eAgMsJ2XRz3kARJOGqff1em2FDutKV2BQB0u698onuWVivYd4/OgDekYGYVecElYEMKZR8PZqfuQ==",
+    "System.Data.SQLite.Linq/1.0.111": {
+      "sha512": "cGg1p7OsIsPCAUoNQoKkqtWi785QhUrzzI+Yg3fr0IbpI/yHvXGuf1HxJW4n+/2cJ6mvHY8VjvxA9Mqe4lVBaQ==",
       "type": "package",
-      "path": "system.data.sqlite.linq/1.0.110",
+      "path": "system.data.sqlite.linq/1.0.111",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -690,46 +690,50 @@
         "lib/net45/System.Data.SQLite.Linq.dll",
         "lib/net451/System.Data.SQLite.Linq.dll",
         "lib/net46/System.Data.SQLite.Linq.dll",
-        "system.data.sqlite.linq.1.0.110.nupkg.sha512",
+        "system.data.sqlite.linq.1.0.111.nupkg.sha512",
         "system.data.sqlite.linq.nuspec"
       ]
     },
-    "WatsonTcp/1.3.6": {
-      "sha512": "3J+pE/WoW1oHZZ+5lQY7C603x4SUOwXsrRa9jz3QZwHYXHV+mr9mFnMvth4JCLLloKAhxx5ahagJPxDsTKhQTA==",
+    "WatsonTcp/1.3.12": {
+      "sha512": "tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
       "type": "package",
-      "path": "watsontcp/1.3.6",
+      "path": "watsontcp/1.3.12",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.3.6.nupkg.sha512",
+        "watsontcp.1.3.12.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
-    "WatsonWebsocket/1.2.4": {
-      "sha512": "RsARdxPUgY72wE25bPCeGB32x4gdiytqa4RHPCL/LgtgXWquJv/rxjXlXBUUgLLMjjGWdSsEpyz4z2bv+k59jQ==",
+    "WatsonWebsocket/1.3.0": {
+      "sha512": "c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
       "type": "package",
-      "path": "watsonwebsocket/1.2.4",
+      "path": "watsonwebsocket/1.3.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonWebsocket.dll",
         "lib/netstandard2.0/WatsonWebsocket.dll",
-        "watsonwebsocket.1.2.4.nupkg.sha512",
+        "watsonwebsocket.1.3.0.nupkg.sha512",
         "watsonwebsocket.nuspec"
       ]
     }
   },
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Core >= 2.1.7",
-      "SqliteHelper >= 1.0.11"
+      "BigQ.Core >= 2.2.0",
+      "SqliteHelper >= 1.0.13",
+      "System.Data.SQLite >= 1.0.111",
+      "System.Data.SQLite.Core >= 1.0.111"
     ],
     ".NETStandard,Version=v2.0": [
-      "BigQ.Core >= 2.1.7",
+      "BigQ.Core >= 2.2.0",
       "NETStandard.Library >= 2.0.3",
-      "SqliteHelper >= 1.0.11"
+      "SqliteHelper >= 1.0.13",
+      "System.Data.SQLite >= 1.0.111",
+      "System.Data.SQLite.Core >= 1.0.111"
     ]
   },
   "packageFolders": {
@@ -737,7 +741,7 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
-    "version": "2.1.7",
+    "version": "2.2.0",
     "restore": {
       "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\Server\\Server.csproj",
       "projectName": "BigQ.Server",
@@ -782,11 +786,19 @@
         "dependencies": {
           "BigQ.Core": {
             "target": "Package",
-            "version": "[2.1.7, )"
+            "version": "[2.2.0, )"
           },
           "SqliteHelper": {
             "target": "Package",
-            "version": "[1.0.11, )"
+            "version": "[1.0.13, )"
+          },
+          "System.Data.SQLite": {
+            "target": "Package",
+            "version": "[1.0.111, )"
+          },
+          "System.Data.SQLite.Core": {
+            "target": "Package",
+            "version": "[1.0.111, )"
           }
         }
       },
@@ -794,7 +806,7 @@
         "dependencies": {
           "BigQ.Core": {
             "target": "Package",
-            "version": "[2.1.7, )"
+            "version": "[2.2.0, )"
           },
           "NETStandard.Library": {
             "suppressParent": "All",
@@ -804,7 +816,15 @@
           },
           "SqliteHelper": {
             "target": "Package",
-            "version": "[1.0.11, )"
+            "version": "[1.0.13, )"
+          },
+          "System.Data.SQLite": {
+            "target": "Package",
+            "version": "[1.0.111, )"
+          },
+          "System.Data.SQLite.Core": {
+            "target": "Package",
+            "version": "[1.0.111, )"
           }
         },
         "imports": [

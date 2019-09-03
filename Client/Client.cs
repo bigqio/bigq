@@ -310,7 +310,7 @@ namespace BigQ.Client
         /// <param name="response">The full response message received from the server.</param>
         /// <param name="clients">The list of clients that are members in the specified channel on the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListChannelMembers(string guid, out Message response, out List<ServerClient> clients)
+        public bool ListMembers(string guid, out Message response, out List<ServerClient> clients)
         {
             response = null;
             clients = null;
@@ -361,7 +361,7 @@ namespace BigQ.Client
         /// <param name="response">The full response message received from the server.</param>
         /// <param name="clients">The list of clients subscribed to the specified channel on the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListChannelSubscribers(string guid, out Message response, out List<ServerClient> clients)
+        public bool ListSubscribers(string guid, out Message response, out List<ServerClient> clients)
         {
             response = null;
             clients = null;
@@ -403,7 +403,7 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool JoinChannel(string guid, out Message response)
+        public bool Join(string guid, out Message response)
         {
             response = null;
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
@@ -434,7 +434,7 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SubscribeChannel(string guid, out Message response)
+        public bool Subscribe(string guid, out Message response)
         {
             response = null;
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
@@ -465,7 +465,7 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool LeaveChannel(string guid, out Message response)
+        public bool Leave(string guid, out Message response)
         {
             response = null;
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
@@ -496,7 +496,7 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool UnsubscribeChannel(string guid, out Message response)
+        public bool Unsubscribe(string guid, out Message response)
         {
             response = null;
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
@@ -537,10 +537,9 @@ namespace BigQ.Client
             currentChannel.ChannelName = name;
             currentChannel.OwnerGUID = Config.ClientGUID;
             currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-            currentChannel.Private = isPrivate;
-            currentChannel.Broadcast = true;
-            currentChannel.Multicast = false;
-            currentChannel.Unicast = false;
+            if (isPrivate) currentChannel.Visibility = ChannelVisibility.Private;
+            else currentChannel.Visibility = ChannelVisibility.Public;
+            currentChannel.Type = ChannelType.Broadcast;
 
             Message request = new Message();
             request.Email = Config.Email;
@@ -578,10 +577,9 @@ namespace BigQ.Client
             currentChannel.ChannelName = name;
             currentChannel.OwnerGUID = Config.ClientGUID;
             currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-            currentChannel.Private = isPrivate;
-            currentChannel.Broadcast = false;
-            currentChannel.Multicast = false;
-            currentChannel.Unicast = true;
+            if (isPrivate) currentChannel.Visibility = ChannelVisibility.Private;
+            else currentChannel.Visibility = ChannelVisibility.Public;
+            currentChannel.Type = ChannelType.Unicast;
 
             Message request = new Message();
             request.Email = Config.Email;
@@ -619,10 +617,9 @@ namespace BigQ.Client
             currentChannel.ChannelName = name;
             currentChannel.OwnerGUID = Config.ClientGUID;
             currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-            currentChannel.Private = isPrivate;
-            currentChannel.Broadcast = false;
-            currentChannel.Multicast = true;
-            currentChannel.Unicast = false;
+            if (isPrivate) currentChannel.Visibility = ChannelVisibility.Private;
+            else currentChannel.Visibility = ChannelVisibility.Public;
+            currentChannel.Type = ChannelType.Multicast;
 
             Message request = new Message();
             request.Email = Config.Email;
@@ -650,7 +647,7 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool DeleteChannel(string guid, out Message response)
+        public bool Delete(string guid, out Message response)
         {
             response = null;
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
@@ -1258,7 +1255,7 @@ namespace BigQ.Client
             Task.Run(() => CleanupSyncRequests(), _CleanupSyncToken);
         }
 
-        private void HandleMessage(Message currentMessage)
+        private async void HandleMessage(Message currentMessage)
         {
             if (currentMessage.SenderGUID.Equals(Config.ServerGUID)
                 && currentMessage.Command == MessageCommand.Event)
@@ -1389,7 +1386,7 @@ namespace BigQ.Client
                  
                 if (Callbacks.SyncMessageReceived != null)
                 {
-                    byte[] ResponseData = Callbacks.SyncMessageReceived(currentMessage);
+                    byte[] ResponseData = await Callbacks.SyncMessageReceived(currentMessage);
 
                     currentMessage.Success = true;
                     currentMessage.SyncRequest = false;

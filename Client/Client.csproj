@@ -9,19 +9,19 @@
     <PackageProjectUrl>https://github.com/bigqio/bigq</PackageProjectUrl>
     <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</PackageLicenseUrl>
-    <Version>2.1.7</Version>
+    <Version>2.2.0</Version>
     <PackageId>BigQ.Client</PackageId>
     <Product>BigQ.Client</Product>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>mq message queue messaging tcp sockets websockets ssl</PackageTags>
-    <PackageReleaseNotes>Stability fixes</PackageReleaseNotes>
+    <PackageReleaseNotes>Code cleanup, use of Task for callbacks, update dependencies</PackageReleaseNotes>
     <Description>BigQ is a messaging platform using TCP sockets and websockets featuring sync, async, channel, and private communications.  This package includes the BigQ client and associated libraries.</Description>
     <PackageIconUrl>https://raw.githubusercontent.com/bigqio/bigq/master/Assets/logo.png</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BigQ.Core" Version="2.1.7" />
+    <PackageReference Include="BigQ.Core" Version="2.2.0" />
   </ItemGroup>
 
 </Project>

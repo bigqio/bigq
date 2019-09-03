@@ -30,31 +30,16 @@ namespace BigQ.Core
         /// The creation time.
         /// </summary>
         public DateTime CreatedUtc;
+         
+        /// <summary>
+        /// Indicates whether or not the channel is public or private.
+        /// </summary>
+        public ChannelVisibility Visibility = ChannelVisibility.Public;
 
         /// <summary>
-        /// The time of last update.
+        /// The message distribution type of the channel.
         /// </summary>
-        public DateTime UpdatedUtc;
-
-        /// <summary>
-        /// Indicates whether or not the channel is private, i.e. hidden from list channel responses.
-        /// </summary>
-        public bool Private;
-
-        /// <summary>
-        /// Indicates if the channel is a broadcast channel.
-        /// </summary>
-        public bool Broadcast;
-
-        /// <summary>
-        /// Indicates if the channel is a multicast channel.
-        /// </summary>
-        public bool Multicast;
-
-        /// <summary>
-        /// Indicates if the channel is a unicast channel.
-        /// </summary>
-        public bool Unicast;
+        public ChannelType Type = ChannelType.Broadcast;
 
         /// <summary>
         /// Clients that are members of the channel.
@@ -77,8 +62,7 @@ namespace BigQ.Core
         public Channel()
         {
             DateTime ts = DateTime.Now.ToUniversalTime();
-            CreatedUtc = ts;
-            UpdatedUtc = ts;
+            CreatedUtc = ts; 
             Members = new List<ServerClient>();
             Subscribers = new List<ServerClient>();
         }
@@ -110,8 +94,7 @@ namespace BigQ.Core
              
             if (String.IsNullOrEmpty(ret.ChannelGUID)) ret.ChannelGUID = Guid.NewGuid().ToString();
             if (String.IsNullOrEmpty(ret.ChannelName)) ret.ChannelName = ret.ChannelGUID;
-            ret.CreatedUtc = DateTime.Now.ToUniversalTime();
-            ret.UpdatedUtc = ret.CreatedUtc;
+            ret.CreatedUtc = DateTime.Now.ToUniversalTime(); 
             ret.OwnerGUID = currentClient.ClientGUID;
             ret.Members = new List<ServerClient>();
             ret.Members.Add(currentClient);

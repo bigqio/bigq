@@ -24,3 +24,5 @@ C:\code\bigq\BigQ-2.1\ServerTest\obj\Debug\net462\ServerTest.AssemblyInfo.cs
 C:\code\bigq\BigQ-2.1\ServerTest\obj\Debug\net462\ServerTest.csproj.CopyComplete
 C:\code\bigq\BigQ-2.1\ServerTest\obj\Debug\net462\ServerTest.exe
 C:\code\bigq\BigQ-2.1\ServerTest\obj\Debug\net462\ServerTest.pdb
+C:\code\bigq\BigQ-2.1\ServerTest\bin\Debug\net462\x64\SQLite.Interop.dll
+C:\code\bigq\BigQ-2.1\ServerTest\bin\Debug\net462\x86\SQLite.Interop.dll

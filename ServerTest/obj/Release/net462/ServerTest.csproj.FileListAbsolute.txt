@@ -24,3 +24,5 @@ C:\code\bigq\bigq-2.1\ServerTest\bin\Release\net462\EntityFramework.SqlServer.dl
 C:\code\bigq\bigq-2.1\ServerTest\bin\Release\net462\EntityFramework.dll
 C:\code\bigq\bigq-2.1\ServerTest\bin\Release\net462\System.Data.SQLite.EF6.dll
 C:\code\bigq\bigq-2.1\ServerTest\bin\Release\net462\System.Data.SQLite.Linq.dll
+C:\code\bigq\BigQ-2.1\ServerTest\bin\Release\net462\x64\SQLite.Interop.dll
+C:\code\bigq\BigQ-2.1\ServerTest\bin\Release\net462\x86\SQLite.Interop.dll

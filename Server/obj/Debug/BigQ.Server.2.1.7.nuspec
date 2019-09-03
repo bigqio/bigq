@@ -16,12 +16,16 @@
     <repository type="Github" url="https://github.com/bigqio/bigq" />
     <dependencies>
       <group targetFramework=".NETFramework4.6.2">
-        <dependency id="BigQ.Core" version="2.1.7" exclude="Build,Analyzers" />
-        <dependency id="SqliteHelper" version="1.0.11" exclude="Build,Analyzers" />
+        <dependency id="BigQ.Core" version="2.1.8" exclude="Build,Analyzers" />
+        <dependency id="SqliteHelper" version="1.0.13" exclude="Build,Analyzers" />
+        <dependency id="System.Data.SQLite" version="1.0.111" exclude="Build,Analyzers" />
+        <dependency id="System.Data.SQLite.Core" version="1.0.111" exclude="Build,Analyzers" />
       </group>
       <group targetFramework=".NETStandard2.0">
-        <dependency id="BigQ.Core" version="2.1.7" exclude="Build,Analyzers" />
-        <dependency id="SqliteHelper" version="1.0.11" exclude="Build,Analyzers" />
+        <dependency id="BigQ.Core" version="2.1.8" exclude="Build,Analyzers" />
+        <dependency id="SqliteHelper" version="1.0.13" exclude="Build,Analyzers" />
+        <dependency id="System.Data.SQLite" version="1.0.111" exclude="Build,Analyzers" />
+        <dependency id="System.Data.SQLite.Core" version="1.0.111" exclude="Build,Analyzers" />
       </group>
     </dependencies>
   </metadata>

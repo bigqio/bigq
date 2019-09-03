@@ -411,15 +411,12 @@ namespace BigQ.Core
 
             DateTime timestamp = DateTime.Now.ToUniversalTime();
             Channel serverChannel = new Channel();
-            serverChannel.Broadcast = true;
-            serverChannel.Multicast = false;
-            serverChannel.Unicast = false;
             serverChannel.ChannelName = "Default server channel";
-            serverChannel.CreatedUtc = timestamp;
-            serverChannel.UpdatedUtc = timestamp;
+            serverChannel.CreatedUtc = timestamp; 
             serverChannel.ChannelGUID = Guid.NewGuid().ToString();
             serverChannel.OwnerGUID = ret.GUID;
-            serverChannel.Private = false;
+            serverChannel.Type = ChannelType.Broadcast;
+            serverChannel.Visibility = ChannelVisibility.Public;
 
             ret.ServerChannels = new List<Channel>();
             ret.ServerChannels.Add(serverChannel);

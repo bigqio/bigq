@@ -23,7 +23,7 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -35,7 +35,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -88,7 +88,7 @@
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.6": {
+      "WatsonTcp/1.3.12": {
         "type": "package",
         "dependencies": {
           "Newtonsoft.Json": "12.0.2"
@@ -100,7 +100,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.2.4": {
+      "WatsonWebsocket/1.3.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -353,29 +353,29 @@
         "newtonsoft.json.nuspec"
       ]
     },
-    "WatsonTcp/1.3.6": {
-      "sha512": "3J+pE/WoW1oHZZ+5lQY7C603x4SUOwXsrRa9jz3QZwHYXHV+mr9mFnMvth4JCLLloKAhxx5ahagJPxDsTKhQTA==",
+    "WatsonTcp/1.3.12": {
+      "sha512": "tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
       "type": "package",
-      "path": "watsontcp/1.3.6",
+      "path": "watsontcp/1.3.12",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.3.6.nupkg.sha512",
+        "watsontcp.1.3.12.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
-    "WatsonWebsocket/1.2.4": {
-      "sha512": "RsARdxPUgY72wE25bPCeGB32x4gdiytqa4RHPCL/LgtgXWquJv/rxjXlXBUUgLLMjjGWdSsEpyz4z2bv+k59jQ==",
+    "WatsonWebsocket/1.3.0": {
+      "sha512": "c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
       "type": "package",
-      "path": "watsonwebsocket/1.2.4",
+      "path": "watsonwebsocket/1.3.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonWebsocket.dll",
         "lib/netstandard2.0/WatsonWebsocket.dll",
-        "watsonwebsocket.1.2.4.nupkg.sha512",
+        "watsonwebsocket.1.3.0.nupkg.sha512",
         "watsonwebsocket.nuspec"
       ]
     }
@@ -384,15 +384,15 @@
     ".NETFramework,Version=v4.6.2": [
       "Microsoft.CSharp >= 4.5.0",
       "Newtonsoft.Json >= 12.0.2",
-      "WatsonTcp >= 1.3.6",
-      "WatsonWebsocket >= 1.2.4"
+      "WatsonTcp >= 1.3.12",
+      "WatsonWebsocket >= 1.3.0"
     ],
     ".NETStandard,Version=v2.0": [
       "Microsoft.CSharp >= 4.5.0",
       "NETStandard.Library >= 2.0.3",
       "Newtonsoft.Json >= 12.0.2",
-      "WatsonTcp >= 1.3.6",
-      "WatsonWebsocket >= 1.2.4"
+      "WatsonTcp >= 1.3.12",
+      "WatsonWebsocket >= 1.3.0"
     ]
   },
   "packageFolders": {
@@ -400,7 +400,7 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
-    "version": "2.1.8",
+    "version": "2.2.0",
     "restore": {
       "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj",
       "projectName": "BigQ.Core",
@@ -453,11 +453,11 @@
           },
           "WatsonTcp": {
             "target": "Package",
-            "version": "[1.3.6, )"
+            "version": "[1.3.12, )"
           },
           "WatsonWebsocket": {
             "target": "Package",
-            "version": "[1.2.4, )"
+            "version": "[1.3.0, )"
           }
         }
       },
@@ -479,11 +479,11 @@
           },
           "WatsonTcp": {
             "target": "Package",
-            "version": "[1.3.6, )"
+            "version": "[1.3.12, )"
           },
           "WatsonWebsocket": {
             "target": "Package",
-            "version": "[1.2.4, )"
+            "version": "[1.3.0, )"
           }
         },
         "imports": [

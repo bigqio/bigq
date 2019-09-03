@@ -4,6 +4,9 @@ using System.Runtime.Serialization;
 
 namespace BigQ.Core
 {
+    /// <summary>
+    /// The type of connection.
+    /// </summary>
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ConnectionType
     {

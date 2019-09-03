@@ -14,60 +14,54 @@ namespace BigQ.Core
         #region Public-Members
          
         /// <summary>
-        /// The email address associated with the client.  Do not modify directly; used by the server.  
+        /// The email address associated with the client.
         /// </summary>
-        public string Email;
+        public string Email { get; set; }
 
         /// <summary>
-        /// The password associated with the client.  Do not modify directly; used by the server.  
+        /// The password associated with the client.
         /// </summary>
-        public string Password;
+        public string Password { get; set; }
 
         /// <summary>
-        /// The GUID associated with the client.  Do not modify directly; used by the server.  
+        /// The GUID associated with the client.
         /// </summary>
-        public string ClientGUID;
+        public string ClientGUID { get; set; }
 
         /// <summary>
         /// The name associated with the client.
         /// </summary>
-        public string Name;
+        public string Name { get; set; }
 
         /// <summary>
         /// The GUID associated with the server.  
         /// </summary>
-        public string ServerGuid;
+        public string ServerGUID { get; set; }
 
         /// <summary>
-        /// The client's source IP address and port (i.e. 10.1.1.1:5033).  Do not modify directly; used by the server.  
+        /// The client's source IP address and port (i.e. 10.1.1.1:5033).
         /// </summary>
-        public string IpPort;
+        public string IpPort { get; set; }
 
         /// <summary>
         /// The type of connection.
         /// </summary>
-        public ConnectionType Connection;
+        public ConnectionType Connection { get; set; }
 
         /// <summary>
         /// The UTC timestamp of when this client object was created.
         /// </summary>
-        public DateTime CreatedUtc;
+        public DateTime CreatedUtc { get; set; }
 
         /// <summary>
-        /// The UTC timestamp of when this client object was last updated.
+        /// Indicates whether or not the client is connected to the server.
         /// </summary>
-        public DateTime? UpdatedUtc;
-         
-        /// <summary>
-        /// Indicates whether or not the client is connected to the server.  Do not modify this field.
-        /// </summary>
-        public bool Connected;
+        public bool Connected { get; set; }
 
         /// <summary>
-        /// Indicates whether or not the client is logged in to the server.  Do not modify this field.
+        /// Indicates whether or not the client is logged in to the server.
         /// </summary>
-        public bool LoggedIn;
-
+        public bool LoggedIn { get; set; }
         /// <summary>
         /// A blocking collection containing the messages that are queued for delivery to this client.
         /// </summary>
@@ -97,7 +91,7 @@ namespace BigQ.Core
         /// </summary>
         [JsonIgnore]
         public CancellationToken DiskQueueToken;
-         
+
         #endregion
 
         #region Private-Members
@@ -128,8 +122,7 @@ namespace BigQ.Core
             MessageQueue = new BlockingCollection<Message>();
 
             DateTime ts = DateTime.Now.ToUniversalTime();
-            CreatedUtc = ts;
-            UpdatedUtc = ts;
+            CreatedUtc = ts; 
         }
 
         #endregion
@@ -143,29 +136,29 @@ namespace BigQ.Core
         {
             Dispose(true);
         }
-         
+
         #endregion
-          
+
         #region Private-Methods
 
         protected virtual void Dispose(bool disposing)
-        { 
+        {
             if (disposing)
-            { 
+            {
                 if (RamQueueTokenSource != null)
                 {
                     RamQueueTokenSource.Cancel(true);
                 }
 
                 if (DiskQueueTokenSource != null)
-                { 
+                {
                     DiskQueueTokenSource.Cancel(true);
                 }
 
                 return;
             }
         }
-          
+
         #endregion
     }
 }

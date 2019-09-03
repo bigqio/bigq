@@ -1,6 +1,5 @@
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\Server.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\Server.pdb
-C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\Core.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\EntityFramework.SqlServer.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\EntityFramework.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\Newtonsoft.Json.dll
@@ -10,9 +9,13 @@ C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\System.Data.SQLite.EF6.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\System.Data.SQLite.Linq.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\WatsonTcp.dll
 C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\WatsonWebsocket.dll
+C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\Core.dll
+C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.csprojAssemblyReference.cache
 C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.csproj.CoreCompileInputs.cache
 C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.AssemblyInfoInputs.cache
 C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.AssemblyInfo.cs
 C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.csproj.CopyComplete
 C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.dll
 C:\code\bigq\BigQ-2.1\Server\obj\Debug\net462\Server.pdb
+C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\x64\SQLite.Interop.dll
+C:\code\bigq\BigQ-2.1\Server\bin\Debug\net462\x86\SQLite.Interop.dll

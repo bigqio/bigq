@@ -22,8 +22,7 @@ namespace ClientTest
             bool priv = false;
             List<ServerClient> clients = new List<ServerClient>();
             List<Channel> channels = new List<Channel>();
-            Message response = new Message();
-            Dictionary<string, DateTime> pendingRequests;
+            Message response = new Message(); 
              
             Console.WriteLine("");
             Console.WriteLine("BigQ Client");
@@ -42,21 +41,7 @@ namespace ClientTest
                 switch (cmd.ToLower())
                 {
                     case "?":
-                        // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
-                        Console.WriteLine("General Commands:");
-                        Console.WriteLine("  q  cls  echo  login  whoami");
-                        Console.WriteLine("");
-                        Console.WriteLine("Channel Commands:");
-                        Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
-                        Console.WriteLine("  createbcastchannel  createmcastchannel  createucastchannel");
-                        Console.WriteLine("  deletechannel  joinchannel  leavechannel");
-                        Console.WriteLine("  subscribechannel  unsubscribechannel");
-                        Console.WriteLine("  sendchannelasync  sendchannelsync");
-                        Console.WriteLine("");
-                        Console.WriteLine("Messaging Commands:");
-                        Console.WriteLine("  sendprivasync  sendpersist  sendprivsync");
-                        Console.WriteLine("  listclients  isclientconnected  pendingsyncrequests");
-                        Console.WriteLine("");
+                        Menu();
                         break;
 
                     case "q":
@@ -86,7 +71,7 @@ namespace ClientTest
                         }
                         break;
 
-                    case "listclients":
+                    case "list clients":
                         if (client == null) break;
                         if (client.ListClients(out response, out clients))
                         {
@@ -112,9 +97,9 @@ namespace ClientTest
                         }
                         break;
 
-                    case "isclientconnected":
+                    case "verify client":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
+                        guid = InputString("GUID:", null, false);
                         if (client.IsClientConnected(guid, out response))
                         {
                             Console.WriteLine("Client " + guid + " is connected");
@@ -125,7 +110,7 @@ namespace ClientTest
                         }
                         break;
 
-                    case "listchannels":
+                    case "list channels":
                         if (client == null) break;
                         if (client.ListChannels(out response, out channels))
                         {
@@ -136,11 +121,11 @@ namespace ClientTest
                                 foreach (Channel curr in channels)
                                 {
                                     string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
-                                    if (curr.Private) line += "priv ";
+                                    if (curr.Visibility == ChannelVisibility.Private) line += "priv ";
                                     else line += "pub ";
-                                    if (curr.Broadcast) line += "bcast ";
-                                    else if (curr.Multicast) line += "mcast ";
-                                    else if (curr.Unicast) line += "ucast ";
+                                    if (curr.Type == ChannelType.Broadcast) line += "bcast ";
+                                    else if (curr.Type == ChannelType.Multicast) line += "mcast ";
+                                    else if (curr.Type == ChannelType.Unicast) line += "ucast ";
                                     else line += "unknown ";
 
                                     Console.WriteLine(line);
@@ -153,10 +138,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "listchannelmembers":
+                    case "list members":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.ListChannelMembers(guid, out response, out clients))
+                        guid = InputString("GUID:", null, false);
+                        if (client.ListMembers(guid, out response, out clients))
                         {
                             Console.WriteLine("ListChannelMembers success");
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
@@ -180,10 +165,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "listchannelsubscribers":
+                    case "list subscribers":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.ListChannelSubscribers(guid, out response, out clients))
+                        guid = InputString("GUID:", null, false);
+                        if (client.ListSubscribers(guid, out response, out clients))
                         {
                             Console.WriteLine("ListChannelSubscribers success");
                             if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
@@ -207,10 +192,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "joinchannel":
+                    case "join channel":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.JoinChannel(guid, out response))
+                        guid = InputString("GUID:", null, false);
+                        if (client.Join(guid, out response))
                         {
                             Console.WriteLine("JoinChannel success");
                         }
@@ -220,10 +205,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "leavechannel":
+                    case "leave channel":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.LeaveChannel(guid, out response))
+                        guid = InputString("GUID:", null, false);
+                        if (client.Leave(guid, out response))
                         {
                             Console.WriteLine("LeaveChannel success");
                         }
@@ -233,10 +218,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "subscribechannel":
+                    case "subscribe":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.SubscribeChannel(guid, out response))
+                        guid = InputString("GUID:", null, false);
+                        if (client.Subscribe(guid, out response))
                         {
                             Console.WriteLine("SubscribeChannel success");
                         }
@@ -246,10 +231,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "unsubscribechannel":
+                    case "unsubscribe":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.UnsubscribeChannel(guid, out response))
+                        guid = InputString("GUID:", null, false);
+                        if (client.Unsubscribe(guid, out response))
                         {
                             Console.WriteLine("UnsubscribeChannel success");
                         }
@@ -259,10 +244,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "createbcastchannel":
+                    case "create bcast":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        priv = Common.InputBoolean("Private:", false);
+                        guid = InputString("Name:", null, false);
+                        priv = InputBoolean("Private:", false);
                         if (client.CreateBroadcastChannel(guid, priv, out response))
                         {
                             Console.WriteLine("CreateBroadcastChannel success");
@@ -273,10 +258,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "createmcastchannel":
+                    case "create mcast":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        priv = Common.InputBoolean("Private:", false);
+                        guid = InputString("Name:", null, false);
+                        priv = InputBoolean("Private:", false);
                         if (client.CreateMulticastChannel(guid, priv, out response))
                         {
                             Console.WriteLine("CreateMulticastChannel success");
@@ -287,10 +272,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "createucastchannel":
+                    case "create ucast":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        priv = Common.InputBoolean("Private:", false);
+                        guid = InputString("Name:", null, false);
+                        priv = InputBoolean("Private:", false);
                         if (client.CreateUnicastChannel(guid, priv, out response))
                         {
                             Console.WriteLine("CreateUnicastChannel success");
@@ -301,10 +286,10 @@ namespace ClientTest
                         }
                         break;
 
-                    case "deletechannel":
+                    case "delete channel":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        if (client.DeleteChannel(guid, out response))
+                        guid = InputString("GUID:", null, false);
+                        if (client.Delete(guid, out response))
                         {
                             Console.WriteLine("DeleteChannel success");
                         }
@@ -314,24 +299,24 @@ namespace ClientTest
                         }
                         break;
 
-                    case "sendprivasync":
+                    case "send async":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        msg = Common.InputString("Message:", null, false);
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
                         client.SendPrivateMessageAsync(guid, msg);
                         break;
 
-                    case "sendpersist":
+                    case "send async persist":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        msg = Common.InputString("Message:", null, false);
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
                         client.SendPrivateMessageAsync(guid, null, msg, true);
                         break;
 
-                    case "sendprivsync":
+                    case "send sync":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        msg = Common.InputString("Message:", null, false);
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
                         client.SendPrivateMessageSync(guid, msg, out response); 
                         if (response != null)
                         {
@@ -344,17 +329,17 @@ namespace ClientTest
                         }
                         break;
 
-                    case "sendchannelasync":
+                    case "send channel async":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        msg = Common.InputString("Message:", null, false);
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
                         client.SendChannelMessageAsync(guid, msg);
                         break;
 
-                    case "sendchannelsync":
+                    case "send channel sync":
                         if (client == null) break;
-                        guid = Common.InputString("GUID:", null, false);
-                        msg = Common.InputString("Message:", null, false);
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
                         client.SendChannelMessageSync(guid, msg, out response);
                         if (response != null)
                         {
@@ -371,30 +356,7 @@ namespace ClientTest
                         if (client == null) break;
                         if (!String.IsNullOrEmpty(client.Config.ClientGUID)) Console.WriteLine("  GUID " + client.Config.ClientGUID);
                         else Console.WriteLine("[not logged in]");
-                        break;
-
-                    case "pendingsyncrequests":
-                        if (client == null) break;
-                        if (client.PendingSyncRequests(out pendingRequests))
-                        {
-                            Console.WriteLine("PendingSyncRequests success");
-                            Console.Write("Outstanding requests: ");
-                            if (pendingRequests == null) Console.WriteLine("(null)");
-                            else if (pendingRequests.Count < 1) Console.WriteLine("(empty)");
-                            else
-                            {
-                                Console.WriteLine(pendingRequests.Count + " requests");
-                                foreach (KeyValuePair<string, DateTime> curr in pendingRequests)
-                                {
-                                    Console.WriteLine("  " + curr.Key + ": " + curr.Value.ToString("MM/dd/yyyy hh:mm:ss"));
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("PendingSyncRequests failed");
-                        }
-                        break;
+                        break; 
 
                     default:
                         Console.WriteLine("Unknown command");
@@ -403,8 +365,198 @@ namespace ClientTest
             }
         }
 
+        static void Menu()
+        {                        
+            // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
+            Console.WriteLine("General Commands:");
+            Console.WriteLine("  q                    Quit the application");
+            Console.WriteLine("  cls                  Clear the screen");
+            Console.WriteLine("  echo                 Send an echo message");
+            Console.WriteLine("  login                Login to the server");
+            Console.WriteLine("  whoami               Display my information");
+            Console.WriteLine("");
+            Console.WriteLine("Channel Commands:");
+            Console.WriteLine("  list channels        Display visible channels");
+            Console.WriteLine("  list members         List the members of a channel");
+            Console.WriteLine("  list subscribers     List the subscribers of a channel");
+            Console.WriteLine("  create bcast         Create a broadcast channel");
+            Console.WriteLine("  create mcast         Create a multicast channel");
+            Console.WriteLine("  create ucast         Create a unicast channel");
+            Console.WriteLine("  delete channel       Delete a channel");
+            Console.WriteLine("  join channel         Join a channel");
+            Console.WriteLine("  leave channel        Leave a channel");
+            Console.WriteLine("  subscribe            Subscribe to a channel");
+            Console.WriteLine("  unsubscribe          Unsubscribe from a channel");
+            Console.WriteLine("  send channel async   Send a channel message asynchronously");
+            Console.WriteLine("  send channel sync    Send a channel message synchronously, expecting a response");
+            Console.WriteLine("");
+            Console.WriteLine("Messaging Commands:");
+            Console.WriteLine("  send async           Send a private message asynchronously");
+            Console.WriteLine("  send async persist   Send a private persistent message asynchronously");
+            Console.WriteLine("  send sync            Send a private message synchronously, expecting a response");
+            Console.WriteLine("  list clients         List connected clients");
+            Console.WriteLine("  verify client        Verify if a client is connected"); 
+            Console.WriteLine("");
+        }
+
+        static bool InputBoolean(string question, bool yesDefault)
+        {
+            Console.Write(question);
+
+            if (yesDefault) Console.Write(" [Y/n]? ");
+            else Console.Write(" [y/N]? ");
+
+            string userInput = Console.ReadLine();
+
+            if (String.IsNullOrEmpty(userInput))
+            {
+                if (yesDefault) return true;
+                return false;
+            }
+
+            userInput = userInput.ToLower();
+
+            if (yesDefault)
+            {
+                if (
+                    (String.Compare(userInput, "n") == 0)
+                    || (String.Compare(userInput, "no") == 0)
+                   )
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            else
+            {
+                if (
+                    (String.Compare(userInput, "y") == 0)
+                    || (String.Compare(userInput, "yes") == 0)
+                   )
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        static List<string> InputStringList(string question)
+        {
+            Console.WriteLine("Press ENTER with no data to end");
+            List<string> ret = new List<string>();
+            while (true)
+            {
+                Console.Write(question + " ");
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput)) break;
+                ret.Add(userInput);
+            }
+            return ret;
+        }
+
+        static string InputString(string question, string defaultAnswer, bool allowNull)
+        {
+            while (true)
+            {
+                Console.Write(question);
+
+                if (!String.IsNullOrEmpty(defaultAnswer))
+                {
+                    Console.Write(" [" + defaultAnswer + "]");
+                }
+
+                Console.Write(" ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    if (!String.IsNullOrEmpty(defaultAnswer)) return defaultAnswer;
+                    if (allowNull) return null;
+                    else continue;
+                }
+
+                return userInput;
+            }
+        }
+
+        static int InputInteger(string question, int defaultAnswer, bool positiveOnly, bool allowZero)
+        {
+            while (true)
+            {
+                Console.Write(question);
+                Console.Write(" [" + defaultAnswer + "] ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    return defaultAnswer;
+                }
+
+                int ret;
+                if (!Int32.TryParse(userInput, out ret))
+                {
+                    Console.WriteLine("Please enter a valid integer.");
+                    continue;
+                }
+
+                if (ret == 0 && allowZero)
+                {
+                    return 0;
+                }
+
+                if (ret < 0 && positiveOnly)
+                {
+                    Console.WriteLine("Please enter a value greater than zero.");
+                    continue;
+                }
+
+                return ret;
+            }
+        }
+
+        static decimal InputDecimal(string question, decimal defaultAnswer, bool positiveOnly, bool allowZero)
+        {
+            while (true)
+            {
+                Console.Write(question);
+                Console.Write(" [" + defaultAnswer + "] ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    return defaultAnswer;
+                }
+
+                decimal ret;
+                if (!Decimal.TryParse(userInput, out ret))
+                {
+                    Console.WriteLine("Please enter a valid decimal.");
+                    continue;
+                }
+
+                if (ret == 0 && allowZero)
+                {
+                    return 0;
+                }
+
+                if (ret < 0 && positiveOnly)
+                {
+                    Console.WriteLine("Please enter a value greater than zero.");
+                    continue;
+                }
+
+                return ret;
+            }
+        }
+
         #region Delegates
-         
+
         static void MaintainConnection()
         {
             bool firstRun = true;
@@ -438,61 +590,59 @@ namespace ClientTest
                 }
 
                 if (client == null || !client.Connected || !client.LoggedIn)
-                {
-                    try
-                    {
-                        Console.WriteLine("Attempting to connect to server");
-                        if (client != null) client.Dispose();
+                { 
+                    Console.WriteLine("Attempting to connect to server");
+                    if (client != null) client.Dispose();
                         
-                        client = new Client(config);
+                    client = new Client(config);
                         
-                        client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
-                        client.Callbacks.SyncMessageReceived = SyncMessageReceived;
-                        client.Callbacks.ServerDisconnected = ServerDisconnected;
-                        client.Callbacks.ServerConnected = ServerConnected;
-                        client.Callbacks.ClientJoinedServer = ClientJoinedServer;
-                        client.Callbacks.ClientLeftServer = ClientLeftServer;
-                        client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
-                        client.Callbacks.ClientLeftChannel = ClientLeftChannel;
-                        client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
-                        client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
-                        client.Callbacks.ChannelCreated = ChannelCreated;
-                        client.Callbacks.ChannelDestroyed = ChannelDestroyed;
+                    client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
+                    client.Callbacks.SyncMessageReceived = SyncMessageReceived;
+                    client.Callbacks.ServerDisconnected = ServerDisconnected;
+                    client.Callbacks.ServerConnected = ServerConnected;
+                    client.Callbacks.ClientJoinedServer = ClientJoinedServer;
+                    client.Callbacks.ClientLeftServer = ClientLeftServer;
+                    client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
+                    client.Callbacks.ClientLeftChannel = ClientLeftChannel;
+                    client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                    client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
+                    client.Callbacks.ChannelCreated = ChannelCreated;
+                    client.Callbacks.ChannelDestroyed = ChannelDestroyed;
 
-                        Console.WriteLine("Client connected, logging in");
-                        Message response;
-                        if (!client.Login(out response))
-                        {
-                            Console.WriteLine("Unable to login, retrying");
-                        }
-                    }
-                    catch (Exception e)
+                    Console.WriteLine("Client connected, logging in");
+                    Message response;
+                    if (!client.Login(out response))
                     {
-                        PrintException("MaintainConnection", e);
-                    }
+                        Console.WriteLine("Unable to login, retrying");
+                    } 
                 }
             }
         }
          
-        static bool ServerDisconnected()
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ServerDisconnected()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Server disconnected");
-            return true;
+            Console.WriteLine("Server disconnected"); 
         }
 
-        static bool ServerConnected()
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ServerConnected()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Server connected and logged in");
-            return true;
+            Console.WriteLine("Server connected and logged in"); 
         }
 
-        static bool AsyncMessageReceived(Message msg)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task AsyncMessageReceived(Message msg)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             Console.WriteLine(msg.ToString());
-            return true;
         }
 
-        static byte[] SyncMessageReceived(Message msg)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task<byte[]> SyncMessageReceived(Message msg)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             Console.WriteLine("Received sync message: " + msg.ToString());
             Console.WriteLine("Press ENTER and then type your response");
@@ -503,67 +653,62 @@ namespace ClientTest
             return null;
         }
 
-        static bool ClientJoinedServer(string clientGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientJoinedServer(string clientGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Client " + clientGuid + " joined the server");
-            return true;
+            Console.WriteLine("Client " + clientGuid + " joined the server"); 
         }
 
-        static bool ClientLeftServer(string clientGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientLeftServer(string clientGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Client " + clientGuid + " left the server");
-            return true;
+            Console.WriteLine("Client " + clientGuid + " left the server"); 
         }
 
-        static bool ClientJoinedChannel(string clientGuid, string channelGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientJoinedChannel(string clientGuid, string channelGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Client " + clientGuid + " joined channel " + channelGuid);
-            return true;
+            Console.WriteLine("Client " + clientGuid + " joined channel " + channelGuid); 
         }
 
-        static bool ClientLeftChannel(string clientGuid, string channelGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientLeftChannel(string clientGuid, string channelGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Client " + clientGuid + " left channel " + channelGuid);
-            return true;
+            Console.WriteLine("Client " + clientGuid + " left channel " + channelGuid); 
         }
 
-        static bool SubscriberJoinedChannel(string subscriberGuid, string channelGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task SubscriberJoinedChannel(string subscriberGuid, string channelGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Subscriber " + subscriberGuid + " joined channel " + channelGuid);
-            return true;
+            Console.WriteLine("Subscriber " + subscriberGuid + " joined channel " + channelGuid); 
         }
 
-        static bool SubscriberLeftChannel(string subscriberGuid, string channelGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task SubscriberLeftChannel(string subscriberGuid, string channelGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Subscriber " + subscriberGuid + " left channel " + channelGuid);
-            return true;
+            Console.WriteLine("Subscriber " + subscriberGuid + " left channel " + channelGuid); 
         }
 
-        static bool ChannelCreated(string channelGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ChannelCreated(string channelGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Channel " + channelGuid + " created");
-            return true;
+            Console.WriteLine("Channel " + channelGuid + " created"); 
         }
 
-        static bool ChannelDestroyed(string channelGuid)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ChannelDestroyed(string channelGuid)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Channel " + channelGuid + " destroyed");
-            return true;
+            Console.WriteLine("Channel " + channelGuid + " destroyed"); 
         }
-          
-        static void PrintException(string method, Exception e)
-        {
-            Console.WriteLine("================================================================================");
-            Console.WriteLine(" = Method: " + method);
-            Console.WriteLine(" = Exception Type: " + e.GetType().ToString());
-            Console.WriteLine(" = Exception Data: " + e.Data);
-            Console.WriteLine(" = Inner Exception: " + e.InnerException);
-            Console.WriteLine(" = Exception Message: " + e.Message);
-            Console.WriteLine(" = Exception Source: " + e.Source);
-            Console.WriteLine(" = Exception StackTrace: " + e.StackTrace);
-            Console.WriteLine("================================================================================");
-        }
-
+           
         #endregion
     }
 }

@@ -13,9 +13,9 @@ As of v2.0.2, BigQ is now targeted to both .NET Core 2.0 and .NET Framework 4.6.
 
 First things first - do you need help or have feedback?  Contact me at joel dot christner at gmail dot com or file an issue here!
 
-## New in v2.1.x
+## New in v2.2.x
 
-- Refactor to reduce code complexity, improve performance, and improve stability
+- Code cleanup, simplified callbacks using Task, dependency update
 
 ## Description
 
@@ -96,21 +96,20 @@ client.Callbacks.ClientLeftServer = ClientLeftServer;
 client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
 client.Callbacks.ClientLeftChannel = ClientLeftChannel;
 client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
-client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
-client.Callbacks.LogMessage = LogMessage;
+client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel; 
 
 // implement callbacks, these methods should return true
 // sync message callback should return the data to be returned to requestor
-static bool AsyncMessageReceived(Message msg) { ... }
-static byte[] SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
-static bool ServerConnected() { ... }
-static bool ServerDisconnected() { ... }
-static bool ClientJoinedServer(string clientGuid) { ... }
-static bool ClientLeftServer(string clientGuid) { ... }
-static bool ClientJoinedChannel(string clientGuid, string channelGuid) { ... }
-static bool ClientLeftChannel(string clientGuid, string channelGuid) { ... }
-static bool SubscriberJoinedChannel(string clientGuid, string channelGuid) { ... }
-static bool SubscriberLeftChannel(string clientGuid, string channelGuid) { ... }
+static async Task AsyncMessageReceived(Message msg) { ... }
+static async Task<byte[]> SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
+static async Task ServerConnected() { ... }
+static async Task ServerDisconnected() { ... }
+static async Task ClientJoinedServer(string clientGuid) { ... }
+static async Task ClientLeftServer(string clientGuid) { ... }
+static async Task ClientJoinedChannel(string clientGuid, string channelGuid) { ... }
+static async Task ClientLeftChannel(string clientGuid, string channelGuid) { ... }
+static async Task SubscriberJoinedChannel(string clientGuid, string channelGuid) { ... }
+static async Task SubscriberLeftChannel(string clientGuid, string channelGuid) { ... }
 static bool LogMessage(string msg) { ... }
 
 // login from the client
@@ -212,6 +211,9 @@ mono --server myapp.exe
 ## Version History
 
 Notes from previous versions (starting with v1.5.0) will be moved here.
+
+v2.1.x
+- Refactor to reduce code complexity, improve performance, and improve stability
 
 v2.0.x
 - Migrate from Mono.Data.Sqlite to System.Data.SQLite

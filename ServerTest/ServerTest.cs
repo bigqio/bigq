@@ -1,7 +1,10 @@
-﻿using BigQ.Core;
-using BigQ.Server;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+using BigQ.Core;
+using BigQ.Server;
 
 namespace ServerTest
 {
@@ -21,12 +24,12 @@ namespace ServerTest
             Dictionary<string, DateTime> sendMaps = new Dictionary<string, DateTime>();
             List<User> users = new List<User>();
             List<Permission> perms = new List<Permission>();
-             
+
             Console.WriteLine("");
             Console.WriteLine("BigQ Server");
             Console.WriteLine("");
 
-            StartServer();
+            StartServer().Wait();
 
             while (runForever)
             {
@@ -37,21 +40,7 @@ namespace ServerTest
                 switch (cmd.ToLower())
                 {
                     case "?":
-                        // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
-                        Console.WriteLine("General Commands:");
-                        Console.WriteLine("  q  quit  cls  listusersfile  listpermissionsfile");
-                        Console.WriteLine("");
-                        Console.WriteLine("Channel Commands:");
-                        Console.WriteLine("  listchannels  listchannelmembers  listchannelsubscribers");
-                        Console.WriteLine("  createbcastchanel  createucastchannel  createmcastchannel");
-                        Console.WriteLine("  deletechannel");
-                        Console.WriteLine("");
-                        Console.WriteLine("Client Commands:");
-                        Console.WriteLine("  listclients");
-                        Console.WriteLine("");
-                        Console.WriteLine("Persistence Commands:");
-                        Console.WriteLine("  queuedepth  rcptqueuedepth");
-                        Console.WriteLine("");
+                        Menu();
                         break;
 
                     case "q":
@@ -64,18 +53,18 @@ namespace ServerTest
                         Console.Clear();
                         break;
 
-                    case "listchannels":
+                    case "list channels":
                         channels = server.ListChannels();
                         if (channels != null)
                         {
                             foreach (Channel curr in channels)
                             {
                                 string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
-                                if (curr.Private) line += "priv ";
+                                if (curr.Visibility == ChannelVisibility.Private) line += "priv ";
                                 else line += "pub ";
-                                if (curr.Broadcast) line += "bcast ";
-                                else if (curr.Multicast) line += "mcast ";
-                                else if (curr.Unicast) line += "ucast ";
+                                if (curr.Type == ChannelType.Broadcast) line += "bcast ";
+                                else if (curr.Type == ChannelType.Multicast) line += "mcast ";
+                                else if (curr.Type == ChannelType.Unicast) line += "ucast ";
                                 else line += "unknown ";
 
                                 Console.WriteLine(line);
@@ -87,9 +76,9 @@ namespace ServerTest
                         }
                         break;
 
-                    case "listchannelmembers":
-                        members = server.ListChannelMembers(
-                            Common.InputString("Channel GUID:", null, false));
+                    case "list members":
+                        members = server.ListMembers(
+                            InputString("Channel GUID:", null, false));
                         if (members != null)
                         {
                             foreach (ServerClient curr in members)
@@ -110,9 +99,9 @@ namespace ServerTest
                         }
                         break;
 
-                    case "listchannelsubscribers":
-                        subscribers = server.ListChannelSubscribers(
-                            Common.InputString("Channel GUID:", null, false));
+                    case "list subscribers":
+                        subscribers = server.ListSubscribers(
+                            InputString("Channel GUID:", null, false));
                         if (subscribers != null)
                         {
                             foreach (ServerClient curr in subscribers)
@@ -133,29 +122,29 @@ namespace ServerTest
                         }
                         break;
 
-                    case "createbcastchannel":
+                    case "create bcast":
                         server.CreateBroadcastChannel(
-                            Common.InputString("Channel name:", null, false),
-                            Common.InputString("Channel GUID:", null, true),
-                            Common.InputBoolean("Private:", true));
+                            InputString("Channel name:", null, false),
+                            InputString("Channel GUID:", null, true),
+                            InputBoolean("Private:", true));
                         break;
 
-                    case "createucastchannel":
+                    case "create ucast":
                         server.CreateUnicastChannel(
-                            Common.InputString("Channel name:", null, false),
-                            Common.InputString("Channel GUID:", null, true),
-                            Common.InputBoolean("Private:", true)); break;
+                            InputString("Channel name:", null, false),
+                            InputString("Channel GUID:", null, true),
+                            InputBoolean("Private:", true)); break;
 
-                    case "createmcastchannel":
+                    case "create mcast":
                         server.CreateMulticastChannel(
-                            Common.InputString("Channel name:", null, false),
-                            Common.InputString("Channel GUID:", null, true),
-                            Common.InputBoolean("Private:", true));
+                            InputString("Channel name:", null, false),
+                            InputString("Channel GUID:", null, true),
+                            InputBoolean("Private:", true));
                         break;
 
-                    case "deletechannel":
+                    case "delete channel":
                         if (server.DeleteChannel(
-                            Common.InputString("Channel GUID:", null, false)))
+                            InputString("Channel GUID:", null, false)))
                         {
                             Console.WriteLine("Success");
                         }
@@ -165,7 +154,7 @@ namespace ServerTest
                         }
                         break;
 
-                    case "listclients":
+                    case "clients":
                         clients = server.ListClients();
                         if (clients != null)
                         {
@@ -186,9 +175,9 @@ namespace ServerTest
                             Console.WriteLine("(null)");
                         }
                         break;
-                         
-                    case "listusersfile":
-                        users = server.ListCurrentUsersFile();
+
+                    case "users file":
+                        users = server.ListUsersFile();
                         if (users != null && users.Count > 0)
                         {
                             foreach (User curr in users)
@@ -211,8 +200,8 @@ namespace ServerTest
                         }
                         break;
 
-                    case "listpermissionsfile":
-                        perms = server.ListCurrentPermissionsFile();
+                    case "perms file":
+                        perms = server.ListPermissionsFile();
                         if (perms != null && perms.Count > 0)
                         {
                             foreach (Permission curr in perms)
@@ -238,12 +227,12 @@ namespace ServerTest
                         }
                         break;
 
-                    case "queuedepth":
+                    case "queue depth":
                         Console.WriteLine(server.PersistentQueueDepth());
                         break;
 
-                    case "rcptqueuedepth":
-                        string guid = Common.InputString("Recipient GUID:", null, false);
+                    case "rcpt queue depth":
+                        string guid = InputString("Recipient GUID:", null, false);
                         Console.WriteLine(server.PersistentQueueDepth(guid));
                         break;
 
@@ -251,12 +240,197 @@ namespace ServerTest
                         Console.WriteLine("Unknown command");
                         break;
                 }
+            } 
+        }
+
+        static void Menu()
+        {                        
+            // Console.WriteLine("34567890123456789012345678901234567890123456789012345678901234567890123456789");
+            Console.WriteLine("General Commands:");
+            Console.WriteLine("  q                    Quit the application");
+            Console.WriteLine("  cls                  Clear the screen");
+            Console.WriteLine("  users file           Show the users file");
+            Console.WriteLine("  perms file           Show the permissions file"); 
+            Console.WriteLine("");
+            Console.WriteLine("Channel Commands:");
+            Console.WriteLine("  list channels        List all channels");
+            Console.WriteLine("  list members         List channel members");
+            Console.WriteLine("  list subscribers     List channel subscribers");
+            Console.WriteLine("  create bcast         Create a broadcast channel");
+            Console.WriteLine("  create ucast         Create a unicast channel");
+            Console.WriteLine("  create mcast         Create a multicast channel"); 
+            Console.WriteLine("  delete               Delete a channel");
+            Console.WriteLine("");
+            Console.WriteLine("Client Commands:");
+            Console.WriteLine("  clients              List connected clients");
+            Console.WriteLine("");
+            Console.WriteLine("Persistence Commands:");
+            Console.WriteLine("  queue depth          View the queue depth for persistent messages");
+            Console.WriteLine("  rcpt queue depth     View the queue depth for a particular recipient"); 
+            Console.WriteLine("");
+        }
+
+        static bool InputBoolean(string question, bool yesDefault)
+        {
+            Console.Write(question);
+
+            if (yesDefault) Console.Write(" [Y/n]? ");
+            else Console.Write(" [y/N]? ");
+
+            string userInput = Console.ReadLine();
+
+            if (String.IsNullOrEmpty(userInput))
+            {
+                if (yesDefault) return true;
+                return false;
+            }
+
+            userInput = userInput.ToLower();
+
+            if (yesDefault)
+            {
+                if (
+                    (String.Compare(userInput, "n") == 0)
+                    || (String.Compare(userInput, "no") == 0)
+                   )
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            else
+            {
+                if (
+                    (String.Compare(userInput, "y") == 0)
+                    || (String.Compare(userInput, "yes") == 0)
+                   )
+                {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        static List<string> InputStringList(string question)
+        {
+            Console.WriteLine("Press ENTER with no data to end");
+            List<string> ret = new List<string>();
+            while (true)
+            {
+                Console.Write(question + " ");
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput)) break;
+                ret.Add(userInput);
+            }
+            return ret;
+        }
+
+        static string InputString(string question, string defaultAnswer, bool allowNull)
+        {
+            while (true)
+            {
+                Console.Write(question);
+
+                if (!String.IsNullOrEmpty(defaultAnswer))
+                {
+                    Console.Write(" [" + defaultAnswer + "]");
+                }
+
+                Console.Write(" ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    if (!String.IsNullOrEmpty(defaultAnswer)) return defaultAnswer;
+                    if (allowNull) return null;
+                    else continue;
+                }
+
+                return userInput;
+            }
+        }
+
+        static int InputInteger(string question, int defaultAnswer, bool positiveOnly, bool allowZero)
+        {
+            while (true)
+            {
+                Console.Write(question);
+                Console.Write(" [" + defaultAnswer + "] ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    return defaultAnswer;
+                }
+
+                int ret;
+                if (!Int32.TryParse(userInput, out ret))
+                {
+                    Console.WriteLine("Please enter a valid integer.");
+                    continue;
+                }
+
+                if (ret == 0 && allowZero)
+                {
+                    return 0;
+                }
+
+                if (ret < 0 && positiveOnly)
+                {
+                    Console.WriteLine("Please enter a value greater than zero.");
+                    continue;
+                }
+
+                return ret;
+            }
+        }
+
+        static decimal InputDecimal(string question, decimal defaultAnswer, bool positiveOnly, bool allowZero)
+        {
+            while (true)
+            {
+                Console.Write(question);
+                Console.Write(" [" + defaultAnswer + "] ");
+
+                string userInput = Console.ReadLine();
+
+                if (String.IsNullOrEmpty(userInput))
+                {
+                    return defaultAnswer;
+                }
+
+                decimal ret;
+                if (!Decimal.TryParse(userInput, out ret))
+                {
+                    Console.WriteLine("Please enter a valid decimal.");
+                    continue;
+                }
+
+                if (ret == 0 && allowZero)
+                {
+                    return 0;
+                }
+
+                if (ret < 0 && positiveOnly)
+                {
+                    Console.WriteLine("Please enter a value greater than zero.");
+                    continue;
+                }
+
+                return ret;
             }
         }
 
         #region Delegates
-         
-        static bool StartServer()
+
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task StartServer()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
             Console.WriteLine("Attempting to start server");
 
@@ -271,39 +445,35 @@ namespace ServerTest
             server.Callbacks.ServerStopped = StartServer;
             server.Callbacks.ClientConnected = ClientConnected;
             server.Callbacks.ClientLogin = ClientLogin;
-            server.Callbacks.ClientDisconnected = ClientDisconnected;
-            
-            server.Callbacks.MessageReceived = MessageReceived;
-            server.Callbacks.ServerStopped = StartServer;
-            server.Callbacks.ClientConnected = ClientConnected;
-            server.Callbacks.ClientLogin = ClientLogin;
-            server.Callbacks.ClientDisconnected = ClientDisconnected;
-
-            return true;
+            server.Callbacks.ClientDisconnected = ClientDisconnected;  
         }
 
-        static bool MessageReceived(Message msg)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task MessageReceived(Message msg)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            // Console.WriteLine(msg.ToString());
-            return true;
+            // Console.WriteLine(msg.ToString()); 
         }
 
-        static bool ClientConnected(ServerClient client)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientConnected(ServerClient client)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("ClientConnected received notice of client connect from " + client.IpPort);
-            return true;
+            Console.WriteLine("Client connected: " + client.IpPort); 
         }
 
-        static bool ClientLogin(ServerClient client)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientLogin(ServerClient client)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("ClientConnected received notice of client login GUID " + client.ClientGUID + " from " + client.IpPort);
-            return true;
+            Console.WriteLine("Client logged in: " + client.ClientGUID + " from " + client.IpPort);  
         }
 
-        static bool ClientDisconnected(ServerClient client)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        static async Task ClientDisconnected(ServerClient client)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("ClientDisconnected received notice of disconnect of client GUID " + client.ClientGUID + " from " + client.IpPort);
-            return true;
+            Console.WriteLine("Client disconnected: GUID " + client.ClientGUID + " from " + client.IpPort); 
         }
          
         #endregion
