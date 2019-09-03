@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
   <metadata>
     <id>BigQ.Core</id>
-    <version>2.1.7</version>
+    <version>2.1.8</version>
     <authors>Joel Christner</authors>
     <owners>Joel Christner</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -30,7 +30,7 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="C:\code\bigq\BigQ-2.1\Core\bin\Debug\net462\Core.dll" target="lib\net462\Core.dll" />
-    <file src="C:\code\bigq\BigQ-2.1\Core\bin\Debug\netstandard2.0\Core.dll" target="lib\netstandard2.0\Core.dll" />
+    <file src="C:\code\bigq\BigQ-2.1\Core\bin\Release\net462\Core.dll" target="lib\net462\Core.dll" />
+    <file src="C:\code\bigq\BigQ-2.1\Core\bin\Release\netstandard2.0\Core.dll" target="lib\netstandard2.0\Core.dll" />
   </files>
 </package>

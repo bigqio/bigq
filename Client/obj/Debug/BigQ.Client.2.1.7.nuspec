@@ -16,15 +16,15 @@
     <repository type="Github" url="https://github.com/bigqio/bigq" />
     <dependencies>
       <group targetFramework=".NETFramework4.6.2">
-        <dependency id="BigQ.Core" version="2.1.6" exclude="Build,Analyzers" />
+        <dependency id="BigQ.Core" version="2.1.7" exclude="Build,Analyzers" />
       </group>
       <group targetFramework=".NETStandard2.0">
-        <dependency id="BigQ.Core" version="2.1.6" exclude="Build,Analyzers" />
+        <dependency id="BigQ.Core" version="2.1.7" exclude="Build,Analyzers" />
       </group>
     </dependencies>
   </metadata>
   <files>
-    <file src="C:\Code\BigQ\BigQ-2.1\Client\bin\Debug\net462\Client.dll" target="lib\net462\Client.dll" />
-    <file src="C:\Code\BigQ\BigQ-2.1\Client\bin\Debug\netstandard2.0\Client.dll" target="lib\netstandard2.0\Client.dll" />
+    <file src="C:\code\bigq\BigQ-2.1\Client\bin\Debug\net462\Client.dll" target="lib\net462\Client.dll" />
+    <file src="C:\code\bigq\BigQ-2.1\Client\bin\Debug\netstandard2.0\Client.dll" target="lib\netstandard2.0\Client.dll" />
   </files>
 </package>

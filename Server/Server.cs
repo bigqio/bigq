@@ -55,8 +55,7 @@ namespace BigQ.Server
         // Server variables
         //
         private WatsonTcpServer _WTcpServer; 
-        private WatsonWsServer _WWsServer;
-        private WatsonWsServer _WWsSslServer;
+        private WatsonWsServer _WWsServer; 
          
         //
         // cleanup
@@ -506,7 +505,7 @@ namespace BigQ.Server
             {
                 #region Start-Websocket-SSL-Server
                  
-                _WWsSslServer = new WatsonWsServer(
+                _WWsServer = new WatsonWsServer(
                     Config.WebsocketSslServer.Ip,
                     Config.WebsocketSslServer.Port,
                     true,
@@ -541,8 +540,7 @@ namespace BigQ.Server
                 try
                 {
                     if (_WTcpServer != null) _WTcpServer.Dispose();
-                    if (_WWsServer != null) _WWsServer.Dispose();
-                    if (_WWsSslServer != null) _WWsSslServer.Dispose();
+                    if (_WWsServer != null) _WWsServer.Dispose(); 
                 }
                 catch (Exception)
                 {
@@ -564,9 +562,7 @@ namespace BigQ.Server
             bool locked = false;
 
             try
-            { 
-                #region Wait-for-Client-Active-Send-Lock
-
+            {  
                 lock (_ClientActiveSendMapLock)
                 {
                     _ClientActiveSendMap.Add(message.RecipientGUID, DateTime.Now.ToUniversalTime());
@@ -574,27 +570,27 @@ namespace BigQ.Server
                  
                 locked = true;
 
-                #endregion
-
-                #region Send-Message
-                 
                 byte[] data = message.ToBytes();
 
-                if (client.Connection == ConnectionType.Tcp || client.Connection == ConnectionType.TcpSsl) return _WTcpServer.Send(client.IpPort, data);
-                else if (client.Connection == ConnectionType.Websocket) return _WWsServer.SendAsync(client.IpPort, data).Result;
-                else if (client.Connection == ConnectionType.WebsocketSsl) return _WWsSslServer.SendAsync(client.IpPort, data).Result;
-                else return false;
-
-                #endregion
+                if (client.Connection == ConnectionType.Tcp || client.Connection == ConnectionType.TcpSsl)
+                {
+                    return _WTcpServer.Send(client.IpPort, data);
+                }
+                else if (client.Connection == ConnectionType.Websocket || client.Connection == ConnectionType.WebsocketSsl)
+                {
+                    return _WWsServer.SendAsync(client.IpPort, data).Result;
+                }
+                else
+                {
+                    return false;
+                } 
             }
             catch (Exception)
             { 
                 return false;
             }
             finally
-            {
-                #region Cleanup
-                       
+            { 
                 if (locked)
                 {
                     lock (_ClientActiveSendMapLock)
@@ -602,9 +598,7 @@ namespace BigQ.Server
                         if (_ClientActiveSendMap.ContainsKey(message.RecipientGUID))
                             _ClientActiveSendMap.Remove(message.RecipientGUID);
                     }
-                }
-                 
-                #endregion
+                } 
             }
         }
 

@@ -10,13 +10,7 @@ namespace BigQ.Core
     public class User
     {
         #region Public-Members
-
-        //
-        //
-        // Standard Headers
-        //
-        //
-
+         
         /// <summary>
         /// Email address of the client.  Primarily used in authentication (future).
         /// </summary>

@@ -251,7 +251,7 @@
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
-          "BigQ.Core": "2.1.6"
+          "BigQ.Core": "2.1.7"
         },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
@@ -260,7 +260,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.1.8": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -778,7 +778,7 @@
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
-          "BigQ.Core": "2.1.6"
+          "BigQ.Core": "2.1.7"
         },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
@@ -787,7 +787,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.1.8": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
@@ -851,7 +851,7 @@
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
-          "BigQ.Core": "2.1.6"
+          "BigQ.Core": "2.1.7"
         },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
@@ -860,7 +860,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.1.8": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
@@ -924,7 +924,7 @@
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
-          "BigQ.Core": "2.1.6"
+          "BigQ.Core": "2.1.7"
         },
         "compile": {
           "bin/placeholder/BigQ.Client.dll": {}
@@ -933,7 +933,7 @@
           "bin/placeholder/BigQ.Client.dll": {}
         }
       },
-      "BigQ.Core/2.1.7": {
+      "BigQ.Core/2.1.8": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
@@ -1822,7 +1822,7 @@
       "path": "../Client/Client.csproj",
       "msbuildProject": "../Client/Client.csproj"
     },
-    "BigQ.Core/2.1.7": {
+    "BigQ.Core/2.1.8": {
       "type": "project",
       "path": "../Core/Core.csproj",
       "msbuildProject": "../Core/Core.csproj"
@@ -1831,12 +1831,12 @@
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
       "BigQ.Client >= 2.1.7",
-      "BigQ.Core >= 2.1.7",
+      "BigQ.Core >= 2.1.8",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
       "BigQ.Client >= 2.1.7",
-      "BigQ.Core >= 2.1.7"
+      "BigQ.Core >= 2.1.8"
     ]
   },
   "packageFolders": {
@@ -1846,11 +1846,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Code\\BigQ\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
+      "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
       "projectName": "ClientTest",
-      "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
+      "projectPath": "C:\\code\\bigq\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\Code\\BigQ\\BigQ-2.1\\ClientTest\\obj\\",
+      "outputPath": "C:\\code\\bigq\\BigQ-2.1\\ClientTest\\obj\\",
       "projectStyle": "PackageReference",
       "crossTargeting": true,
       "fallbackFolders": [
@@ -1866,26 +1866,28 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "https://api.nuget.org/v3/index.json": {}
+        "https://api.nuget.org/v3/index.json": {},
+        "https://nuget.pkg.github.com/jchristn/index.json": {},
+        "https://nuget.pkg.github.com/kvpbase/index.json": {}
       },
       "frameworks": {
         "netcoreapp2.2": {
           "projectReferences": {
-            "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj"
+            "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj": {
+              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj"
             },
-            "C:\\Code\\BigQ\\BigQ-2.1\\Core\\Core.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Core\\Core.csproj"
+            "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj": {
+              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj"
             }
           }
         },
         "net462": {
           "projectReferences": {
-            "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj"
+            "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj": {
+              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj"
             },
-            "C:\\Code\\BigQ\\BigQ-2.1\\Core\\Core.csproj": {
-              "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Core\\Core.csproj"
+            "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj": {
+              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj"
             }
           }
         }

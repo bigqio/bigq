@@ -19,7 +19,7 @@ using System.Reflection;
     "braries.  Please also download the BigQ.Client or BigQ.Server package as needed." +
     "")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("2.1.7.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.1.7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.1.8")]
 [assembly: System.Reflection.AssemblyProductAttribute("BigQ.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("2.1.7.0")]

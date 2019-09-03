@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
+using Newtonsoft.Json;
 
 namespace BigQ.Core
 {
@@ -70,26 +71,31 @@ namespace BigQ.Core
         /// <summary>
         /// A blocking collection containing the messages that are queued for delivery to this client.
         /// </summary>
+        [JsonIgnore]
         public BlockingCollection<Message> MessageQueue = new BlockingCollection<Message>();
 
         /// <summary>
         /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
         /// </summary>
+        [JsonIgnore]
         public CancellationTokenSource RamQueueTokenSource = null;
 
         /// <summary>
         /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
         /// </summary>
+        [JsonIgnore]
         public CancellationToken RamQueueToken;
 
         /// <summary>
         /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
         /// </summary>
+        [JsonIgnore]
         public CancellationTokenSource DiskQueueTokenSource = null;
 
         /// <summary>
         /// Managed by the server to destroy the thread processing the client queue when the client is shutting down.
         /// </summary>
+        [JsonIgnore]
         public CancellationToken DiskQueueToken;
          
         #endregion
