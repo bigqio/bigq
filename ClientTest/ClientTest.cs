@@ -563,58 +563,66 @@ namespace ClientTest
 
             while (true)
             {
-                if (firstRun)
+                try
                 {
-
-                }
-                else
-                {
-                    firstRun = false;
-                    Thread.Sleep(5000);
-                }
-
-                if (config == null)
-                {
-                    config = ClientConfiguration.Default();
-                    config.ClientGUID = Guid.NewGuid().ToString();
-                    config.Email = config.ClientGUID;
-                    config.Name = config.ClientGUID;
-                    config.ServerGUID = "00000000-0000-0000-0000-000000000000";
-                    config.SyncTimeoutMs = 30000;
-
-                    config.TcpServer = new ClientConfiguration.TcpServerSettings();
-                    config.TcpServer.Debug = true;
-                    config.TcpServer.Enable = true;
-                    config.TcpServer.Ip = "127.0.0.1";
-                    config.TcpServer.Port = 8000;
-                }
-
-                if (client == null || !client.Connected || !client.LoggedIn)
-                { 
-                    Console.WriteLine("Attempting to connect to server");
-                    if (client != null) client.Dispose();
-                        
-                    client = new Client(config);
-                        
-                    client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
-                    client.Callbacks.SyncMessageReceived = SyncMessageReceived;
-                    client.Callbacks.ServerDisconnected = ServerDisconnected;
-                    client.Callbacks.ServerConnected = ServerConnected;
-                    client.Callbacks.ClientJoinedServer = ClientJoinedServer;
-                    client.Callbacks.ClientLeftServer = ClientLeftServer;
-                    client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
-                    client.Callbacks.ClientLeftChannel = ClientLeftChannel;
-                    client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
-                    client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
-                    client.Callbacks.ChannelCreated = ChannelCreated;
-                    client.Callbacks.ChannelDestroyed = ChannelDestroyed;
-
-                    Console.WriteLine("Client connected, logging in");
-                    Message response;
-                    if (!client.Login(out response))
+                    if (firstRun)
                     {
-                        Console.WriteLine("Unable to login, retrying");
-                    } 
+
+                    }
+                    else
+                    {
+                        firstRun = false;
+                        Thread.Sleep(5000);
+                    }
+
+                    if (config == null)
+                    {
+                        config = ClientConfiguration.Default();
+                        config.ClientGUID = Guid.NewGuid().ToString();
+                        config.Email = config.ClientGUID;
+                        config.Name = config.ClientGUID;
+                        config.ServerGUID = "00000000-0000-0000-0000-000000000000";
+                        config.SyncTimeoutMs = 30000;
+
+                        config.TcpServer = new ClientConfiguration.TcpServerSettings();
+                        config.TcpServer.Debug = true;
+                        config.TcpServer.Enable = true;
+                        config.TcpServer.Ip = "127.0.0.1";
+                        config.TcpServer.Port = 8000;
+                    }
+
+                    if (client == null || !client.Connected || !client.LoggedIn)
+                    {
+                        Console.WriteLine("Attempting to connect to server");
+                        if (client != null) client.Dispose();
+
+                        client = new Client(config);
+
+                        client.Callbacks.AsyncMessageReceived = AsyncMessageReceived;
+                        client.Callbacks.SyncMessageReceived = SyncMessageReceived;
+                        client.Callbacks.ServerDisconnected = ServerDisconnected;
+                        client.Callbacks.ServerConnected = ServerConnected;
+                        client.Callbacks.ClientJoinedServer = ClientJoinedServer;
+                        client.Callbacks.ClientLeftServer = ClientLeftServer;
+                        client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
+                        client.Callbacks.ClientLeftChannel = ClientLeftChannel;
+                        client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
+                        client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel;
+                        client.Callbacks.ChannelCreated = ChannelCreated;
+                        client.Callbacks.ChannelDestroyed = ChannelDestroyed;
+
+                        Console.WriteLine("Client connected, logging in");
+                        Message response;
+                        if (!client.Login(out response))
+                        {
+                            Console.WriteLine("Unable to login, retrying");
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                    client = null;
                 }
             }
         }
