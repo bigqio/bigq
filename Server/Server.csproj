@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net462</TargetFrameworks>
     <RootNamespace>BigQ.Server</RootNamespace>
-    <Version>2.2.0</Version>
+    <Version>3.0.1</Version>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
     <Copyright>(c)2019 Joel Christner</Copyright>
@@ -15,16 +15,18 @@
     <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>mq message queue messaging tcp sockets websockets ssl</PackageTags>
-    <PackageReleaseNotes>Code cleanup, use of Task for callbacks, update dependencies</PackageReleaseNotes>
+    <PackageReleaseNotes>Breaking changes, extensive set of enhancements and fixes.  Please refer to the README.md on the project site for full details.</PackageReleaseNotes>
     <Description>BigQ is a messaging platform using TCP sockets and websockets featuring sync, async, channel, and private communications.  This package includes the BigQ server and associated libraries.</Description>
     <PackageIconUrl>https://raw.githubusercontent.com/bigqio/bigq/master/Assets/logo.png</PackageIconUrl>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BigQ.Core" Version="2.2.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
     <PackageReference Include="SqliteHelper" Version="1.0.13" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.111" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.111" />
+    <PackageReference Include="WatsonTcp" Version="2.0.2" />
+    <PackageReference Include="WatsonWebsocket" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>

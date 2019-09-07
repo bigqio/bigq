@@ -1,6 +1,4 @@
-﻿using BigQ.Core;
-using Newtonsoft.Json.Linq; 
-using System; 
+﻿using System; 
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using WatsonTcp;
 using WatsonWebsocket;
+
+using Newtonsoft.Json.Linq;
+
+using BigQ.Client.Classes;
 
 namespace BigQ.Client
 {
@@ -58,8 +60,7 @@ namespace BigQ.Client
         private Dictionary<string, Message> _SyncResponses = new Dictionary<string, Message>();
 
         private WatsonTcpClient _WTcpClient; 
-        private WatsonWsClient _WWsClient;
-        private WatsonWsClient _WWsSslClient;
+        private WatsonWsClient _WWsClient; 
 
         private Random _Random;
 
@@ -75,35 +76,7 @@ namespace BigQ.Client
             Config = ClientConfiguration.Default();
             InitializeClient();
         }
-
-        /// <summary>
-        /// Start an instance of the BigQ client process.
-        /// </summary>
-        /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
-        public Client(string configFile)
-        {
-            #region Load-Config
-
-            Config = null;
-
-            if (String.IsNullOrEmpty(configFile))
-            {
-                Config = ClientConfiguration.Default();
-            }
-            else
-            {
-                Config = ClientConfiguration.LoadConfig(configFile);
-            }
-
-            if (Config == null) throw new Exception("Unable to initialize configuration.");
-
-            Config.ValidateConfig();
-
-            #endregion
-
-            InitializeClient();
-        }
-
+         
         /// <summary>
         /// Start an instance of the BigQ client process.
         /// </summary>
@@ -134,35 +107,6 @@ namespace BigQ.Client
         }
 
         /// <summary>
-        /// Sends a message; makes the assumption that you have populated the object fully and correctly.  In general, this method should not be used.
-        /// </summary>
-        /// <param name="message">The populated message object to send.</param>
-        /// <returns>Boolean indicating success.</returns>
-        public bool SendMessage(Message message)
-        {
-            if (message == null) throw new ArgumentNullException(nameof(message));
-
-            byte[] data = message.ToBytes();
-
-            if (Config.TcpServer.Enable || Config.TcpSslServer.Enable)
-            {
-                return _WTcpClient.SendAsync(data).Result;
-            }
-            else if (Config.WebsocketServer.Enable)
-            {
-                return _WWsClient.SendAsync(data).Result;
-            }
-            else if (Config.WebsocketSslServer.Enable)
-            {
-                return _WWsSslClient.SendAsync(data).Result;
-            }
-            else
-            { 
-                return false;
-            }
-        }
-
-        /// <summary>
         /// Generates an echo request to the server, which should result in an asynchronous echo response.  Typically used to validate connectivity.
         /// </summary>
         /// <returns>Boolean indicating success.</returns>
@@ -179,7 +123,7 @@ namespace BigQ.Client
             request.SyncRequest = true;
             request.ChannelGUID = null;
             request.Data = null;
-            return SendMessage(request);
+            return SendMessage(request).Result;
         }
 
         /// <summary>
@@ -205,34 +149,25 @@ namespace BigQ.Client
             request.ChannelGUID = null;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             if (!response.Success) return false;
             else
             {
                 LoggedIn = true;
-                if (Callbacks.ServerConnected != null)
-                {
-                    new Thread(delegate ()
-                    {
-                        Callbacks.ServerConnected();
-                    }).Start();
-                    // Task.Run(() => Callbacks.ServerConnected());
-                }
+                if (Callbacks.ServerConnected != null) Task.Run(() => Callbacks.ServerConnected());
                 return true;
             }
         }
 
         /// <summary>
         /// Retrieve a list of all clients on the server.
-        /// </summary>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <param name="clients">The list of clients received from the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListClients(out Message response, out List<ServerClient> clients)
+        /// </summary>  
+        /// <returns>The list of clients received from the server.</returns>
+        public List<ServerClient> ListClients()
         {
-            response = null;
-            clients = null;
+            Message response = null;
+            List<ServerClient> clients = new List<ServerClient>();
 
             Message request = new Message();
             request.Email = Config.Email;
@@ -249,30 +184,28 @@ namespace BigQ.Client
             request.ChannelGUID = null;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
-            if (response == null) return false;
-            if (!response.Success) return false;
+            if (!SendServerSync(request, out response)) return null;
+            if (response == null) return null;
+            if (!response.Success) return null;
             else
             {
                 if (response.Data != null)
                 {
-                    SuccessData resp = BigQ.Core.Common.DeserializeJson<SuccessData>(response.Data);
+                    SuccessData resp = Common.DeserializeJson<SuccessData>(response.Data);
                     clients = ((JArray)resp.Data).ToObject<List<ServerClient>>();
                 }
-                return true;
+                return clients;
             }
         }
 
         /// <summary>
         /// Retrieve a list of all channels on the server.
-        /// </summary>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <param name="channels">The list of channels received from the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListChannels(out Message response, out List<Channel> channels)
+        /// </summary> 
+        /// <returns>The list of channels received from the server.</returns>
+        public List<Channel> ListChannels()
         {
-            response = null;
-            channels = null;
+            Message response = null;
+            List<Channel> channels = new List<Channel>();
 
             Message request = new Message();
             request.Email = Config.Email;
@@ -289,31 +222,29 @@ namespace BigQ.Client
             request.ChannelGUID = null;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
-            if (response == null) return false;
-            if (!response.Success) return false;
+            if (!SendServerSync(request, out response)) return null;
+            if (response == null) return null;
+            if (!response.Success) return null;
             else
             {
                 if (response.Data != null)
                 {
-                    SuccessData resp = BigQ.Core.Common.DeserializeJson<SuccessData>(response.Data);
+                    SuccessData resp = Common.DeserializeJson<SuccessData>(response.Data);
                     channels = ((JArray)resp.Data).ToObject<List<Channel>>();
                 }
-                return true;
+                return channels;
             }
         }
 
         /// <summary>
         /// Retrieve a list of all members in a specific channel.
         /// </summary>
-        /// <param name="guid">The GUID of the channel.</param>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <param name="clients">The list of clients that are members in the specified channel on the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListMembers(string guid, out Message response, out List<ServerClient> clients)
+        /// <param name="guid">The GUID of the channel.</param> 
+        /// <returns>The list of clients that are members in the specified channel on the server.</returns>
+        public List<ServerClient> ListMembers(string guid)
         {
-            response = null;
-            clients = null;
+            Message response = null;
+            List<ServerClient> clients = new List<ServerClient>();
 
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
@@ -332,14 +263,14 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
-            if (response == null) return false;
-            if (!response.Success) return false;
+            if (!SendServerSync(request, out response)) return null;
+            if (response == null) return null;
+            if (!response.Success) return null;
             else
             {
                 if (response.Data != null)
                 {
-                    SuccessData resp = BigQ.Core.Common.DeserializeJson<SuccessData>(response.Data);
+                    SuccessData resp = Common.DeserializeJson<SuccessData>(response.Data);
                     if (resp != null && resp.Data != null)
                     {
                         clients = ((JArray)resp.Data).ToObject<List<ServerClient>>();
@@ -350,7 +281,7 @@ namespace BigQ.Client
                     }
                 }
 
-                return true;
+                return clients;
             }
         }
 
@@ -361,10 +292,10 @@ namespace BigQ.Client
         /// <param name="response">The full response message received from the server.</param>
         /// <param name="clients">The list of clients subscribed to the specified channel on the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool ListSubscribers(string guid, out Message response, out List<ServerClient> clients)
+        public List<ServerClient> ListSubscribers(string guid)
         {
-            response = null;
-            clients = null;
+            Message response = null;
+            List<ServerClient> clients = new List<ServerClient>();
 
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
@@ -383,17 +314,18 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
-            if (response == null) return false;
-            if (!response.Success) return false;
+            if (!SendServerSync(request, out response)) return null;
+            if (response == null) return null;
+            if (!response.Success) return null;
             else
             {
                 if (response.Data != null)
                 {
-                    SuccessData resp = BigQ.Core.Common.DeserializeJson<SuccessData>(response.Data);
+                    SuccessData resp = Common.DeserializeJson<SuccessData>(response.Data);
                     clients = ((JArray)resp.Data).ToObject<List<ServerClient>>();
                 }
-                return true;
+
+                return clients;
             }
         }
 
@@ -423,7 +355,7 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             return response.Success;
         }
@@ -454,7 +386,7 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             return response.Success;
         }
@@ -485,7 +417,7 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             return response.Success;
         }
@@ -516,19 +448,20 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             return response.Success;
         }
 
         /// <summary>
-        /// Create a broadcast channel on the server.  Messages sent to broadcast channels are sent to all members.
+        /// Create a channel.
         /// </summary>
+        /// <param name="channelType">ChannelType.</param>
         /// <param name="name">The name you wish to assign to the new channel.</param>
         /// <param name="isPrivate">Whether or not the channel is private (true) or public (false).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool CreateBroadcastChannel(string name, bool isPrivate, out Message response)
+        public bool Create(ChannelType channelType, string name, bool isPrivate, out Message response)
         {
             response = null;
             if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name)); 
@@ -537,10 +470,11 @@ namespace BigQ.Client
             currentChannel.ChannelName = name;
             currentChannel.OwnerGUID = Config.ClientGUID;
             currentChannel.ChannelGUID = Guid.NewGuid().ToString();
+            currentChannel.Type = channelType;
+
             if (isPrivate) currentChannel.Visibility = ChannelVisibility.Private;
             else currentChannel.Visibility = ChannelVisibility.Public;
-            currentChannel.Type = ChannelType.Broadcast;
-
+            
             Message request = new Message();
             request.Email = Config.Email;
             request.Password = Config.Password;
@@ -554,93 +488,13 @@ namespace BigQ.Client
             request.SyncTimeoutMs = Config.SyncTimeoutMs;
             request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
             request.ChannelGUID = currentChannel.ChannelGUID;
-            request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
+            request.Data = Encoding.UTF8.GetBytes(Common.SerializeJson(currentChannel));
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             return response.Success;
         }
-
-        /// <summary>
-        /// Create a unicast channel on the server.  Messages sent to unicast channels are sent only to one subscriber randomly.
-        /// </summary>
-        /// <param name="name">The name you wish to assign to the new channel.</param>
-        /// <param name="isPrivate">Whether or not the channel is private (true) or public (false).</param>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool CreateUnicastChannel(string name, bool isPrivate, out Message response)
-        {
-            response = null;
-            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name)); 
-
-            Channel currentChannel = new Channel();
-            currentChannel.ChannelName = name;
-            currentChannel.OwnerGUID = Config.ClientGUID;
-            currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-            if (isPrivate) currentChannel.Visibility = ChannelVisibility.Private;
-            else currentChannel.Visibility = ChannelVisibility.Public;
-            currentChannel.Type = ChannelType.Unicast;
-
-            Message request = new Message();
-            request.Email = Config.Email;
-            request.Password = Config.Password;
-            request.Command = MessageCommand.CreateChannel;
-            request.CreatedUtc = DateTime.Now.ToUniversalTime();
-            request.MessageID = Guid.NewGuid().ToString();
-            request.SenderGUID = Config.ClientGUID;
-            request.SenderName = Config.Name;
-            request.RecipientGUID = Config.ServerGUID;
-            request.SyncRequest = true;
-            request.SyncTimeoutMs = Config.SyncTimeoutMs;
-            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
-            request.ChannelGUID = currentChannel.ChannelGUID;
-            request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
-
-            if (!SendServerMessageSync(request, out response)) return false;
-            if (response == null) return false;
-            return response.Success;
-        }
-
-        /// <summary>
-        /// Create a multicast channel on the server.  Messages sent to multicast channels are sent only to subscribers.
-        /// </summary>
-        /// <param name="name">The name you wish to assign to the new channel.</param>
-        /// <param name="isPrivate">Whether or not the channel is private (true) or public (false).</param>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool CreateMulticastChannel(string name, bool isPrivate, out Message response)
-        {
-            response = null;
-            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name)); 
-
-            Channel currentChannel = new Channel();
-            currentChannel.ChannelName = name;
-            currentChannel.OwnerGUID = Config.ClientGUID;
-            currentChannel.ChannelGUID = Guid.NewGuid().ToString();
-            if (isPrivate) currentChannel.Visibility = ChannelVisibility.Private;
-            else currentChannel.Visibility = ChannelVisibility.Public;
-            currentChannel.Type = ChannelType.Multicast;
-
-            Message request = new Message();
-            request.Email = Config.Email;
-            request.Password = Config.Password;
-            request.Command = MessageCommand.CreateChannel;
-            request.CreatedUtc = DateTime.Now.ToUniversalTime();
-            request.MessageID = Guid.NewGuid().ToString();
-            request.SenderGUID = Config.ClientGUID;
-            request.SenderName = Config.Name;
-            request.RecipientGUID = Config.ServerGUID;
-            request.SyncRequest = true;
-            request.SyncTimeoutMs = Config.SyncTimeoutMs;
-            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
-            request.ChannelGUID = currentChannel.ChannelGUID;
-            request.Data = Encoding.UTF8.GetBytes(BigQ.Core.Common.SerializeJson(currentChannel));
-
-            if (!SendServerMessageSync(request, out response)) return false;
-            if (response == null) return false;
-            return response.Success;
-        }
-
+         
         /// <summary>
         /// Delete a channel you own on the server.
         /// </summary>
@@ -667,7 +521,7 @@ namespace BigQ.Client
             request.ChannelGUID = guid;
             request.Data = null;
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             return response.Success;
         }
@@ -678,11 +532,11 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the recipient user.</param>
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendPrivateMessageAsync(string guid, string data)
+        public async Task<bool> Send(string guid, string data)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
-            return SendPrivateMessageAsyncInternal(guid, null, Encoding.UTF8.GetBytes(data), false);
+            return await SendInternal(guid, null, Encoding.UTF8.GetBytes(data), false);
         }
 
         /// <summary>
@@ -691,11 +545,11 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the recipient user.</param>
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendPrivateMessageAsync(string guid, byte[] data)
+        public async Task<bool> Send(string guid, byte[] data)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (data == null) throw new ArgumentNullException(nameof(data));
-            return SendPrivateMessageAsyncInternal(guid, null, data, false);
+            return await SendInternal(guid, null, data, false);
         }
 
         /// <summary>
@@ -706,11 +560,11 @@ namespace BigQ.Client
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <param name="persist">True to persist until expiration.</param>
         /// <returns>Boolean indicating whether or not the message was stored persistently.</returns>
-        public bool SendPrivateMessageAsync(string guid, string contentType, string data, bool persist)
+        public async Task<bool> Send(string guid, string contentType, string data, bool persist)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
-            return SendPrivateMessageAsyncInternal(guid, contentType, Encoding.UTF8.GetBytes(data), persist);
+            return await SendInternal(guid, contentType, Encoding.UTF8.GetBytes(data), persist);
         }
 
         /// <summary>
@@ -721,11 +575,11 @@ namespace BigQ.Client
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <param name="persist">True to persist until expiration.</param>
         /// <returns>Boolean indicating whether or not the message was stored persistently.</returns>
-        public bool SendPrivateMessageAsync(string guid, string contentType, byte[] data, bool persist)
+        public async Task<bool> Send(string guid, string contentType, byte[] data, bool persist)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (data == null) throw new ArgumentNullException(nameof(data));
-            return SendPrivateMessageAsyncInternal(guid, contentType, data, persist);
+            return await SendInternal(guid, contentType, data, persist);
         }
 
         /// <summary>
@@ -735,11 +589,27 @@ namespace BigQ.Client
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendPrivateMessageSync(string guid, string data, out Message response)
+        public bool SendSync(string guid, string data, out string response)
         {
+            response = null;
+
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
-            return SendPrivateMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
+
+            byte[] responseBytes = null;
+            if (!SendSync(guid, Encoding.UTF8.GetBytes(data), out responseBytes))
+            {
+                return false;
+            }
+            else
+            {
+                if (responseBytes != null)
+                {
+                    response = Encoding.UTF8.GetString(responseBytes);
+                }
+
+                return true;
+            }
         }
 
         /// <summary>
@@ -749,7 +619,7 @@ namespace BigQ.Client
         /// <param name="data">The data you wish to send to the user (string or byte array).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendPrivateMessageSync(string guid, byte[] data, out Message response)
+        public bool SendSync(string guid, byte[] data, out byte[] response)
         {
             response = null;
 
@@ -773,47 +643,25 @@ namespace BigQ.Client
             request.Data = data;
 
             if (!AddSyncRequest(request.MessageID)) return false;
-            if (!SendMessage(request)) return false;
+            if (!SendMessage(request).Result) return false;
             int timeoutMs = Config.SyncTimeoutMs;
             if (request.SyncTimeoutMs > 0) timeoutMs = Convert.ToInt32(request.SyncTimeoutMs);
 
-            return GetSyncResponse(request.MessageID, timeoutMs, out response);
-        }
+            Message responseMsg = null;
+            if (!GetSyncResponse(request.MessageID, timeoutMs, out responseMsg))
+            {
+                return false;
+            }
+            else
+            {
+                if (responseMsg.Data != null && responseMsg.Data.Length > 0)
+                {
+                    response = new byte[responseMsg.Data.Length];
+                    Buffer.BlockCopy(responseMsg.Data, 0, response, 0, responseMsg.Data.Length);
+                }
 
-        /// <summary>
-        /// Send a private message to the server asynchronously.
-        /// </summary>
-        /// <param name="request">The message object you wish to send to the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendServerMessageAsync(Message request)
-        {
-            if (request == null) throw new ArgumentNullException(nameof(request));
-            request.RecipientGUID = Config.ServerGUID;
-            return SendMessage(request);
-        }
-
-        /// <summary>
-        /// Send a private message to the server synchronously.
-        /// </summary>
-        /// <param name="request">The message object you wish to send to the server.</param>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendServerMessageSync(Message request, out Message response)
-        {
-            response = null;
-            if (request == null) throw new ArgumentNullException(nameof(request));
-            if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
-            request.SyncRequest = true;
-            request.SyncTimeoutMs = Config.SyncTimeoutMs;
-            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
-            request.RecipientGUID = Config.ServerGUID;
-
-            if (!AddSyncRequest(request.MessageID)) return false;
-            if (!SendMessage(request)) return false;
-            int timeoutMs = Config.SyncTimeoutMs;
-            if (request.SyncTimeoutMs > 0) timeoutMs = request.SyncTimeoutMs;
-
-            return GetSyncResponse(request.MessageID, timeoutMs, out response);
+                return true;
+            }
         }
 
         /// <summary>
@@ -822,11 +670,11 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendChannelMessageAsync(string guid, string data)
+        public async Task<bool> SendChannel(string guid, string data)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
-            return SendChannelMessageAsync(guid, Encoding.UTF8.GetBytes(data));
+            return await SendChannel(guid, Encoding.UTF8.GetBytes(data));
         }
 
         /// <summary>
@@ -835,7 +683,7 @@ namespace BigQ.Client
         /// <param name="guid">The GUID of the channel.</param>
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendChannelMessageAsync(string guid, byte[] data)
+        public async Task<bool> SendChannel(string guid, byte[] data)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -853,7 +701,7 @@ namespace BigQ.Client
             request.SyncRequest = false;
             request.SyncResponse = false;
             request.Data = data;
-            return SendMessage(request);
+            return await SendMessage(request);
         }
 
         /// <summary>
@@ -863,11 +711,27 @@ namespace BigQ.Client
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendChannelMessageSync(string guid, string data, out Message response)
+        public bool SendChannelSync(string guid, string data, out string response)
         {
+            response = null;
+
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (String.IsNullOrEmpty(data)) throw new ArgumentNullException(nameof(data));
-            return SendChannelMessageSync(guid, Encoding.UTF8.GetBytes(data), out response);
+
+            byte[] responseBytes = null; 
+            if (!SendChannelSync(guid, Encoding.UTF8.GetBytes(data), out responseBytes))
+            {
+                return false;
+            }
+            else
+            {
+                if (responseBytes != null && responseBytes.Length > 0)
+                {
+                    response = Encoding.UTF8.GetString(responseBytes);
+                }
+
+                return true;
+            }
         }
 
         /// <summary>
@@ -877,7 +741,7 @@ namespace BigQ.Client
         /// <param name="data">The data you wish to send to the channel (string or byte array).</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool SendChannelMessageSync(string guid, byte[] data, out Message response)
+        public bool SendChannelSync(string guid, byte[] data, out byte[] response)
         {
             response = null;
 
@@ -901,39 +765,35 @@ namespace BigQ.Client
             request.Data = data;
 
             if (!AddSyncRequest(request.MessageID)) return false;
-            if (!SendMessage(request)) return false;
+            if (!SendMessage(request).Result) return false;
             int timeoutMs = Config.SyncTimeoutMs;
             if (request.SyncTimeoutMs > 0) timeoutMs = request.SyncTimeoutMs;
 
-            return GetSyncResponse(request.MessageID, timeoutMs, out response);
-        }
-
-        /// <summary>
-        /// Retrieve the list of synchronous requests awaiting responses.
-        /// </summary>
-        /// <param name="response">A dictionary containing the GUID of the synchronous request (key) and the timestamp it was sent (value).</param>
-        /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool PendingSyncRequests(out Dictionary<string, DateTime> response)
-        {
-            response = null;
-            lock (_SyncRequestsLock)
+            Message responseMsg = null;
+            if (!GetSyncResponse(request.MessageID, timeoutMs, out responseMsg))
             {
-                if (_SyncRequests == null || _SyncRequests.Count < 1) return true;
-                response = new Dictionary<string, DateTime>(_SyncRequests);
+                return false;
+            }
+            else
+            {
+                if (responseMsg.Data != null && responseMsg.Data.Length > 0)
+                {
+                    response = new byte[responseMsg.Data.Length];
+                    Buffer.BlockCopy(responseMsg.Data, 0, response, 0, responseMsg.Data.Length);
+                }
+
                 return true;
             }
         }
-
+         
         /// <summary>
         /// Discern whether or not a given client is connected.
         /// </summary>
         /// <param name="guid">The GUID of the client.</param>
         /// <param name="response">The full response message received from the server.</param>
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
-        public bool IsClientConnected(string guid, out Message response)
-        {
-            response = null;
-
+        public bool IsClientConnected(string guid)
+        { 
             Message request = new Message();
             request.Email = Config.Email;
             request.Password = Config.Password;
@@ -949,14 +809,15 @@ namespace BigQ.Client
             request.ChannelGUID = null;
             request.Data = Encoding.UTF8.GetBytes(guid);
 
-            if (!SendServerMessageSync(request, out response)) return false;
+            Message response = null;
+            if (!SendServerSync(request, out response)) return false;
             if (response == null) return false;
             if (!response.Success) return false;
             else
             {
                 if (response.Data != null)
                 {
-                    SuccessData ret = BigQ.Core.Common.DeserializeJson<SuccessData>(Encoding.UTF8.GetString(response.Data));
+                    SuccessData ret = Common.DeserializeJson<SuccessData>(Encoding.UTF8.GetString(response.Data));
                     return (ret.Success && Convert.ToBoolean(ret.Data));
                 }
 
@@ -968,32 +829,27 @@ namespace BigQ.Client
 
         #region Private-Watson-Methods
 
-        private bool WatsonServerConnected()
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task WatsonServerConnected()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         { 
             Connected = true;
-            return true;
         }
 
-        private bool WatsonServerDisconnected()
+        private async Task WatsonServerDisconnected()
         { 
             Connected = false;
             LoggedIn = false;
             if (Callbacks.ServerDisconnected != null)
             {
-                new Thread(delegate ()
-                {
-                    Callbacks.ServerDisconnected();
-                }).Start();
-                // Task.Run(() => Callbacks.ServerDisconnected());
+                await Task.Run(() => Callbacks.ServerDisconnected());
             }
-            return true;
         }
 
-        private bool WatsonMessageReceived(byte[] data)
+        private async Task WatsonMessageReceived(byte[] data)
         {
             Message curr = new Message(data); 
-            HandleMessage(curr);
-            return true;
+            await HandleMessage(curr);
         }
         
         #endregion
@@ -1146,8 +1002,7 @@ namespace BigQ.Client
                 try
                 {
                     if (_WTcpClient != null) _WTcpClient.Dispose();
-                    if (_WWsClient != null) _WWsClient.Dispose();
-                    if (_WWsSslClient != null) _WWsSslClient.Dispose();
+                    if (_WWsClient != null) _WWsClient.Dispose(); 
                 }
                 catch (Exception)
                 {
@@ -1184,6 +1039,8 @@ namespace BigQ.Client
             
             if (Config.TcpServer.Enable)
             {
+                Connection = ConnectionType.Tcp;
+
                 _WTcpClient = new WatsonTcpClient(
                     Config.TcpServer.Ip,
                     Config.TcpServer.Port);
@@ -1194,11 +1051,12 @@ namespace BigQ.Client
                 _WTcpClient.Debug = Config.TcpServer.Debug;
                 _WTcpClient.Start();
 
-                Connection = ConnectionType.Tcp;
                 Connected = true;
             }
             else if (Config.TcpSslServer.Enable)
             {
+                Connection = ConnectionType.TcpSsl;
+
                 _WTcpClient = new WatsonTcpClient(
                     Config.TcpSslServer.Ip,
                     Config.TcpSslServer.Port,
@@ -1212,37 +1070,42 @@ namespace BigQ.Client
                 _WTcpClient.Debug = Config.TcpServer.Debug;
                 _WTcpClient.Start();
 
-                Connection = ConnectionType.TcpSsl;
                 Connected = true;
             }
             else if (Config.WebsocketServer.Enable)
             {
+                Connection = ConnectionType.Websocket;
+
                 _WWsClient = new WatsonWsClient(
                     Config.WebsocketServer.Ip,
                     Config.WebsocketServer.Port,
-                    false,
-                    false,
-                    WatsonServerConnected,
-                    WatsonServerDisconnected,
-                    WatsonMessageReceived,
-                    Config.WebsocketServer.Debug);
+                    false);
 
-                Connection = ConnectionType.Websocket;
+                _WWsClient.ServerConnected = WatsonServerConnected;
+                _WWsClient.ServerDisconnected = WatsonServerDisconnected;
+                _WWsClient.MessageReceived = WatsonMessageReceived;
+                _WWsClient.Debug = Config.WebsocketServer.Debug;
+                _WWsClient.Start();
+
                 Connected = true;
             }
             else if (Config.WebsocketSslServer.Enable)
             {
-                _WWsSslClient = new WatsonWsClient(
+                Connection = ConnectionType.WebsocketSsl;
+
+                _WWsClient = new WatsonWsClient(
                     Config.WebsocketSslServer.Ip,
                     Config.WebsocketSslServer.Port,
-                    true,
-                    Config.WebsocketSslServer.AcceptInvalidCerts,
-                    WatsonServerConnected,
-                    WatsonServerDisconnected,
-                    WatsonMessageReceived,
-                    Config.WebsocketSslServer.Debug);
+                    true);
 
-                Connection = ConnectionType.WebsocketSsl;
+                _WWsClient.ServerConnected = WatsonServerConnected;
+                _WWsClient.ServerDisconnected = WatsonServerDisconnected;
+                _WWsClient.MessageReceived = WatsonMessageReceived;
+
+                _WWsClient.AcceptInvalidCertificates = Config.WebsocketSslServer.AcceptInvalidCerts;
+                _WWsClient.Debug = Config.WebsocketSslServer.Debug;
+                _WWsClient.Start();
+                 
                 Connected = true;
             }
             else
@@ -1255,7 +1118,7 @@ namespace BigQ.Client
             Task.Run(() => CleanupSyncRequests(), _CleanupSyncToken);
         }
 
-        private async void HandleMessage(Message currentMessage)
+        private async Task HandleMessage(Message currentMessage)
         {
             if (currentMessage.SenderGUID.Equals(Config.ServerGUID)
                 && currentMessage.Command == MessageCommand.Event)
@@ -1269,7 +1132,7 @@ namespace BigQ.Client
                     EventData ev = null;
                     try
                     {
-                        ev = BigQ.Core.Common.DeserializeJson<EventData>(currentMessage.Data);
+                        ev = Common.DeserializeJson<EventData>(currentMessage.Data);
                     }
                     catch (Exception)
                     { 
@@ -1281,88 +1144,56 @@ namespace BigQ.Client
                         case EventTypes.ClientJoinedServer:
                             if (Callbacks.ClientJoinedServer != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.ClientJoinedServer(ev.Data.ToString());
-                                }).Start();
-                                // Task.Run(() => Callbacks.ClientJoinedServer(ev.Data.ToString()));
+                                await Task.Run(() => Callbacks.ClientJoinedServer(ev.Data.ToString()));
                             }
                             return;
 
                         case EventTypes.ClientLeftServer:
                             if (Callbacks.ClientLeftServer != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.ClientLeftServer(ev.Data.ToString());
-                                }).Start();
-                                // Task.Run(() => Callbacks.ClientLeftServer(ev.Data.ToString()));
+                                await Task.Run(() => Callbacks.ClientLeftServer(ev.Data.ToString()));
                             }
                             return;
 
                         case EventTypes.ClientJoinedChannel:
                             if (Callbacks.ClientJoinedChannel != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
-                                }).Start();
-                                // Task.Run(() => Callbacks.ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                                await Task.Run(() => Callbacks.ClientJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                             }
                             return;
 
                         case EventTypes.ClientLeftChannel:
                             if (Callbacks.ClientLeftChannel != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
-                                }).Start();
-                                // Task.Run(() => Callbacks.ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                                await Task.Run(() => Callbacks.ClientLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                             }
                             return;
 
                         case EventTypes.SubscriberJoinedChannel:
                             if (Callbacks.SubscriberJoinedChannel != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
-                                }).Start();
-                                // Task.Run(() => Callbacks.SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                                await Task.Run(() => Callbacks.SubscriberJoinedChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                             }
                             return;
 
                         case EventTypes.SubscriberLeftChannel:
                             if (Callbacks.SubscriberLeftChannel != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID);
-                                }).Start();
-                                // Task.Run(() => Callbacks.SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
+                                await Task.Run(() => Callbacks.SubscriberLeftChannel(ev.Data.ToString(), currentMessage.ChannelGUID));
                             }
                             return;
 
                         case EventTypes.ChannelCreated:
                             if (Callbacks.ChannelCreated != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.ChannelCreated(ev.Data.ToString());
-                                }).Start();
-                                // Task.Run(() => Callbacks.ChannelCreated(ev.Data.ToString()));
+                                await Task.Run(() => Callbacks.ChannelCreated(ev.Data.ToString()));
                             }
                             return;
 
                         case EventTypes.ChannelDestroyed:
                             if (Callbacks.ChannelDestroyed != null)
                             {
-                                new Thread(delegate ()
-                                {
-                                    Callbacks.ChannelDestroyed(ev.Data.ToString());
-                                }).Start();
-                                // Task.Run(() => Callbacks.ChannelDestroyed(ev.Data.ToString()));
+                                await Task.Run(() => Callbacks.ChannelDestroyed(ev.Data.ToString()));
                             }
                             return;
 
@@ -1396,17 +1227,13 @@ namespace BigQ.Client
                     currentMessage.SenderGUID = Config.ClientGUID;
                     currentMessage.RecipientGUID = tempGuid;
 
-                    SendMessage(currentMessage); 
+                    await SendMessage(currentMessage); 
                 }
                 else
                 { 
                     if (Callbacks.AsyncMessageReceived != null)
                     {
-                        new Thread(delegate ()
-                        {
-                            Callbacks.AsyncMessageReceived(currentMessage);
-                        }).Start();
-                        // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                        await Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage)); 
                     } 
                 }
 
@@ -1422,11 +1249,7 @@ namespace BigQ.Client
                     {
                         if (Callbacks.AsyncMessageReceived != null)
                         {
-                            new Thread(delegate ()
-                            {
-                                Callbacks.AsyncMessageReceived(currentMessage);
-                            }).Start();
-                            // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                            await Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
                         } 
                     }
                 }
@@ -1434,11 +1257,7 @@ namespace BigQ.Client
                 { 
                     if (Callbacks.AsyncMessageReceived != null)
                     {
-                        new Thread(delegate ()
-                        {
-                            Callbacks.AsyncMessageReceived(currentMessage);
-                        }).Start();
-                        // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                        await Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
                     } 
                 }
 
@@ -1450,11 +1269,7 @@ namespace BigQ.Client
                  
                 if (Callbacks.AsyncMessageReceived != null)
                 {
-                    new Thread(delegate ()
-                    {
-                        Callbacks.AsyncMessageReceived(currentMessage);
-                    }).Start();
-                    // Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage));
+                    await Task.Run(() => Callbacks.AsyncMessageReceived(currentMessage)); 
                 } 
 
                 #endregion
@@ -1522,7 +1337,7 @@ namespace BigQ.Client
             return names[selected];
         }
 
-        private bool SendPrivateMessageAsyncInternal(string guid, string contentType, byte[] data, bool persist)
+        private async Task<bool> SendInternal(string guid, string contentType, byte[] data, bool persist)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -1544,7 +1359,52 @@ namespace BigQ.Client
             request.ContentLength = data.Length;
             request.Data = data;
 
-            return SendMessage(request);
+            return await SendMessage(request);
+        }
+
+        private async Task<bool> SendMessage(Message message)
+        {
+            if (message == null) throw new ArgumentNullException(nameof(message));
+
+            byte[] data = message.ToBytes();
+
+            if (Config.TcpServer.Enable || Config.TcpSslServer.Enable)
+            {
+                return await _WTcpClient.SendAsync(data);
+            }
+            else if (Config.WebsocketServer.Enable || Config.WebsocketSslServer.Enable)
+            {
+                return await _WWsClient.SendAsync(data);
+            }
+            else
+            {
+                return false;
+            }
+        }
+         
+        private async Task<bool> SendServer(Message request)
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            request.RecipientGUID = Config.ServerGUID;
+            return await SendMessage(request);
+        }
+         
+        private bool SendServerSync(Message request, out Message response)
+        {
+            response = null;
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (String.IsNullOrEmpty(request.MessageID)) request.MessageID = Guid.NewGuid().ToString();
+            request.SyncRequest = true;
+            request.SyncTimeoutMs = Config.SyncTimeoutMs;
+            request.ExpirationUtc = DateTime.Now.ToUniversalTime().AddMilliseconds(Config.SyncTimeoutMs);
+            request.RecipientGUID = Config.ServerGUID;
+
+            if (!AddSyncRequest(request.MessageID)) return false;
+            if (!SendMessage(request).Result) return false;
+            int timeoutMs = Config.SyncTimeoutMs;
+            if (request.SyncTimeoutMs > 0) timeoutMs = request.SyncTimeoutMs;
+
+            return GetSyncResponse(request.MessageID, timeoutMs, out response);
         }
 
         #endregion

@@ -1,7 +1,7 @@
 ﻿using System;  
 using System.Threading.Tasks; 
 
-using BigQ.Core;
+using BigQ.Client.Classes;
 
 namespace BigQ.Client
 {

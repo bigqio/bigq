@@ -1,33 +1,40 @@
-﻿# BigQ
+﻿![alt tag](https://raw.githubusercontent.com/bigqio/bigq/master/Assets/logo.png)
 
-Messaging Platform in C# for TCP, SSL, and Websockets, with unicast, broadcast, multicast, publisher/subscriber messaging and integrated framing.
+# BigQ
 
-As of v2.0.2, BigQ is now targeted to both .NET Core 2.0 and .NET Framework 4.6.2.
+BigQ is a essaging platform in C# for TCP, SSL, and Websockets, with unicast, broadcast, multicast, publisher/subscriber messaging and integrated framing, built for both .NET Core and .NET Framework.
 
 [![][nuget-img]][nuget]
-
-[nuget]:     https://www.nuget.org/packages/BigQ.dll
+[nuget]:     https://www.nuget.org/packages/BigQ.Server
 [nuget-img]: https://badge.fury.io/nu/Object.svg
+[![][nuget-img]][nuget]
+[nuget]:     https://www.nuget.org/packages/BigQ.Client/
+[nuget-img]: https://badge.fury.io/nu/Object.svg
+
+## New in v3.0.x
+
+- Task-based callbacks and front-end APIs in both client and server
+- Reduced class members, code reduction and cleanup
+- Better handling of disconnected clients and connection termination
+- Better CLI experience
+- Better protection of class members (internal vs public)
+- Enums for channel visibility and message distribution type
+- Eliminated Core library dependency and reduced Common static methods
+- Dependency update for bugfixes and reliability
 
 ## Help or Feedback
 
 First things first - do you need help or have feedback?  Contact me at joel dot christner at gmail dot com or file an issue here!
 
-## New in v2.2.x
-
-- Code cleanup, simplified callbacks using Task, dependency update
-
 ## Description
 
-BigQ is a messaging platform using TCP sockets and websockets (intentionally not using AMQP by design) featuring sync, async, channel, and private communications. BigQ is written in C# and made available under the MIT license.  BigQ is tested and compatible with Mono.
+BigQ is a messaging platform using TCP sockets and websockets.  BigQ intentionally avoids AMQP in favor of a framing protocol similar to HTTP and features sync, async, channel, and private communications. BigQ is written in C# and made available under the MIT license.  BigQ is tested and compatible with .NET Core, .NET Framework, and .NET Framework on Mono.
 
 Core use cases for BigQ:
 - Simple sockets wrapper with integrated framing - we make sockets programming easier
 - Standard communication layer connecting apps through diverse transports including:
-  - TCP
-  - TCP with SSL
-  - Websockets
-  - Websockets with SSL
+  - TCP, with or without SSL
+  - Websockets, with or without SSL
 - Real-time messaging like chat applications
 - Synchronous and asynchronous messaging
 - Flexible message distribution options
@@ -48,9 +55,8 @@ Two main components to BigQ: client and server.  The server can be run independe
 
 ## Starting the Server
 
-Refer to the BigQServerTest project for a thorough example.
+Refer to the ```ServerTest``` project for a thorough example.
 ```
-using BigQ.Core;
 using BigQ.Server;
 ...
 // start the server
@@ -59,27 +65,26 @@ Server server = new Server("server.json");	// with a configuration file
 Server server = new Server(serverConfig);	// with a configuration object
 
 // set callbacks
-server.Callbacks.MessageReceived = MessageReceived;		
 server.Callbacks.ServerStopped = ServerStopped;				
+server.Callbacks.MessageReceived = MessageReceived;		
 server.Callbacks.ClientConnected = ClientConnected;
 server.Callbacks.ClientLogin = ClientLogin;
 server.Callbacks.ClientDisconnected = ClientDisconnected;
 server.Callbacks.LogMessage = LogMessage;
 
-// callback implementation, these methods should return true
-static bool MessageReceived(Message msg) { ... }
-static bool ClientConnected(Client client) { ... }
-static bool ClientLogin(Client client) { ... }
-static bool ClientDisconnected(Client client) { ... }
-static bool LogMessage(string msg) { ... }
+// callback implementations
+static async Task ServerStopped() { ... }
+static async Task MessageReceived(Message msg) { ... }
+static async Task ClientConnected(ServerClient client) { ... }
+static async Task ClientLogin(ServerClient client) { ... }
+static async Task ClientDisconnected(Client client) { ... } 
 ```
 
 ## Starting the Client
 
-Refer to the BigQClientTest project for a thorough example.
+Refer to the ```ClientTest``` project for a thorough example.
 ```
-using BigQ.Client;
-using BigQ.Core;
+using BigQ.Client; 
 ...
 // start the client and connect to the server
 Client client = new Client(null);		// with a default configuration
@@ -97,9 +102,10 @@ client.Callbacks.ClientJoinedChannel = ClientJoinedChannel;
 client.Callbacks.ClientLeftChannel = ClientLeftChannel;
 client.Callbacks.SubscriberJoinedChannel = SubscriberJoinedChannel;
 client.Callbacks.SubscriberLeftChannel = SubscriberLeftChannel; 
+client.Callbacks.ChannelCreated = ChannelCreated;
+client.Callbacks.ChannelDestroyed = ChannelDestroyed;
 
-// implement callbacks, these methods should return true
-// sync message callback should return the data to be returned to requestor
+// callback implementations
 static async Task AsyncMessageReceived(Message msg) { ... }
 static async Task<byte[]> SyncMessageReceived(Message msg) { return Encoding.UTF8.GetBytes("Hello!"); }
 static async Task ServerConnected() { ... }
@@ -109,8 +115,9 @@ static async Task ClientLeftServer(string clientGuid) { ... }
 static async Task ClientJoinedChannel(string clientGuid, string channelGuid) { ... }
 static async Task ClientLeftChannel(string clientGuid, string channelGuid) { ... }
 static async Task SubscriberJoinedChannel(string clientGuid, string channelGuid) { ... }
-static async Task SubscriberLeftChannel(string clientGuid, string channelGuid) { ... }
-static bool LogMessage(string msg) { ... }
+static async Task SubscriberLeftChannel(string clientGuid, string channelGuid) { ... } 
+static async Task ChannelCreated(string channelGuid) { ... }
+static async Task ChannelDestroyed(string channelGuid) { ... }
 
 // login from the client
 Message response;
@@ -122,23 +129,19 @@ if (!client.Login(out response)) { // handle failures }
 Unicast messages are sent directly between clients without a channel
 ```
 Message response;
-List<ServerClient> clients;
 
 // find a client to message
-if (!client.ListClients(out response, out clients)) { // handle errors }
+List<ServerClient> clients = client.ListClients(); 
 
-// private async message
-// received by 'AsyncMessageReceived' on recipient
-if (!client.SendPrivateMessageAsync(guid, msg)) { // handle errors }
+// private message (received by 'AsyncMessageReceived' on recipient)
+await client.SendPrivateMessageAsync("[guid]", "Hi there!");
 
 // private async message with persistence
-// received by 'AsyncMessageReceived' on recipient
-if (!client.SendPrivateMessageAsync(guid, null, msg, true)) { // handle errors }
+await client.SendPrivateMessageAsync("[guid]", null, "Hi there!", true);
 
-// private sync message
-// received by 'SyncMessageReceived' on recipient client
-// which should return response data
-if (!client.SendPrivateMessageSync(guid, "Hello!", out response)) { // handle errors }
+// private sync message (received by 'SyncMessageReceived' on recipient)
+string resp = null;
+if (!client.SendPrivateMessageSync("[guid]", "Hello!", out resp)) { // handle errors }
 ```
 
 ## Channel Messaging
@@ -154,27 +157,28 @@ List<Channel> channels;
 List<ServerClient> clients;
 
 // list and join or create a channel
-if (!client.ListChannels(out response, out channels)) { // handle errors }
-if (!client.JoinChannel(guid, out response)) { // handle errors }
-if (!client.CreateUnicastChannel(name, 0, out response)) { // handle errors }
-if (!client.CreateMulticastChannel(name, 0, out response)) { // handle errors }
-if (!client.CreateBroadcastChannel(name, 0, out response)) { // handle errors }
+channels = client.ListChannels(); 
+if (!client.Join("[guid]", out response)) { // handle errors }
+if (!client.CreateChannel(ChannelType.Broadcast, "My Channel", false, out response)) { // handle errors }
 
 // subscribe to a channel
-if (!client.SubscribeChannel(guid, out response)) { // handle errors }
-
-// send message to a channel
-if (!client.SendChannelMessageSync(guid, "Hello!", out response)) { // handle errors }
-if (!client.SendChannelMessageAsync(guid, "Hello!")) { // handle errors }
-
-// leave a channel, unsubscribe, or delete it if yours
-if (!client.LeaveChannel(guid, out response)) { // handle errors }
-if (!client.UnsubscribeChannel(guid, out response)) { // handle errors }
-if (!client.DeleteChannel(guid, out response)) { // handle errors }
+if (!client.Subscribe("[guid]", out response)) { // handle errors }
+if (!client.Unsubscribe("[guid")) { // handle errors }
 
 // list channel members or subscribers
-if (!client.ListChannelMembers(guid, out response, out clients)) { // handle errors }
-if (!client.ListChannelSubscribers(guid, out response, out clients)) { // handle errors }
+clients = client.ListMembers("[guid]");
+clients = client.ListSubscribers("[guid]");
+
+// send message to a channel
+if (!client.SendChannel("[guid]", "Hello!")) { // handle errors }
+string resp = null;
+if (!client.SendChannelSync("[guid]", "Hello!", out resp)) { // handle errors }
+
+// leave a channel, unsubscribe, or delete it if yours
+if (!client.Leave("[guid]", out response)) { // handle errors }
+if (!client.Unsubscribe("[guid]", out response)) { // handle errors }
+if (!client.DeleteChannel("[guid]", out response)) { // handle errors }
+
 ```
 
 ## Connecting using Websockets
@@ -183,7 +187,7 @@ Please refer to the sample test client or Javascript chat application on Github.
 
 ## Connecting using SSL
 
-When connecting using SSL, if you are using self-signed certificates, be sure to set 'AcceptInvalidSSLCerts' to true in the config file on both the server and client.  Use PFX files for certificates.  Note that for Websockets and SSL, the certificate must be bound to the port in the operating system.
+When connecting using SSL, if you are using self-signed certificates, be sure to set ```AcceptInvalidSSLCerts``` to true in the configuration on both the server and client.  Use PFX files for certificates.  Note that for Websockets and SSL, the certificate must be bound to the port in the operating system and installed in the certificate store under the 'computer' account (not the 'personal' account).
 
 ## Authorization
 
@@ -202,7 +206,7 @@ ContentLength: 22
 
 ## Running under Mono
 
-BigQ works well in Mono environments to the extent that we have tested it.  It is recommended that when running under Mono, you execute the containing EXE using --server and after using the Mono Ahead-of-Time Compiler (AOT).
+While BigQ works best in cross-platform environments using .NET Core, it also works well in Mono environments (with .NET Framework) to the extent that we have tested it.  It is recommended that when running under Mono, you execute the containing EXE using --server and after using the Mono Ahead-of-Time Compiler (AOT).
 ```
 mono --aot=nrgctx-trampolines=8096,nimt-trampolines=8096,ntrampolines=4048 --server myapp.exe
 mono --server myapp.exe

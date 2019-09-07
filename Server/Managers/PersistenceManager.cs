@@ -1,10 +1,12 @@
-﻿using BigQ.Core;
-using SqliteWrapper;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
 using System.Threading.Tasks;
+
+using SqliteWrapper;
+
+using BigQ.Server.Classes;
 
 namespace BigQ.Server.Managers
 {
@@ -157,7 +159,7 @@ namespace BigQ.Server.Managers
             if (String.IsNullOrEmpty(guid)) return;
 
             string query =
-                "SELECT * FROM Messages WHERE RecipientGuid = '" + guid + "' ORDER BY CreatedUtc ASC;";
+                "SELECT * FROM Messages WHERE RecipientGuid = '" + DatabaseClient.SanitizeString(guid) + "' ORDER BY CreatedUtc ASC;";
 
             DataTable result = _Database.Query(query);
             if (Helper.DataTableIsNullOrEmpty(result)) return;
@@ -202,7 +204,7 @@ namespace BigQ.Server.Managers
             if (String.IsNullOrEmpty(guid)) return QueueDepth();
 
             string query =
-                "SELECT COUNT(*) AS NumMessages FROM Messages WHERE RecipientGuid = '" + guid + "';";
+                "SELECT COUNT(*) AS NumMessages FROM Messages WHERE RecipientGuid = '" + DatabaseClient.SanitizeString(guid) + "';";
 
             DataTable result = _Database.Query(query);
             if (!Helper.DataTableIsNullOrEmpty(result))
@@ -280,8 +282,7 @@ namespace BigQ.Server.Managers
         }
 
         private Dictionary<string, string> DecodeHeaders(string headers)
-        {
-            Console.WriteLine("Headers: " + headers);
+        { 
             if (String.IsNullOrEmpty(headers)) return null;
             return Common.DeserializeJson<Dictionary<string, string>>(Convert.FromBase64String(headers));
         }

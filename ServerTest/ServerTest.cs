@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-using BigQ.Core;
 using BigQ.Server;
+using BigQ.Server.Classes;
 
 namespace ServerTest
 {
@@ -53,19 +53,18 @@ namespace ServerTest
                         Console.Clear();
                         break;
 
-                    case "list channels":
+                    case "channels":
                         channels = server.ListChannels();
                         if (channels != null)
                         {
                             foreach (Channel curr in channels)
                             {
-                                string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
-                                if (curr.Visibility == ChannelVisibility.Private) line += "priv ";
-                                else line += "pub ";
-                                if (curr.Type == ChannelType.Broadcast) line += "bcast ";
-                                else if (curr.Type == ChannelType.Multicast) line += "mcast ";
-                                else if (curr.Type == ChannelType.Unicast) line += "ucast ";
-                                else line += "unknown ";
+                                string line =
+                                    "  " + curr.ChannelGUID +
+                                    ": " + curr.ChannelName +
+                                    " owner " + curr.OwnerGUID +
+                                    " " + curr.Visibility.ToString() +
+                                    " " + curr.Type.ToString();
 
                                 Console.WriteLine(line);
                             }
@@ -76,7 +75,7 @@ namespace ServerTest
                         }
                         break;
 
-                    case "list members":
+                    case "members":
                         members = server.ListMembers(
                             InputString("Channel GUID:", null, false));
                         if (members != null)
@@ -99,7 +98,7 @@ namespace ServerTest
                         }
                         break;
 
-                    case "list subscribers":
+                    case "subscribers":
                         subscribers = server.ListSubscribers(
                             InputString("Channel GUID:", null, false));
                         if (subscribers != null)
@@ -122,28 +121,16 @@ namespace ServerTest
                         }
                         break;
 
-                    case "create bcast":
-                        server.CreateBroadcastChannel(
+                    case "create":
+                        server.Create(
+                            (ChannelType)(Enum.Parse(typeof(ChannelType), InputString("Channel type [Broadcast|Unicast|Multicast]:", "Broadcast", false))),
                             InputString("Channel name:", null, false),
                             InputString("Channel GUID:", null, true),
                             InputBoolean("Private:", true));
                         break;
-
-                    case "create ucast":
-                        server.CreateUnicastChannel(
-                            InputString("Channel name:", null, false),
-                            InputString("Channel GUID:", null, true),
-                            InputBoolean("Private:", true)); break;
-
-                    case "create mcast":
-                        server.CreateMulticastChannel(
-                            InputString("Channel name:", null, false),
-                            InputString("Channel GUID:", null, true),
-                            InputBoolean("Private:", true));
-                        break;
-
-                    case "delete channel":
-                        if (server.DeleteChannel(
+                         
+                    case "delete":
+                        if (server.Delete(
                             InputString("Channel GUID:", null, false)))
                         {
                             Console.WriteLine("Success");
@@ -226,16 +213,7 @@ namespace ServerTest
                             Console.WriteLine("(null)");
                         }
                         break;
-
-                    case "queue depth":
-                        Console.WriteLine(server.PersistentQueueDepth());
-                        break;
-
-                    case "rcpt queue depth":
-                        string guid = InputString("Recipient GUID:", null, false);
-                        Console.WriteLine(server.PersistentQueueDepth(guid));
-                        break;
-
+                         
                     default:
                         Console.WriteLine("Unknown command");
                         break;
@@ -253,20 +231,14 @@ namespace ServerTest
             Console.WriteLine("  perms file           Show the permissions file"); 
             Console.WriteLine("");
             Console.WriteLine("Channel Commands:");
-            Console.WriteLine("  list channels        List all channels");
-            Console.WriteLine("  list members         List channel members");
-            Console.WriteLine("  list subscribers     List channel subscribers");
-            Console.WriteLine("  create bcast         Create a broadcast channel");
-            Console.WriteLine("  create ucast         Create a unicast channel");
-            Console.WriteLine("  create mcast         Create a multicast channel"); 
+            Console.WriteLine("  channels             List all channels");
+            Console.WriteLine("  members              List channel members");
+            Console.WriteLine("  subscribers          List channel subscribers");
+            Console.WriteLine("  create               Create a channel");
             Console.WriteLine("  delete               Delete a channel");
             Console.WriteLine("");
             Console.WriteLine("Client Commands:");
-            Console.WriteLine("  clients              List connected clients");
-            Console.WriteLine("");
-            Console.WriteLine("Persistence Commands:");
-            Console.WriteLine("  queue depth          View the queue depth for persistent messages");
-            Console.WriteLine("  rcpt queue depth     View the queue depth for a particular recipient"); 
+            Console.WriteLine("  clients              List connected clients"); 
             Console.WriteLine("");
         }
 
@@ -438,7 +410,7 @@ namespace ServerTest
             server = null;
               
             config = ServerConfiguration.Default();
-            config.TcpServer.Debug = true;
+            config.TcpServer.Debug = false;
 
             server = new Server(config);
             server.Callbacks.MessageReceived = MessageReceived;
@@ -451,8 +423,7 @@ namespace ServerTest
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         static async Task MessageReceived(Message msg)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
-        {
-            // Console.WriteLine(msg.ToString()); 
+        { 
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously

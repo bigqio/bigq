@@ -2,21 +2,6 @@
   "version": 3,
   "targets": {
     ".NETFramework,Version=v4.6.2": {
-      "BigQ.Core/2.2.0": {
-        "type": "package",
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
-        },
-        "compile": {
-          "lib/net462/Core.dll": {}
-        },
-        "runtime": {
-          "lib/net462/Core.dll": {}
-        }
-      },
       "EntityFramework/6.2.0": {
         "type": "package",
         "frameworkAssemblies": [
@@ -125,11 +110,8 @@
           "lib/net46/System.Data.SQLite.Linq.dll": {}
         }
       },
-      "WatsonTcp/1.3.12": {
+      "WatsonTcp/2.0.2": {
         "type": "package",
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
         "compile": {
           "lib/net452/WatsonTcp.dll": {}
         },
@@ -137,7 +119,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -148,21 +130,6 @@
       }
     },
     ".NETStandard,Version=v2.0": {
-      "BigQ.Core/2.2.0": {
-        "type": "package",
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
-        },
-        "compile": {
-          "lib/netstandard2.0/Core.dll": {}
-        },
-        "runtime": {
-          "lib/netstandard2.0/Core.dll": {}
-        }
-      },
       "Microsoft.CSharp/4.5.0": {
         "type": "package",
         "compile": {
@@ -252,11 +219,8 @@
           }
         }
       },
-      "WatsonTcp/1.3.12": {
+      "WatsonTcp/2.0.2": {
         "type": "package",
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
         "compile": {
           "lib/netstandard2.0/WatsonTcp.dll": {}
         },
@@ -264,7 +228,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -276,19 +240,6 @@
     }
   },
   "libraries": {
-    "BigQ.Core/2.2.0": {
-      "sha512": "RE/S06bRVBSaGb9dCxPDW1LXosCH54VwHngMKtotXX/weQCcpN4mR+3deGwYAZy7iiqWKhYGj8d+UPjNA3tuqQ==",
-      "type": "package",
-      "path": "bigq.core/2.2.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "bigq.core.2.2.0.nupkg.sha512",
-        "bigq.core.nuspec",
-        "lib/net462/Core.dll",
-        "lib/netstandard2.0/Core.dll"
-      ]
-    },
     "EntityFramework/6.2.0": {
       "sha512": "+aB/cnEAr9KqVMjmZwu+Fzy3EOPjCIzNsPAUyn19WbB2u3LFHd2OB3X56ohAj7EBf2hppl9M27nlRnkQxOhoAA==",
       "type": "package",
@@ -388,7 +339,7 @@
       ]
     },
     "Microsoft.NETCore.Platforms/1.1.0": {
-      "sha512": "a/iSwnRZb+LHFk49hQOyThh/ZNC3vsbZsF65XwQIb863qF6msmhdQtxGXFL28Ob2NsCz/drEj28BJd/YPpLRBg==",
+      "sha512": "kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A==",
       "type": "package",
       "path": "microsoft.netcore.platforms/1.1.0",
       "files": [
@@ -694,68 +645,75 @@
         "system.data.sqlite.linq.nuspec"
       ]
     },
-    "WatsonTcp/1.3.12": {
-      "sha512": "tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
+    "WatsonTcp/2.0.2": {
+      "sha512": "ycmvhsa2AAJPpAuf96CS0MwK63CNo2H79vObQe1mdzLDcG0ivquhq/SnAOHBch2QXD5DEHxNKAsRHHsYqS7Ksg==",
       "type": "package",
-      "path": "watsontcp/1.3.12",
+      "path": "watsontcp/2.0.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.3.12.nupkg.sha512",
+        "watsontcp.2.0.2.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
-    "WatsonWebsocket/1.3.0": {
-      "sha512": "c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
+    "WatsonWebsocket/2.0.0": {
+      "sha512": "+Et0AsbSEmmdYjJeHRJPh+1weJFz5dvqXftgSTM5tufqZnpQ7lHgN6baDAoDTSeiZPXxDNM0dzwMps3JLnoRYg==",
       "type": "package",
-      "path": "watsonwebsocket/1.3.0",
+      "path": "watsonwebsocket/2.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonWebsocket.dll",
         "lib/netstandard2.0/WatsonWebsocket.dll",
-        "watsonwebsocket.1.3.0.nupkg.sha512",
+        "watsonwebsocket.2.0.0.nupkg.sha512",
         "watsonwebsocket.nuspec"
       ]
     }
   },
   "projectFileDependencyGroups": {
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Core >= 2.2.0",
+      "Newtonsoft.Json >= 12.0.2",
       "SqliteHelper >= 1.0.13",
       "System.Data.SQLite >= 1.0.111",
-      "System.Data.SQLite.Core >= 1.0.111"
+      "System.Data.SQLite.Core >= 1.0.111",
+      "WatsonTcp >= 2.0.2",
+      "WatsonWebsocket >= 2.0.0"
     ],
     ".NETStandard,Version=v2.0": [
-      "BigQ.Core >= 2.2.0",
       "NETStandard.Library >= 2.0.3",
+      "Newtonsoft.Json >= 12.0.2",
       "SqliteHelper >= 1.0.13",
       "System.Data.SQLite >= 1.0.111",
-      "System.Data.SQLite.Core >= 1.0.111"
+      "System.Data.SQLite.Core >= 1.0.111",
+      "WatsonTcp >= 2.0.2",
+      "WatsonWebsocket >= 2.0.0"
     ]
   },
   "packageFolders": {
     "C:\\Users\\joelc\\.nuget\\packages\\": {},
+    "C:\\Microsoft\\Xamarin\\NuGet\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
-    "version": "2.2.0",
+    "version": "3.0.1",
     "restore": {
-      "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\Server\\Server.csproj",
+      "projectUniqueName": "C:\\Code\\BigQ\\BigQ-2.1\\Server\\Server.csproj",
       "projectName": "BigQ.Server",
-      "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Server\\Server.csproj",
+      "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Server\\Server.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\code\\bigq\\BigQ-2.1\\Server\\obj\\",
+      "outputPath": "C:\\Code\\BigQ\\BigQ-2.1\\Server\\obj\\",
       "projectStyle": "PackageReference",
       "crossTargeting": true,
       "fallbackFolders": [
+        "C:\\Microsoft\\Xamarin\\NuGet\\",
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
         "C:\\Users\\joelc\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net462",
@@ -784,9 +742,9 @@
     "frameworks": {
       "net462": {
         "dependencies": {
-          "BigQ.Core": {
+          "Newtonsoft.Json": {
             "target": "Package",
-            "version": "[2.2.0, )"
+            "version": "[12.0.2, )"
           },
           "SqliteHelper": {
             "target": "Package",
@@ -799,21 +757,29 @@
           "System.Data.SQLite.Core": {
             "target": "Package",
             "version": "[1.0.111, )"
+          },
+          "WatsonTcp": {
+            "target": "Package",
+            "version": "[2.0.2, )"
+          },
+          "WatsonWebsocket": {
+            "target": "Package",
+            "version": "[2.0.0, )"
           }
         }
       },
       "netstandard2.0": {
         "dependencies": {
-          "BigQ.Core": {
-            "target": "Package",
-            "version": "[2.2.0, )"
-          },
           "NETStandard.Library": {
             "suppressParent": "All",
             "target": "Package",
             "version": "[2.0.3, )",
             "autoReferenced": true
           },
+          "Newtonsoft.Json": {
+            "target": "Package",
+            "version": "[12.0.2, )"
+          },
           "SqliteHelper": {
             "target": "Package",
             "version": "[1.0.13, )"
@@ -825,6 +791,14 @@
           "System.Data.SQLite.Core": {
             "target": "Package",
             "version": "[1.0.111, )"
+          },
+          "WatsonTcp": {
+            "target": "Package",
+            "version": "[2.0.2, )"
+          },
+          "WatsonWebsocket": {
+            "target": "Package",
+            "version": "[2.0.0, )"
           }
         },
         "imports": [

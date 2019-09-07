@@ -1,15 +1,14 @@
 {
   "runtimeTarget": {
     "name": ".NETCoreApp,Version=v2.2",
-    "signature": "eafa657df8a752ae110f508febbecabb9d6c3d33"
+    "signature": "65a3a21fb1f595c4d00b781fb002e7a82a3e2129"
   },
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v2.2": {
       "ServerTest/1.0.0": {
         "dependencies": {
-          "BigQ.Core": "2.2.0",
-          "BigQ.Server": "2.2.0"
+          "BigQ.Server": "3.0.1"
         },
         "runtime": {
           "ServerTest.dll": {}
@@ -72,41 +71,30 @@
           }
         }
       },
-      "WatsonTcp/1.3.12": {
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
+      "WatsonTcp/2.0.2": {
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "1.3.12.0",
-            "fileVersion": "1.3.12.0"
+            "assemblyVersion": "2.0.2.0",
+            "fileVersion": "2.0.2.0"
           }
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "runtime": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {
-            "assemblyVersion": "1.3.0.0",
-            "fileVersion": "1.3.0.0"
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.0.0"
           }
         }
       },
-      "BigQ.Core/2.2.0": {
+      "BigQ.Server/3.0.1": {
         "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
-        },
-        "runtime": {
-          "Core.dll": {}
-        }
-      },
-      "BigQ.Server/2.2.0": {
-        "dependencies": {
           "SqliteHelper": "1.0.13",
           "System.Data.SQLite": "1.0.111",
-          "System.Data.SQLite.Core": "1.0.111"
+          "System.Data.SQLite.Core": "1.0.111",
+          "WatsonTcp": "2.0.2",
+          "WatsonWebsocket": "2.0.0"
         },
         "runtime": {
           "Server.dll": {}
@@ -155,26 +143,21 @@
       "path": "system.data.sqlite.core/1.0.111",
       "hashPath": "system.data.sqlite.core.1.0.111.nupkg.sha512"
     },
-    "WatsonTcp/1.3.12": {
+    "WatsonTcp/2.0.2": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
-      "path": "watsontcp/1.3.12",
-      "hashPath": "watsontcp.1.3.12.nupkg.sha512"
+      "sha512": "sha512-ycmvhsa2AAJPpAuf96CS0MwK63CNo2H79vObQe1mdzLDcG0ivquhq/SnAOHBch2QXD5DEHxNKAsRHHsYqS7Ksg==",
+      "path": "watsontcp/2.0.2",
+      "hashPath": "watsontcp.2.0.2.nupkg.sha512"
     },
-    "WatsonWebsocket/1.3.0": {
+    "WatsonWebsocket/2.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
-      "path": "watsonwebsocket/1.3.0",
-      "hashPath": "watsonwebsocket.1.3.0.nupkg.sha512"
+      "sha512": "sha512-+Et0AsbSEmmdYjJeHRJPh+1weJFz5dvqXftgSTM5tufqZnpQ7lHgN6baDAoDTSeiZPXxDNM0dzwMps3JLnoRYg==",
+      "path": "watsonwebsocket/2.0.0",
+      "hashPath": "watsonwebsocket.2.0.0.nupkg.sha512"
     },
-    "BigQ.Core/2.2.0": {
-      "type": "project",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "BigQ.Server/2.2.0": {
+    "BigQ.Server/3.0.1": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

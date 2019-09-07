@@ -1,11 +1,12 @@
-﻿using BigQ.Client;
-using BigQ.Core;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
+using BigQ.Client;
+using BigQ.Client.Classes;
 
 namespace ClientTest
 {
@@ -17,13 +18,15 @@ namespace ClientTest
         static void Main(string[] args)
         { 
             bool runForever = true;
+            ChannelType channelType;
             string guid = "";
             string msg = "";
             bool priv = false;
             List<ServerClient> clients = new List<ServerClient>();
             List<Channel> channels = new List<Channel>();
-            Message response = new Message(); 
-             
+            Message response = new Message();
+            string respString = null;
+
             Console.WriteLine("");
             Console.WriteLine("BigQ Client");
             Console.WriteLine("");
@@ -32,7 +35,7 @@ namespace ClientTest
 
             while (runForever)
             {
-                if (client == null) Console.Write("[OFFLINE] ");
+                if (client == null || !client.Connected) Console.Write("[offline] ");
                 Console.Write("Command [? for help]: ");
 
                 string cmd = Console.ReadLine();
@@ -40,6 +43,8 @@ namespace ClientTest
 
                 switch (cmd.ToLower())
                 {
+                    #region General-Commands
+
                     case "?":
                         Menu();
                         break;
@@ -63,158 +68,122 @@ namespace ClientTest
                         if (client == null) break;
                         if (client.Login(out response))
                         {
-                            Console.WriteLine("Login success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("Login failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
-                    case "list clients":
+                    case "whoami":
                         if (client == null) break;
-                        if (client.ListClients(out response, out clients))
-                        {
-                            Console.WriteLine("ListClients success");
-                            if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
-                            else
-                            {
-                                foreach (ServerClient curr in clients)
-                                {
-                                    string line =
-                                        " " + curr.Name +
-                                        " " + curr.Email +
-                                        " " + curr.ClientGUID +
-                                        " " + curr.Connection.ToString();
-
-                                    Console.WriteLine(line);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("ListClients failed");
-                        }
+                        if (!String.IsNullOrEmpty(client.Config.ClientGUID)) Console.WriteLine("  GUID " + client.Config.ClientGUID);
+                        else Console.WriteLine("[not logged in]");
                         break;
 
-                    case "verify client":
+                    case "ison":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
-                        if (client.IsClientConnected(guid, out response))
-                        {
-                            Console.WriteLine("Client " + guid + " is connected");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Client " + guid + " is not connected");
-                        }
+                        Console.WriteLine(client.IsClientConnected(guid));
                         break;
 
-                    case "list channels":
-                        if (client == null) break;
-                        if (client.ListChannels(out response, out channels))
-                        {
-                            Console.WriteLine("ListChannels success");
-                            if (channels == null || channels.Count < 1) Console.WriteLine("(null)");
-                            else
-                            {
-                                foreach (Channel curr in channels)
-                                {
-                                    string line = "  " + curr.ChannelGUID + ": " + curr.ChannelName + " owner " + curr.OwnerGUID + " ";
-                                    if (curr.Visibility == ChannelVisibility.Private) line += "priv ";
-                                    else line += "pub ";
-                                    if (curr.Type == ChannelType.Broadcast) line += "bcast ";
-                                    else if (curr.Type == ChannelType.Multicast) line += "mcast ";
-                                    else if (curr.Type == ChannelType.Unicast) line += "ucast ";
-                                    else line += "unknown ";
+                    #endregion
 
-                                    Console.WriteLine(line);
-                                }
+                    #region Channel-Commands
+
+                    case "channels":
+                        if (client == null) break;
+                        channels = client.ListChannels();
+                        if (channels != null && channels.Count > 0)
+                        {
+                            foreach (Channel curr in channels)
+                            {
+                                string line =
+                                    "  " + curr.ChannelGUID +
+                                    ": " + curr.ChannelName +
+                                    " owner " + curr.OwnerGUID +
+                                    " " + curr.Visibility.ToString() +
+                                    " " + curr.Type.ToString();
+
+                                Console.WriteLine(line);
                             }
                         }
                         else
                         {
-                            Console.WriteLine("ListChannels failed");
+                            Console.WriteLine("(null)");
                         }
                         break;
 
-                    case "list members":
+                    case "members":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
-                        if (client.ListMembers(guid, out response, out clients))
+                        clients = client.ListMembers(guid);
+                        if (clients != null && clients.Count > 0)
                         {
-                            Console.WriteLine("ListChannelMembers success");
-                            if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
-                            else
+                            foreach (ServerClient curr in clients)
                             {
-                                foreach (ServerClient curr in clients)
-                                {
-                                    string line =
-                                        " " + curr.Name +
-                                        " " + curr.Email +
-                                        " " + curr.ClientGUID +
-                                        " " + curr.Connection.ToString();
+                                string line =
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
 
-                                    Console.WriteLine(line);
-                                }
+                                Console.WriteLine(line);
                             }
                         }
                         else
                         {
-                            Console.WriteLine("ListChannelMembers failed");
+                            Console.WriteLine("(null)");
                         }
                         break;
 
-                    case "list subscribers":
+                    case "subscribers":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
-                        if (client.ListSubscribers(guid, out response, out clients))
+                        clients = client.ListSubscribers(guid);
+                        if (clients != null && clients.Count > 0)
                         {
-                            Console.WriteLine("ListChannelSubscribers success");
-                            if (clients == null || clients.Count < 1) Console.WriteLine("(null)");
-                            else
+                            foreach (ServerClient curr in clients)
                             {
-                                foreach (ServerClient curr in clients)
-                                {
-                                    string line =
-                                        " " + curr.Name +
-                                        " " + curr.Email +
-                                        " " + curr.ClientGUID +
-                                        " " + curr.Connection.ToString();
+                                string line =
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
 
-                                    Console.WriteLine(line);
-                                }
+                                Console.WriteLine(line);
                             }
                         }
                         else
                         {
-                            Console.WriteLine("ListChannelSubscribers failed");
+                            Console.WriteLine("(null)");
                         }
                         break;
 
-                    case "join channel":
+                    case "join":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
                         if (client.Join(guid, out response))
                         {
-                            Console.WriteLine("JoinChannel success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("JoinChannel failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
-                    case "leave channel":
+                    case "leave":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
                         if (client.Leave(guid, out response))
                         {
-                            Console.WriteLine("LeaveChannel success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("LeaveChannel failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
@@ -223,11 +192,11 @@ namespace ClientTest
                         guid = InputString("GUID:", null, false);
                         if (client.Subscribe(guid, out response))
                         {
-                            Console.WriteLine("SubscribeChannel success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("SubscribeChannel failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
@@ -236,131 +205,130 @@ namespace ClientTest
                         guid = InputString("GUID:", null, false);
                         if (client.Unsubscribe(guid, out response))
                         {
-                            Console.WriteLine("UnsubscribeChannel success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("UnsubscribeChannel failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
-                    case "create bcast":
+                    case "create":
                         if (client == null) break;
+                        channelType = (ChannelType)(Enum.Parse(typeof(ChannelType), InputString("Channel type [Broadcast|Unicast|Multicast]:", "Broadcast", false)));
                         guid = InputString("Name:", null, false);
                         priv = InputBoolean("Private:", false);
-                        if (client.CreateBroadcastChannel(guid, priv, out response))
+                        if (client.Create(channelType, guid, priv, out response))
                         {
-                            Console.WriteLine("CreateBroadcastChannel success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("CreateBroadcastChannel failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
-                    case "create mcast":
-                        if (client == null) break;
-                        guid = InputString("Name:", null, false);
-                        priv = InputBoolean("Private:", false);
-                        if (client.CreateMulticastChannel(guid, priv, out response))
-                        {
-                            Console.WriteLine("CreateMulticastChannel success");
-                        }
-                        else
-                        {
-                            Console.WriteLine("CreateMulticastChannel failed");
-                        }
-                        break;
-
-                    case "create ucast":
-                        if (client == null) break;
-                        guid = InputString("Name:", null, false);
-                        priv = InputBoolean("Private:", false);
-                        if (client.CreateUnicastChannel(guid, priv, out response))
-                        {
-                            Console.WriteLine("CreateUnicastChannel success");
-                        }
-                        else
-                        {
-                            Console.WriteLine("CreateUnicastChannel failed");
-                        }
-                        break;
-
-                    case "delete channel":
+                    case "delete":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
                         if (client.Delete(guid, out response))
                         {
-                            Console.WriteLine("DeleteChannel success");
+                            Console.WriteLine("Success");
                         }
                         else
                         {
-                            Console.WriteLine("DeleteChannel failed");
+                            Console.WriteLine("Failed");
                         }
                         break;
 
-                    case "send async":
+                    case "send channel":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
                         msg = InputString("Message:", null, false);
-                        client.SendPrivateMessageAsync(guid, msg);
-                        break;
-
-                    case "send async persist":
-                        if (client == null) break;
-                        guid = InputString("GUID:", null, false);
-                        msg = InputString("Message:", null, false);
-                        client.SendPrivateMessageAsync(guid, null, msg, true);
-                        break;
-
-                    case "send sync":
-                        if (client == null) break;
-                        guid = InputString("GUID:", null, false);
-                        msg = InputString("Message:", null, false);
-                        client.SendPrivateMessageSync(guid, msg, out response); 
-                        if (response != null)
+                        if (!client.SendChannel(guid, msg).Result)
                         {
-                            Console.WriteLine("Sync response received for GUID " + response.MessageID);
-                            Console.WriteLine(response.ToString());
+                            Console.WriteLine("Failed");
                         }
-                        else
-                        {
-                            Console.WriteLine("*** No sync response received (null)");
-                        }
-                        break;
-
-                    case "send channel async":
-                        if (client == null) break;
-                        guid = InputString("GUID:", null, false);
-                        msg = InputString("Message:", null, false);
-                        client.SendChannelMessageAsync(guid, msg);
                         break;
 
                     case "send channel sync":
                         if (client == null) break;
                         guid = InputString("GUID:", null, false);
                         msg = InputString("Message:", null, false);
-                        client.SendChannelMessageSync(guid, msg, out response);
-                        if (response != null)
+                        client.SendChannelSync(guid, msg, out respString);
+                        if (!String.IsNullOrEmpty(respString))
                         {
-                            Console.WriteLine("Sync response received for GUID " + response.MessageID);
-                            Console.WriteLine(response.ToString());
+                            Console.WriteLine("Response: " + respString);
                         }
                         else
                         {
-                            Console.WriteLine("*** No sync response received (null)");
+                            Console.WriteLine("*** No response");
                         }
                         break;
 
-                    case "whoami":
-                        if (client == null) break;
-                        if (!String.IsNullOrEmpty(client.Config.ClientGUID)) Console.WriteLine("  GUID " + client.Config.ClientGUID);
-                        else Console.WriteLine("[not logged in]");
-                        break; 
+                    #endregion
 
-                    default:
-                        Console.WriteLine("Unknown command");
+                    #region Messaging-Commands
+
+                    case "clients":
+                        if (client == null) break;
+                        clients = client.ListClients();
+                        if (clients != null && clients.Count > 0)
+                        {
+                            foreach (ServerClient curr in clients)
+                            {
+                                string line =
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
+
+                                Console.WriteLine(line);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
                         break;
+
+                    case "send":
+                        if (client == null) break;
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
+                        if (!client.Send(guid, msg).Result)
+                        {
+                            Console.WriteLine("Failed");
+                        }
+                        break;
+
+                    case "send persist":
+                        if (client == null) break;
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
+                        if (!client.Send(guid, null, msg, true).Result)
+                        {
+                            Console.WriteLine("Failed");
+                        }
+                        break;
+
+                    case "send sync":
+                        if (client == null) break;
+                        guid = InputString("GUID:", null, false);
+                        msg = InputString("Message:", null, false);
+                        respString = null;
+                        client.SendSync(guid, msg, out respString);
+                        if (!String.IsNullOrEmpty(respString))
+                        {
+                            Console.WriteLine("Response: " + respString);
+                        }
+                        else
+                        {
+                            Console.WriteLine("*** No response");
+                        }
+                        break;
+
+                    #endregion 
                 }
             }
         }
@@ -374,28 +342,26 @@ namespace ClientTest
             Console.WriteLine("  echo                 Send an echo message");
             Console.WriteLine("  login                Login to the server");
             Console.WriteLine("  whoami               Display my information");
+            Console.WriteLine("  ison                 Verify if a client is connected");
             Console.WriteLine("");
             Console.WriteLine("Channel Commands:");
-            Console.WriteLine("  list channels        Display visible channels");
-            Console.WriteLine("  list members         List the members of a channel");
-            Console.WriteLine("  list subscribers     List the subscribers of a channel");
-            Console.WriteLine("  create bcast         Create a broadcast channel");
-            Console.WriteLine("  create mcast         Create a multicast channel");
-            Console.WriteLine("  create ucast         Create a unicast channel");
-            Console.WriteLine("  delete channel       Delete a channel");
-            Console.WriteLine("  join channel         Join a channel");
-            Console.WriteLine("  leave channel        Leave a channel");
+            Console.WriteLine("  channels             Display visible channels");
+            Console.WriteLine("  members              List the members of a channel");
+            Console.WriteLine("  subscribers          List the subscribers of a channel");
+            Console.WriteLine("  create               Create a channel");
+            Console.WriteLine("  delete               Delete a channel");
+            Console.WriteLine("  join                 Join a channel");
+            Console.WriteLine("  leave                Leave a channel");
             Console.WriteLine("  subscribe            Subscribe to a channel");
             Console.WriteLine("  unsubscribe          Unsubscribe from a channel");
-            Console.WriteLine("  send channel async   Send a channel message asynchronously");
+            Console.WriteLine("  send channel         Send a channel message asynchronously");
             Console.WriteLine("  send channel sync    Send a channel message synchronously, expecting a response");
             Console.WriteLine("");
             Console.WriteLine("Messaging Commands:");
-            Console.WriteLine("  send async           Send a private message asynchronously");
-            Console.WriteLine("  send async persist   Send a private persistent message asynchronously");
+            Console.WriteLine("  send                 Send a private message asynchronously");
+            Console.WriteLine("  send persist         Send a private persistent message asynchronously");
             Console.WriteLine("  send sync            Send a private message synchronously, expecting a response");
-            Console.WriteLine("  list clients         List connected clients");
-            Console.WriteLine("  verify client        Verify if a client is connected"); 
+            Console.WriteLine("  clients              List connected clients");
             Console.WriteLine("");
         }
 
@@ -585,7 +551,7 @@ namespace ClientTest
                         config.SyncTimeoutMs = 30000;
 
                         config.TcpServer = new ClientConfiguration.TcpServerSettings();
-                        config.TcpServer.Debug = true;
+                        config.TcpServer.Debug = false;
                         config.TcpServer.Enable = true;
                         config.TcpServer.Ip = "127.0.0.1";
                         config.TcpServer.Port = 8000;
@@ -645,17 +611,17 @@ namespace ClientTest
         static async Task AsyncMessageReceived(Message msg)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine(msg.ToString());
+            Console.WriteLine("[" + msg.SenderGUID + "]: " + Encoding.UTF8.GetString(msg.Data));
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         static async Task<byte[]> SyncMessageReceived(Message msg)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Received sync message: " + msg.ToString());
-            Console.WriteLine("Press ENTER and then type your response");
-            Console.WriteLine("(The menu command parser is expecting input so press ENTER first!)");
-            Console.Write("Response [ENTER for 'hello!']: ");
+            Console.WriteLine("*** Synchronous message ***");
+            Console.WriteLine("[" + msg.SenderGUID + "]: " + Encoding.UTF8.GetString(msg.Data));
+            Console.WriteLine("");
+            Console.WriteLine("Press ENTER FIRST and then type your response and press ENTER again.");
             string resp = Console.ReadLine();
             if (!String.IsNullOrEmpty(resp)) return Encoding.UTF8.GetBytes(resp);
             return null;

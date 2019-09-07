@@ -5,7 +5,7 @@
   },
   "projects": {
     "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj": {
-      "version": "2.1.5",
+      "version": "3.0.1",
       "restore": {
         "projectUniqueName": "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj",
         "projectName": "BigQ.Client",
@@ -15,11 +15,13 @@
         "projectStyle": "PackageReference",
         "crossTargeting": true,
         "fallbackFolders": [
+          "C:\\Microsoft\\Xamarin\\NuGet\\",
           "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
         ],
         "configFilePaths": [
           "C:\\Users\\joelc\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net462",
@@ -28,12 +30,8 @@
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {},
-          "https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore-tooling/index.json": {},
-          "https://dotnetfeed.blob.core.windows.net/aspnet-aspnetcore/index.json": {},
-          "https://dotnetfeed.blob.core.windows.net/aspnet-entityframeworkcore/index.json": {},
-          "https://dotnetfeed.blob.core.windows.net/aspnet-extensions/index.json": {},
-          "https://dotnetfeed.blob.core.windows.net/dotnet-core/index.json": {},
-          "https://dotnetfeed.blob.core.windows.net/dotnet-windowsdesktop/index.json": {}
+          "https://nuget.pkg.github.com/jchristn/index.json": {},
+          "https://nuget.pkg.github.com/kvpbase/index.json": {}
         },
         "frameworks": {
           "net462": {
@@ -52,23 +50,39 @@
       "frameworks": {
         "net462": {
           "dependencies": {
-            "BigQ.Core": {
+            "Newtonsoft.Json": {
               "target": "Package",
-              "version": "[2.1.4, )"
+              "version": "[12.0.2, )"
+            },
+            "WatsonTcp": {
+              "target": "Package",
+              "version": "[2.0.2, )"
+            },
+            "WatsonWebsocket": {
+              "target": "Package",
+              "version": "[2.0.0, )"
             }
           }
         },
         "netstandard2.0": {
           "dependencies": {
-            "BigQ.Core": {
-              "target": "Package",
-              "version": "[2.1.4, )"
-            },
             "NETStandard.Library": {
               "suppressParent": "All",
               "target": "Package",
               "version": "[2.0.3, )",
               "autoReferenced": true
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[12.0.2, )"
+            },
+            "WatsonTcp": {
+              "target": "Package",
+              "version": "[2.0.2, )"
+            },
+            "WatsonWebsocket": {
+              "target": "Package",
+              "version": "[2.0.0, )"
             }
           },
           "imports": [

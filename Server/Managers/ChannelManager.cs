@@ -1,7 +1,8 @@
-﻿using BigQ.Core;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+
+using BigQ.Server.Classes;
 
 namespace BigQ.Server.Managers
 {

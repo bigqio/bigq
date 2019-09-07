@@ -1,8 +1,9 @@
-﻿using BigQ.Core;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+
+using BigQ.Server.Classes;
 
 namespace BigQ.Server.Managers
 {
@@ -166,8 +167,7 @@ namespace BigQ.Server.Managers
         /// <param name="ipPort">The IP:port of the client.</param>
         public void RemoveClient(string ipPort)
         {
-            if (String.IsNullOrEmpty(ipPort)) return;
-            // Console.WriteLine("RemoveClient " + ipPort);
+            if (String.IsNullOrEmpty(ipPort)) return; 
 
             bool addToQueue = false;
 
@@ -175,8 +175,7 @@ namespace BigQ.Server.Managers
             lock (_ClientsLock)
             {
                 if (!_Clients.ContainsKey(ipPort))
-                {
-                    // Console.WriteLine("Not found, adding " + ipPort + " to destroy queue");
+                { 
                     addToQueue = true;
                 }
                 else
@@ -194,8 +193,7 @@ namespace BigQ.Server.Managers
             if (addToQueue)
             {
                 lock (_DestroyQueue)
-                {
-                    // Console.WriteLine("*** Adding " + ipPort + " to destroy queue");
+                { 
                     if (!_DestroyQueue.ContainsKey(ipPort)) _DestroyQueue.Add(ipPort, DateTime.Now.AddSeconds(60));
                 }
             }
@@ -268,16 +266,14 @@ namespace BigQ.Server.Managers
                 lock (_DestroyQueue)
                 {
                     foreach (KeyValuePair<string, DateTime> curr in _DestroyQueue)
-                    {
-                        // Console.WriteLine("*** Removal of " + curr.Key + " scheduled");
+                    { 
                         removalQueue.Add(curr.Key);
                         if (DateTime.Now > curr.Value) _DestroyQueue.Remove(curr.Key);
                     }
                 }
 
                 foreach (string curr in removalQueue)
-                {
-                    // Console.WriteLine("*** Attempting removal of " + curr);
+                { 
                     RemoveClient(curr);
                 }
             }

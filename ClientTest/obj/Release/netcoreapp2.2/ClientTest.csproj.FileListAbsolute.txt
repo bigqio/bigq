@@ -8,9 +8,7 @@ C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\ClientTest.runtimecon
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\ClientTest.dll
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\ClientTest.pdb
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\Client.dll
-C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\Core.dll
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\Client.pdb
-C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\netcoreapp2.2\Core.pdb
 C:\Code\BigQ\BigQ-2.1\ClientTest\obj\Release\netcoreapp2.2\ClientTest.csprojAssemblyReference.cache
 C:\Code\BigQ\BigQ-2.1\ClientTest\obj\Release\netcoreapp2.2\ClientTest.csproj.CoreCompileInputs.cache
 C:\Code\BigQ\BigQ-2.1\ClientTest\obj\Release\netcoreapp2.2\ClientTest.AssemblyInfoInputs.cache

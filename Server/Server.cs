@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using WatsonTcp;
 using WatsonWebsocket;
 
-using BigQ.Core;
+using BigQ.Server.Classes;
 using BigQ.Server.Managers;
 
 namespace BigQ.Server
@@ -80,38 +80,7 @@ namespace BigQ.Server
             Config = ServerConfiguration.Default();
             InitializeServer();
         }
-
-        /// <summary>
-        /// Start an instance of the BigQ server process.
-        /// </summary>
-        /// <param name="configFile">The full path and filename of the configuration file.  Leave null for a default configuration.</param>
-        public Server(string configFile)
-        {
-            #region Load-Config
-
-            _CreatedUtc = DateTime.Now.ToUniversalTime();
-            _Random = new Random((int)DateTime.Now.Ticks);
-
-            Config = null;
-
-            if (String.IsNullOrEmpty(configFile))
-            {
-                Config = ServerConfiguration.Default();
-            }
-            else
-            {
-                Config = ServerConfiguration.LoadConfig(configFile);
-            }
-
-            if (Config == null) throw new Exception("Unable to initialize configuration.");
-
-            Config.ValidateConfig();
-
-            #endregion
-
-            InitializeServer(); 
-        }
-
+         
         /// <summary>
         /// Start an instance of the BigQ server process.
         /// </summary>
@@ -198,12 +167,13 @@ namespace BigQ.Server
         }
 
         /// <summary>
-        /// Create a broadcast channel owned by the server.
+        /// Create a channel owned by the server.
         /// </summary>
-        /// <param name="name">The name of the channel.</param>
-        /// <param name="guid">The GUID of the channel.  If null, a random GUID will be created.</param>
-        /// <param name="isPrivate">Indicates whether or not the channel is private (true) or public (false).</param>
-        public void CreateBroadcastChannel(string name, string guid, bool isPrivate)
+        /// <param name="channelType">ChannelType.</param>
+        /// <param name="name">Name of the channel.</param>
+        /// <param name="guid">GUID of the channel.</param>
+        /// <param name="isPrivate">True if the channel is private.</param>
+        public void Create(ChannelType channelType, string name, string guid, bool isPrivate)
         {
             if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
 
@@ -216,83 +186,25 @@ namespace BigQ.Server
             newChannel.ChannelName = name;
             newChannel.OwnerGUID = Config.GUID;
             newChannel.CreatedUtc = timestamp;
+
             if (isPrivate) newChannel.Visibility = ChannelVisibility.Private;
             else newChannel.Visibility = ChannelVisibility.Public;
-            newChannel.Type = ChannelType.Broadcast;
-            newChannel.Members = new List<ServerClient>();
-            newChannel.Subscribers = new List<ServerClient>();
-            
-            _ChannelMgr.AddChannel(newChannel);
-             
-            return;
-        }
 
-        /// <summary>
-        /// Create a unicast channel owned by the server.
-        /// </summary>
-        /// <param name="name">The name of the channel.</param>
-        /// <param name="guid">The GUID of the channel.  If null, a random GUID will be created.</param>
-        /// <param name="isPrivate">Indicates whether or not the channel is private (true) or public (false).</param>
-        public void CreateUnicastChannel(string name, string guid, bool isPrivate)
-        {
-            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
-
-            DateTime timestamp = DateTime.Now.ToUniversalTime();
-            Channel newChannel = new Channel();
-
-            if (!String.IsNullOrEmpty(guid)) newChannel.ChannelGUID = guid;
-            else newChannel.ChannelGUID = Guid.NewGuid().ToString();
-
-            newChannel.ChannelName = name;
-            newChannel.OwnerGUID = Config.GUID;
-            newChannel.CreatedUtc = timestamp;
-            if (isPrivate) newChannel.Visibility = ChannelVisibility.Private;
-            else newChannel.Visibility = ChannelVisibility.Public;
-            newChannel.Type = ChannelType.Unicast;
+            newChannel.Type = channelType;
             newChannel.Members = new List<ServerClient>();
             newChannel.Subscribers = new List<ServerClient>();
 
             _ChannelMgr.AddChannel(newChannel);
-             
+
             return;
         }
-
-        /// <summary>
-        /// Create a multicast channel owned by the server.
-        /// </summary>
-        /// <param name="name">The name of the channel.</param>
-        /// <param name="guid">The GUID of the channel.  If null, a random GUID will be created.</param>
-        /// <param name="isPrivate">Indicates whether or not the channel is private (true) or public (false).</param>
-        public void CreateMulticastChannel(string name, string guid, bool isPrivate)
-        {
-            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException(nameof(name));
-
-            DateTime timestamp = DateTime.Now.ToUniversalTime();
-            Channel newChannel = new Channel();
-
-            if (!String.IsNullOrEmpty(guid)) newChannel.ChannelGUID = guid;
-            else newChannel.ChannelGUID = Guid.NewGuid().ToString();
-
-            newChannel.ChannelName = name;
-            newChannel.OwnerGUID = Config.GUID;
-            newChannel.CreatedUtc = timestamp;
-            if (isPrivate) newChannel.Visibility = ChannelVisibility.Private;
-            else newChannel.Visibility = ChannelVisibility.Public;
-            newChannel.Type = ChannelType.Multicast;
-            newChannel.Members = new List<ServerClient>();
-            newChannel.Subscribers = new List<ServerClient>();
-
-            _ChannelMgr.AddChannel(newChannel);
-             
-            return;
-        }
-
+         
         /// <summary>
         /// Delete a channel from the server.
         /// </summary>
         /// <param name="guid">The GUID of the channel.</param>
         /// <returns>Boolean indicating success.</returns>
-        public bool DeleteChannel(string guid)
+        public bool Delete(string guid)
         {
             if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
 
@@ -301,78 +213,54 @@ namespace BigQ.Server
 
             return RemoveChannel(currentChannel);
         }
-
-        /// <summary>
-        /// Return the number of unexpired persistent messages awaiting delivery.
-        /// </summary>
-        /// <returns>The number of persistent messages.</returns>
-        public int PersistentQueueDepth()
-        {
-            if (_PersistenceMgr == null) return -1;
-            return _PersistenceMgr.QueueDepth();
-        }
-
-        /// <summary>
-        /// Return the number of unexpired persistent messages awaiting delivery to a recipient.
-        /// </summary>
-        /// <param name="guid">The GUID of the recipient.</param>
-        /// <returns>The number of persistent messages.</returns>
-        public int PersistentQueueDepth(string guid)
-        {
-            if (_PersistenceMgr == null) return -1;
-            return _PersistenceMgr.QueueDepth(guid);
-        }
-
+         
         #endregion
 
         #region Private-Watson-Callback-Methods
 
-        private bool WatsonTcpClientConnected(string ipPort)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task WatsonTcpClientConnected(string ipPort)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         { 
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Tcp);
-            _ConnMgr.AddClient(currentClient);
-            return true;
+            _ConnMgr.AddClient(currentClient); 
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        private async Task<bool> WatsonWebsocketClientConnected(HttpListenerRequest req)
+        private async Task<bool> WatsonWebsocketClientConnected(string ipPort, HttpListenerRequest req)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
-        {
-            string ipPort = req.RemoteEndPoint.Address.ToString() + ":" + req.RemoteEndPoint.Port;
+        { 
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Websocket);
-            _ConnMgr.AddClient(currentClient); 
-            return true; 
+            _ConnMgr.AddClient(currentClient);
+            return true;
         }
          
-        private bool WatsonWebsocketSslClientConnected(string ipPort, IDictionary<string, string> qs)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task WatsonWebsocketSslClientConnected(string ipPort, IDictionary<string, string> qs)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         { 
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.WebsocketSsl);
-            _ConnMgr.AddClient(currentClient); 
-            return true;
+            _ConnMgr.AddClient(currentClient);  
         }
 
-        private bool WatsonClientDisconnected(string ipPort)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task WatsonClientDisconnected(string ipPort)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         { 
-            DestroyClient(ipPort);
-            return true;
+            DestroyClient(ipPort); 
         }
 
-        private bool WatsonMessageReceived(string ipPort, byte[] data)
+        private async Task WatsonMessageReceived(string ipPort, byte[] data)
         {
             ServerClient currentClient = _ConnMgr.GetByIpPort(ipPort);
-            if (currentClient == null || currentClient == default(ServerClient)) return false;
+            if (currentClient == null || currentClient == default(ServerClient)) return;
 
             Message currentMessage = new Message(data);
             MessageProcessor(currentClient, currentMessage);
             if (Callbacks.MessageReceived != null)
             {
-                new Thread(delegate ()
-                {
-                    Callbacks.MessageReceived(currentMessage);
-                }).Start();
-                // Task.Run(() => Callbacks.MessageReceived(currentMessage));
+                await Task.Run(() => Callbacks.MessageReceived(currentMessage));
             }
-            return true;
         }
 
         #endregion
@@ -477,17 +365,17 @@ namespace BigQ.Server
             if (Config.WebsocketServer.Enable)
             {
                 #region Start-Websocket-Server
-                 
+
                 _WWsServer = new WatsonWsServer(
                     Config.WebsocketServer.Ip,
                     Config.WebsocketServer.Port,
-                    false,
-                    false,
-                    null,
-                    WatsonWebsocketClientConnected,
-                    WatsonClientDisconnected,
-                    WatsonMessageReceived,
-                    Config.WebsocketServer.Debug);
+                    false);
+
+                _WWsServer.ClientConnected = WatsonWebsocketClientConnected;
+                _WWsServer.ClientDisconnected = WatsonClientDisconnected;
+                _WWsServer.MessageReceived = WatsonMessageReceived;
+                _WWsServer.Debug = Config.WebsocketServer.Debug;
+                _WWsServer.Start();
 
                 #endregion
             }
@@ -495,17 +383,18 @@ namespace BigQ.Server
             if (Config.WebsocketSslServer.Enable)
             {
                 #region Start-Websocket-SSL-Server
-                 
+
                 _WWsServer = new WatsonWsServer(
                     Config.WebsocketSslServer.Ip,
                     Config.WebsocketSslServer.Port,
-                    true,
-                    Config.WebsocketSslServer.AcceptInvalidCerts,
-                    null,
-                    WatsonWebsocketClientConnected,
-                    WatsonClientDisconnected,
-                    WatsonMessageReceived,
-                    Config.WebsocketServer.Debug);
+                    true);
+
+                _WWsServer.ClientConnected = WatsonWebsocketClientConnected;
+                _WWsServer.ClientDisconnected = WatsonClientDisconnected;
+                _WWsServer.MessageReceived = WatsonMessageReceived;
+                _WWsServer.AcceptInvalidCertificates = Config.WebsocketSslServer.AcceptInvalidCerts;
+                _WWsServer.Debug = Config.WebsocketSslServer.Debug;
+                _WWsServer.Start();
 
                 #endregion
             }
@@ -518,9 +407,24 @@ namespace BigQ.Server
             if (String.IsNullOrEmpty(ipPort)) return;
             ServerClient currentClient = _ConnMgr.GetByIpPort(ipPort);
             if (currentClient == null || currentClient == default(ServerClient)) return;
-            else currentClient.Dispose();
+            
             _ConnMgr.RemoveClient(ipPort);
-            if (!String.IsNullOrEmpty(currentClient.ClientGUID)) _ChannelMgr.RemoveClient(currentClient.ClientGUID); 
+            if (!String.IsNullOrEmpty(currentClient.ClientGUID)) _ChannelMgr.RemoveClient(currentClient.ClientGUID);
+
+            if (currentClient.Connection == ConnectionType.Tcp 
+                || currentClient.Connection == ConnectionType.TcpSsl)
+            {
+                _WTcpServer.DisconnectClient(ipPort);
+            }
+
+            if (currentClient.Connection == ConnectionType.Websocket 
+                || currentClient.Connection == ConnectionType.WebsocketSsl)
+            {
+                _WWsServer.DisconnectClient(ipPort);
+            }
+
+            currentClient.Dispose();
+
             return;
         }
           
@@ -530,8 +434,40 @@ namespace BigQ.Server
             {
                 try
                 {
-                    if (_WTcpServer != null) _WTcpServer.Dispose();
-                    if (_WWsServer != null) _WWsServer.Dispose(); 
+                    if (_WTcpServer != null)
+                    {
+                        List<string> tcpClients = _WTcpServer.ListClients();
+                        if (tcpClients != null && tcpClients.Count > 0)
+                        {
+                            foreach (string curr in tcpClients)
+                            {
+                                _WTcpServer.DisconnectClient(curr);
+                            }
+                        }
+
+                        _WTcpServer.Dispose();
+                    }
+                }
+                catch (Exception)
+                {
+
+                }
+
+                try
+                { 
+                    if (_WWsServer != null)
+                    {
+                        List<string> wsClients = _WWsServer.ListClients().ToList();
+                        if (wsClients != null && wsClients.Count > 0)
+                        {
+                            foreach (string curr in wsClients)
+                            {
+                                _WWsServer.DisconnectClient(curr);
+                            }
+                        }
+
+                        _WWsServer.Dispose();
+                    }
                 }
                 catch (Exception)
                 {
@@ -539,7 +475,9 @@ namespace BigQ.Server
                 }
 
                 _AuthMgr.Dispose();
+
                 if (_CleanupCancellationTokenSource != null) _CleanupCancellationTokenSource.Cancel();
+
                 return;
             }
         }
@@ -1083,11 +1021,8 @@ namespace BigQ.Server
                     List<ServerClient> tempMembers = new List<ServerClient>(channel.Members);
                      
                     foreach (ServerClient currentClient in tempMembers)
-                    {
-                        if (String.Compare(currentClient.ClientGUID, channel.OwnerGUID) != 0)
-                        { 
-                            SendSystemMessage(_MsgBuilder.ChannelDeletedByOwner(currentClient, tempChannel));
-                        }
+                    { 
+                        SendSystemMessage(_MsgBuilder.ChannelDeletedByOwner(currentClient, tempChannel)); 
                     } 
                 }
             }
@@ -1597,11 +1532,7 @@ namespace BigQ.Server
                 {
                     if (Callbacks.ClientLogin != null)
                     {
-                        new Thread(delegate ()
-                        {
-                            Callbacks.ClientLogin(client);
-                        }).Start();
-                        // Task.Run(() => Callbacks.ClientLogin(client));
+                        Callbacks.ClientLogin(client).Wait();
                     }
                 }
 
@@ -1609,11 +1540,7 @@ namespace BigQ.Server
                 {
                     if (Config.Notification.ServerJoinNotification)
                     {
-                        new Thread(delegate ()
-                        {
-                            ServerJoinEvent(client);
-                        }).Start();
-                        // Task.Run(() => ServerJoinEvent(client));
+                        Task.Run(() => ServerJoinEvent(client));
                     }
                 } 
             }

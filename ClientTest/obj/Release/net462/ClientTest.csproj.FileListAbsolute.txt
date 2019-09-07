@@ -9,9 +9,7 @@ C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\Newtonsoft.Json.dll
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\WatsonTcp.dll
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\WatsonWebsocket.dll
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\Client.dll
-C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\Core.dll
 C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\Client.pdb
-C:\Code\BigQ\BigQ-2.1\ClientTest\bin\Release\net462\Core.pdb
 C:\Code\BigQ\BigQ-2.1\ClientTest\obj\Release\net462\ClientTest.csprojAssemblyReference.cache
 C:\Code\BigQ\BigQ-2.1\ClientTest\obj\Release\net462\ClientTest.csproj.CoreCompileInputs.cache
 C:\Code\BigQ\BigQ-2.1\ClientTest\obj\Release\net462\ClientTest.AssemblyInfoInputs.cache

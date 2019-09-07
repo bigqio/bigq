@@ -1,36 +1,24 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v2.0/",
-    "signature": "525ccb5ae699e38b18ac41a53486a333e0e9a0b3"
+    "signature": "69f6cd4b098f95992db94049f12a99a3320d4573"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "Server/2.2.0": {
+      "Server/3.0.1": {
         "dependencies": {
-          "BigQ.Core": "2.2.0",
           "NETStandard.Library": "2.0.3",
+          "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.13",
           "System.Data.SQLite": "1.0.111",
-          "System.Data.SQLite.Core": "1.0.111"
+          "System.Data.SQLite.Core": "1.0.111",
+          "WatsonTcp": "2.0.2",
+          "WatsonWebsocket": "2.0.0"
         },
         "runtime": {
           "Server.dll": {}
-        }
-      },
-      "BigQ.Core/2.2.0": {
-        "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
-          "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
-        },
-        "runtime": {
-          "lib/netstandard2.0/Core.dll": {
-            "assemblyVersion": "2.1.7.0",
-            "fileVersion": "2.1.7.0"
-          }
         }
       },
       "Microsoft.CSharp/4.5.0": {
@@ -81,39 +69,29 @@
           }
         }
       },
-      "WatsonTcp/1.3.12": {
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
+      "WatsonTcp/2.0.2": {
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "1.3.12.0",
-            "fileVersion": "1.3.12.0"
+            "assemblyVersion": "2.0.2.0",
+            "fileVersion": "2.0.2.0"
           }
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "runtime": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {
-            "assemblyVersion": "1.3.0.0",
-            "fileVersion": "1.3.0.0"
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.0.0"
           }
         }
       }
     }
   },
   "libraries": {
-    "Server/2.2.0": {
+    "Server/3.0.1": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
-    },
-    "BigQ.Core/2.2.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-RE/S06bRVBSaGb9dCxPDW1LXosCH54VwHngMKtotXX/weQCcpN4mR+3deGwYAZy7iiqWKhYGj8d+UPjNA3tuqQ==",
-      "path": "bigq.core/2.2.0",
-      "hashPath": "bigq.core.2.2.0.nupkg.sha512"
     },
     "Microsoft.CSharp/4.5.0": {
       "type": "package",
@@ -125,7 +103,7 @@
     "Microsoft.NETCore.Platforms/1.1.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-a/iSwnRZb+LHFk49hQOyThh/ZNC3vsbZsF65XwQIb863qF6msmhdQtxGXFL28Ob2NsCz/drEj28BJd/YPpLRBg==",
+      "sha512": "sha512-kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A==",
       "path": "microsoft.netcore.platforms/1.1.0",
       "hashPath": "microsoft.netcore.platforms.1.1.0.nupkg.sha512"
     },
@@ -164,19 +142,19 @@
       "path": "system.data.sqlite.core/1.0.111",
       "hashPath": "system.data.sqlite.core.1.0.111.nupkg.sha512"
     },
-    "WatsonTcp/1.3.12": {
+    "WatsonTcp/2.0.2": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
-      "path": "watsontcp/1.3.12",
-      "hashPath": "watsontcp.1.3.12.nupkg.sha512"
+      "sha512": "sha512-ycmvhsa2AAJPpAuf96CS0MwK63CNo2H79vObQe1mdzLDcG0ivquhq/SnAOHBch2QXD5DEHxNKAsRHHsYqS7Ksg==",
+      "path": "watsontcp/2.0.2",
+      "hashPath": "watsontcp.2.0.2.nupkg.sha512"
     },
-    "WatsonWebsocket/1.3.0": {
+    "WatsonWebsocket/2.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
-      "path": "watsonwebsocket/1.3.0",
-      "hashPath": "watsonwebsocket.1.3.0.nupkg.sha512"
+      "sha512": "sha512-+Et0AsbSEmmdYjJeHRJPh+1weJFz5dvqXftgSTM5tufqZnpQ7lHgN6baDAoDTSeiZPXxDNM0dzwMps3JLnoRYg==",
+      "path": "watsonwebsocket/2.0.0",
+      "hashPath": "watsonwebsocket.2.0.0.nupkg.sha512"
     }
   }
 }

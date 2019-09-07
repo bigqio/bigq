@@ -2,15 +2,6 @@
   "version": 3,
   "targets": {
     ".NETCoreApp,Version=v2.2": {
-      "Microsoft.CSharp/4.5.0": {
-        "type": "package",
-        "compile": {
-          "ref/netcoreapp2.0/_._": {}
-        },
-        "runtime": {
-          "lib/netcoreapp2.0/_._": {}
-        }
-      },
       "Microsoft.NETCore.App/2.2.0": {
         "type": "package",
         "dependencies": {
@@ -226,11 +217,8 @@
           "lib/netstandard2.0/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.12": {
+      "WatsonTcp/2.0.2": {
         "type": "package",
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
         "compile": {
           "lib/netstandard2.0/WatsonTcp.dll": {}
         },
@@ -238,7 +226,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -247,43 +235,23 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.2.0": {
-        "type": "project",
-        "framework": ".NETStandard,Version=v2.0",
-        "compile": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        }
-      },
-      "BigQ.Core/2.2.0": {
+      "BigQ.Client/3.0.1": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
+          "WatsonTcp": "2.0.2",
+          "WatsonWebsocket": "2.0.0"
         },
         "compile": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         },
         "runtime": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         }
       }
     },
     ".NETCoreApp,Version=v2.2/win7-x86": {
-      "Microsoft.CSharp/4.5.0": {
-        "type": "package",
-        "compile": {
-          "ref/netcoreapp2.0/_._": {}
-        },
-        "runtime": {
-          "lib/netcoreapp2.0/_._": {}
-        }
-      },
       "Microsoft.NETCore.App/2.2.0": {
         "type": "package",
         "dependencies": {
@@ -750,11 +718,8 @@
           "runtimes/win-x86/native/hostfxr.dll": {}
         }
       },
-      "WatsonTcp/1.3.12": {
+      "WatsonTcp/2.0.2": {
         "type": "package",
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
         "compile": {
           "lib/netstandard2.0/WatsonTcp.dll": {}
         },
@@ -762,7 +727,7 @@
           "lib/netstandard2.0/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
@@ -771,46 +736,23 @@
           "lib/netstandard2.0/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.2.0": {
-        "type": "project",
-        "framework": ".NETStandard,Version=v2.0",
-        "compile": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        }
-      },
-      "BigQ.Core/2.2.0": {
+      "BigQ.Client/3.0.1": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
         "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
+          "WatsonTcp": "2.0.2",
+          "WatsonWebsocket": "2.0.0"
         },
         "compile": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         },
         "runtime": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         }
       }
     },
     ".NETFramework,Version=v4.6.2": {
-      "Microsoft.CSharp/4.5.0": {
-        "type": "package",
-        "frameworkAssemblies": [
-          "Microsoft.CSharp"
-        ],
-        "compile": {
-          "ref/net45/_._": {}
-        },
-        "runtime": {
-          "lib/net45/_._": {}
-        }
-      },
       "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
@@ -820,11 +762,8 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.12": {
+      "WatsonTcp/2.0.2": {
         "type": "package",
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
         "compile": {
           "lib/net452/WatsonTcp.dll": {}
         },
@@ -832,7 +771,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -841,46 +780,23 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.2.0": {
-        "type": "project",
-        "framework": ".NETFramework,Version=v4.6.2",
-        "compile": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        }
-      },
-      "BigQ.Core/2.2.0": {
+      "BigQ.Client/3.0.1": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
+          "WatsonTcp": "2.0.2",
+          "WatsonWebsocket": "2.0.0"
         },
         "compile": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         },
         "runtime": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         }
       }
     },
     ".NETFramework,Version=v4.6.2/win7-x86": {
-      "Microsoft.CSharp/4.5.0": {
-        "type": "package",
-        "frameworkAssemblies": [
-          "Microsoft.CSharp"
-        ],
-        "compile": {
-          "ref/net45/_._": {}
-        },
-        "runtime": {
-          "lib/net45/_._": {}
-        }
-      },
       "Newtonsoft.Json/12.0.2": {
         "type": "package",
         "compile": {
@@ -890,11 +806,8 @@
           "lib/net45/Newtonsoft.Json.dll": {}
         }
       },
-      "WatsonTcp/1.3.12": {
+      "WatsonTcp/2.0.2": {
         "type": "package",
-        "dependencies": {
-          "Newtonsoft.Json": "12.0.2"
-        },
         "compile": {
           "lib/net452/WatsonTcp.dll": {}
         },
@@ -902,7 +815,7 @@
           "lib/net452/WatsonTcp.dll": {}
         }
       },
-      "WatsonWebsocket/1.3.0": {
+      "WatsonWebsocket/2.0.0": {
         "type": "package",
         "compile": {
           "lib/net452/WatsonWebsocket.dll": {}
@@ -911,103 +824,24 @@
           "lib/net452/WatsonWebsocket.dll": {}
         }
       },
-      "BigQ.Client/2.2.0": {
-        "type": "project",
-        "framework": ".NETFramework,Version=v4.6.2",
-        "compile": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        },
-        "runtime": {
-          "bin/placeholder/BigQ.Client.dll": {}
-        }
-      },
-      "BigQ.Core/2.2.0": {
+      "BigQ.Client/3.0.1": {
         "type": "project",
         "framework": ".NETFramework,Version=v4.6.2",
         "dependencies": {
-          "Microsoft.CSharp": "4.5.0",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "1.3.12",
-          "WatsonWebsocket": "1.3.0"
+          "WatsonTcp": "2.0.2",
+          "WatsonWebsocket": "2.0.0"
         },
         "compile": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         },
         "runtime": {
-          "bin/placeholder/BigQ.Core.dll": {}
+          "bin/placeholder/BigQ.Client.dll": {}
         }
       }
     }
   },
   "libraries": {
-    "Microsoft.CSharp/4.5.0": {
-      "sha512": "kaj6Wb4qoMuH3HySFJhxwQfe8R/sJsNJnANrvv8WdFPMoNbKY5htfNscv+LHCu5ipz+49m2e+WQXpLXr9XYemQ==",
-      "type": "package",
-      "path": "microsoft.csharp/4.5.0",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "LICENSE.TXT",
-        "THIRD-PARTY-NOTICES.TXT",
-        "lib/MonoAndroid10/_._",
-        "lib/MonoTouch10/_._",
-        "lib/net45/_._",
-        "lib/netcore50/Microsoft.CSharp.dll",
-        "lib/netcoreapp2.0/_._",
-        "lib/netstandard1.3/Microsoft.CSharp.dll",
-        "lib/netstandard2.0/Microsoft.CSharp.dll",
-        "lib/portable-net45+win8+wp8+wpa81/_._",
-        "lib/uap10.0.16299/_._",
-        "lib/win8/_._",
-        "lib/wp80/_._",
-        "lib/wpa81/_._",
-        "lib/xamarinios10/_._",
-        "lib/xamarinmac20/_._",
-        "lib/xamarintvos10/_._",
-        "lib/xamarinwatchos10/_._",
-        "microsoft.csharp.4.5.0.nupkg.sha512",
-        "microsoft.csharp.nuspec",
-        "ref/MonoAndroid10/_._",
-        "ref/MonoTouch10/_._",
-        "ref/net45/_._",
-        "ref/netcore50/Microsoft.CSharp.dll",
-        "ref/netcore50/Microsoft.CSharp.xml",
-        "ref/netcore50/de/Microsoft.CSharp.xml",
-        "ref/netcore50/es/Microsoft.CSharp.xml",
-        "ref/netcore50/fr/Microsoft.CSharp.xml",
-        "ref/netcore50/it/Microsoft.CSharp.xml",
-        "ref/netcore50/ja/Microsoft.CSharp.xml",
-        "ref/netcore50/ko/Microsoft.CSharp.xml",
-        "ref/netcore50/ru/Microsoft.CSharp.xml",
-        "ref/netcore50/zh-hans/Microsoft.CSharp.xml",
-        "ref/netcore50/zh-hant/Microsoft.CSharp.xml",
-        "ref/netcoreapp2.0/_._",
-        "ref/netstandard1.0/Microsoft.CSharp.dll",
-        "ref/netstandard1.0/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/de/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/es/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/fr/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/it/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/ja/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/ko/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/ru/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/zh-hans/Microsoft.CSharp.xml",
-        "ref/netstandard1.0/zh-hant/Microsoft.CSharp.xml",
-        "ref/netstandard2.0/Microsoft.CSharp.dll",
-        "ref/netstandard2.0/Microsoft.CSharp.xml",
-        "ref/portable-net45+win8+wp8+wpa81/_._",
-        "ref/uap10.0.16299/_._",
-        "ref/win8/_._",
-        "ref/wp80/_._",
-        "ref/wpa81/_._",
-        "ref/xamarinios10/_._",
-        "ref/xamarinmac20/_._",
-        "ref/xamarintvos10/_._",
-        "ref/xamarinwatchos10/_._",
-        "useSharedDesignerContext.txt",
-        "version.txt"
-      ]
-    },
     "Microsoft.NETCore.App/2.2.0": {
       "sha512": "QU8taCyeyePwatrj+h+750lMnsPCq3YPaGmsdtSHXPCjDyjto2KT7QDNVet0oRliX4PjaINpyg0Yzd9DnQ/Wkw==",
       "type": "package",
@@ -1779,74 +1613,70 @@
         "version.txt"
       ]
     },
-    "WatsonTcp/1.3.12": {
-      "sha512": "tLf8YF1w7+f5sVj7doJ4QEPqBX59IoL2Rlgm6hZHgRZy87z+Iwwr3l0yZ05Yr7049XJjnNL7F7dI2m39l7QbhA==",
+    "WatsonTcp/2.0.2": {
+      "sha512": "ycmvhsa2AAJPpAuf96CS0MwK63CNo2H79vObQe1mdzLDcG0ivquhq/SnAOHBch2QXD5DEHxNKAsRHHsYqS7Ksg==",
       "type": "package",
-      "path": "watsontcp/1.3.12",
+      "path": "watsontcp/2.0.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonTcp.dll",
         "lib/netstandard2.0/WatsonTcp.dll",
-        "watsontcp.1.3.12.nupkg.sha512",
+        "watsontcp.2.0.2.nupkg.sha512",
         "watsontcp.nuspec"
       ]
     },
-    "WatsonWebsocket/1.3.0": {
-      "sha512": "c0YbsCLQ+JfSI8zxeFUDcGV/wCHVrw6rJ3Cr6ID+CHD9Sozwl8jD1NQz9oHQy1VBIAZbm+fyubUEHyEF1/crXQ==",
+    "WatsonWebsocket/2.0.0": {
+      "sha512": "+Et0AsbSEmmdYjJeHRJPh+1weJFz5dvqXftgSTM5tufqZnpQ7lHgN6baDAoDTSeiZPXxDNM0dzwMps3JLnoRYg==",
       "type": "package",
-      "path": "watsonwebsocket/1.3.0",
+      "path": "watsonwebsocket/2.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net452/WatsonWebsocket.dll",
         "lib/netstandard2.0/WatsonWebsocket.dll",
-        "watsonwebsocket.1.3.0.nupkg.sha512",
+        "watsonwebsocket.2.0.0.nupkg.sha512",
         "watsonwebsocket.nuspec"
       ]
     },
-    "BigQ.Client/2.2.0": {
+    "BigQ.Client/3.0.1": {
       "type": "project",
       "path": "../Client/Client.csproj",
       "msbuildProject": "../Client/Client.csproj"
-    },
-    "BigQ.Core/2.2.0": {
-      "type": "project",
-      "path": "../Core/Core.csproj",
-      "msbuildProject": "../Core/Core.csproj"
     }
   },
   "projectFileDependencyGroups": {
     ".NETCoreApp,Version=v2.2": [
-      "BigQ.Client >= 2.2.0",
-      "BigQ.Core >= 2.2.0",
+      "BigQ.Client >= 3.0.1",
       "Microsoft.NETCore.App >= 2.2.0"
     ],
     ".NETFramework,Version=v4.6.2": [
-      "BigQ.Client >= 2.2.0",
-      "BigQ.Core >= 2.2.0"
+      "BigQ.Client >= 3.0.1"
     ]
   },
   "packageFolders": {
     "C:\\Users\\joelc\\.nuget\\packages\\": {},
+    "C:\\Microsoft\\Xamarin\\NuGet\\": {},
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\code\\bigq\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
+      "projectUniqueName": "C:\\Code\\BigQ\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
       "projectName": "ClientTest",
-      "projectPath": "C:\\code\\bigq\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
+      "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\ClientTest\\ClientTest.csproj",
       "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-      "outputPath": "C:\\code\\bigq\\BigQ-2.1\\ClientTest\\obj\\",
+      "outputPath": "C:\\Code\\BigQ\\BigQ-2.1\\ClientTest\\obj\\",
       "projectStyle": "PackageReference",
       "crossTargeting": true,
       "fallbackFolders": [
+        "C:\\Microsoft\\Xamarin\\NuGet\\",
         "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
       ],
       "configFilePaths": [
         "C:\\Users\\joelc\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net462",
@@ -1861,21 +1691,15 @@
       "frameworks": {
         "netcoreapp2.2": {
           "projectReferences": {
-            "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj": {
-              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj"
-            },
-            "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj": {
-              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj"
+            "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj": {
+              "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj"
             }
           }
         },
         "net462": {
           "projectReferences": {
-            "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj": {
-              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Client\\Client.csproj"
-            },
-            "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj": {
-              "projectPath": "C:\\code\\bigq\\BigQ-2.1\\Core\\Core.csproj"
+            "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj": {
+              "projectPath": "C:\\Code\\BigQ\\BigQ-2.1\\Client\\Client.csproj"
             }
           }
         }

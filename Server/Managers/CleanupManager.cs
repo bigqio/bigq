@@ -1,8 +1,9 @@
-﻿using BigQ.Core;
-using System; 
+﻿using System; 
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
+using BigQ.Server.Classes;
 
 namespace BigQ.Server.Managers
 {
