@@ -7,3 +7,12 @@ C:\Code\BigQ\BigQ-2.1\Server\obj\Release\netstandard2.0\Server.AssemblyInfoInput
 C:\Code\BigQ\BigQ-2.1\Server\obj\Release\netstandard2.0\Server.AssemblyInfo.cs
 C:\Code\BigQ\BigQ-2.1\Server\obj\Release\netstandard2.0\Server.dll
 C:\Code\BigQ\BigQ-2.1\Server\obj\Release\netstandard2.0\Server.pdb
+C:\Code\BigQ\BigQ-3.0\Server\bin\Release\netstandard2.0\Server.deps.json
+C:\Code\BigQ\BigQ-3.0\Server\bin\Release\netstandard2.0\Server.dll
+C:\Code\BigQ\BigQ-3.0\Server\bin\Release\netstandard2.0\Server.pdb
+C:\Code\BigQ\BigQ-3.0\Server\obj\Release\netstandard2.0\Server.csprojAssemblyReference.cache
+C:\Code\BigQ\BigQ-3.0\Server\obj\Release\netstandard2.0\Server.csproj.CoreCompileInputs.cache
+C:\Code\BigQ\BigQ-3.0\Server\obj\Release\netstandard2.0\Server.AssemblyInfoInputs.cache
+C:\Code\BigQ\BigQ-3.0\Server\obj\Release\netstandard2.0\Server.AssemblyInfo.cs
+C:\Code\BigQ\BigQ-3.0\Server\obj\Release\netstandard2.0\Server.dll
+C:\Code\BigQ\BigQ-3.0\Server\obj\Release\netstandard2.0\Server.pdb

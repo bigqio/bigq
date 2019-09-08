@@ -1012,8 +1012,9 @@ namespace BigQ.Client
                 if (_CleanupSyncTokenSource != null)
                 {
                     _CleanupSyncTokenSource.Cancel(true);
-                } 
+                }
 
+                Connected = false;
                 return;
             }
         }

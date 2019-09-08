@@ -404,13 +404,13 @@ namespace ServerTest
         static async Task StartServer()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Attempting to start server");
+            Console.WriteLine("Starting the server");
 
             if (server != null) server.Dispose();
             server = null;
               
             config = ServerConfiguration.Default();
-            config.TcpServer.Debug = false;
+            config.TcpServer.Debug = true;
 
             server = new Server(config);
             server.Callbacks.MessageReceived = MessageReceived;

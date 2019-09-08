@@ -1,20 +1,20 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v2.0/",
-    "signature": "69f6cd4b098f95992db94049f12a99a3320d4573"
+    "signature": "48d425e6d29d82bbe7913682d98859e10a6bb3d8"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "Server/3.0.1": {
+      "Server/3.0.2": {
         "dependencies": {
           "NETStandard.Library": "2.0.3",
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.13",
           "System.Data.SQLite": "1.0.111",
           "System.Data.SQLite.Core": "1.0.111",
-          "WatsonTcp": "2.0.2",
+          "WatsonTcp": "2.0.3",
           "WatsonWebsocket": "2.0.0"
         },
         "runtime": {
@@ -69,11 +69,11 @@
           }
         }
       },
-      "WatsonTcp/2.0.2": {
+      "WatsonTcp/2.0.3": {
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "2.0.2.0",
-            "fileVersion": "2.0.2.0"
+            "assemblyVersion": "2.0.3.0",
+            "fileVersion": "2.0.3.0"
           }
         }
       },
@@ -88,7 +88,7 @@
     }
   },
   "libraries": {
-    "Server/3.0.1": {
+    "Server/3.0.2": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -142,12 +142,12 @@
       "path": "system.data.sqlite.core/1.0.111",
       "hashPath": "system.data.sqlite.core.1.0.111.nupkg.sha512"
     },
-    "WatsonTcp/2.0.2": {
+    "WatsonTcp/2.0.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ycmvhsa2AAJPpAuf96CS0MwK63CNo2H79vObQe1mdzLDcG0ivquhq/SnAOHBch2QXD5DEHxNKAsRHHsYqS7Ksg==",
-      "path": "watsontcp/2.0.2",
-      "hashPath": "watsontcp.2.0.2.nupkg.sha512"
+      "sha512": "sha512-hsE4DUgCNZoj1hOdTtHUO5le1mCqAL1rsZuOYk/pxWjMND7t8UastLshuHcohxt/egnS4nBJBWly+7Ta0OZd5A==",
+      "path": "watsontcp/2.0.3",
+      "hashPath": "watsontcp.2.0.3.nupkg.sha512"
     },
     "WatsonWebsocket/2.0.0": {
       "type": "package",

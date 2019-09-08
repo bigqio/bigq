@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -13,7 +14,8 @@ namespace ClientTest
     class Program
     {
         static ClientConfiguration config = null;
-        static Client client = null;
+        static Client client = null; 
+        static Random random = new Random();
 
         static void Main(string[] args)
         { 
@@ -57,6 +59,10 @@ namespace ClientTest
                     case "c":
                     case "cls":
                         Console.Clear();
+                        break;
+
+                    case "dispose":
+                        client.Dispose();
                         break;
 
                     case "echo":
@@ -339,6 +345,7 @@ namespace ClientTest
             Console.WriteLine("General Commands:");
             Console.WriteLine("  q                    Quit the application");
             Console.WriteLine("  cls                  Clear the screen");
+            Console.WriteLine("  dispose              Dispose the client");
             Console.WriteLine("  echo                 Send an echo message");
             Console.WriteLine("  login                Login to the server");
             Console.WriteLine("  whoami               Display my information");
@@ -358,10 +365,10 @@ namespace ClientTest
             Console.WriteLine("  send channel sync    Send a channel message synchronously, expecting a response");
             Console.WriteLine("");
             Console.WriteLine("Messaging Commands:");
+            Console.WriteLine("  clients              List connected clients");
             Console.WriteLine("  send                 Send a private message asynchronously");
             Console.WriteLine("  send persist         Send a private persistent message asynchronously");
             Console.WriteLine("  send sync            Send a private message synchronously, expecting a response");
-            Console.WriteLine("  clients              List connected clients");
             Console.WriteLine("");
         }
 
@@ -521,6 +528,74 @@ namespace ClientTest
             }
         }
 
+        static string RandomString(int length)
+        {
+            const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            return new string(Enumerable.Repeat(chars, length)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
+        static string RandomName()
+        {
+            string[] names = new string[]
+            {
+                "anthony",
+                "brian",
+                "chris",
+                "david",
+                "ed",
+                "fred",
+                "george",
+                "harry",
+                "isaac",
+                "joel",
+                "kevin",
+                "larry",
+                "mark",
+                "noah",
+                "oscar",
+                "pete",
+                "quentin",
+                "ryan",
+                "steve",
+                "uriah",
+                "victor",
+                "will",
+                "xavier",
+                "yair",
+                "zachary",
+                "ashley",
+                "brianna",
+                "chloe",
+                "daisy",
+                "emma",
+                "fiona",
+                "grace",
+                "hannah",
+                "isabella",
+                "jenny",
+                "katie",
+                "lisa",
+                "maria",
+                "natalie",
+                "olivia",
+                "pearl",
+                "quinn",
+                "riley",
+                "sophia",
+                "tara",
+                "ulyssa",
+                "victoria",
+                "whitney",
+                "xena",
+                "yuri",
+                "zoey"
+            };
+
+            int selected = random.Next(0, names.Length - 1);
+            return names[selected];
+        }
+
         #region Delegates
 
         static void MaintainConnection()
@@ -544,9 +619,9 @@ namespace ClientTest
                     if (config == null)
                     {
                         config = ClientConfiguration.Default();
-                        config.ClientGUID = Guid.NewGuid().ToString();
-                        config.Email = config.ClientGUID;
-                        config.Name = config.ClientGUID;
+                        config.Name = RandomName();
+                        config.ClientGUID = RandomString(8);
+                        config.Email = config.Name + "@" + config.ClientGUID + ".com";
                         config.ServerGUID = "00000000-0000-0000-0000-000000000000";
                         config.SyncTimeoutMs = 30000;
 

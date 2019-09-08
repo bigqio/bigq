@@ -423,8 +423,7 @@ namespace BigQ.Server
                 _WWsServer.DisconnectClient(ipPort);
             }
 
-            currentClient.Dispose();
-
+            currentClient.Dispose(); 
             return;
         }
           
@@ -449,8 +448,7 @@ namespace BigQ.Server
                     }
                 }
                 catch (Exception)
-                {
-
+                { 
                 }
 
                 try
@@ -470,8 +468,7 @@ namespace BigQ.Server
                     }
                 }
                 catch (Exception)
-                {
-
+                { 
                 }
 
                 _AuthMgr.Dispose();

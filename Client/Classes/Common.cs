@@ -63,6 +63,6 @@ namespace BigQ.Client.Classes
             // ser.MaxJsonLength = Int32.MaxValue;
             // string json = ser.Serialize(obj);
             // return json;
-        } 
+        }
     }
 }
