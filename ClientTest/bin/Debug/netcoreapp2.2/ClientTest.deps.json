@@ -1,14 +1,14 @@
 {
   "runtimeTarget": {
     "name": ".NETCoreApp,Version=v2.2",
-    "signature": "af7e2f4002144354f6d679087f2d9cac8cb0d4a0"
+    "signature": "783ef7c6f34cb3a9ab3bf9036a4f8cd46927bd39"
   },
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v2.2": {
       "ClientTest/1.0.0": {
         "dependencies": {
-          "BigQ.Client": "3.0.2"
+          "BigQ.Client": "3.0.3"
         },
         "runtime": {
           "ClientTest.dll": {}
@@ -22,11 +22,11 @@
           }
         }
       },
-      "WatsonTcp/2.0.3": {
+      "WatsonTcp/2.0.4": {
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "2.0.3.0",
-            "fileVersion": "2.0.3.0"
+            "assemblyVersion": "2.0.4.0",
+            "fileVersion": "2.0.4.0"
           }
         }
       },
@@ -38,10 +38,10 @@
           }
         }
       },
-      "BigQ.Client/3.0.2": {
+      "BigQ.Client/3.0.3": {
         "dependencies": {
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "2.0.3",
+          "WatsonTcp": "2.0.4",
           "WatsonWebsocket": "2.0.0"
         },
         "runtime": {
@@ -63,12 +63,12 @@
       "path": "newtonsoft.json/12.0.2",
       "hashPath": "newtonsoft.json.12.0.2.nupkg.sha512"
     },
-    "WatsonTcp/2.0.3": {
+    "WatsonTcp/2.0.4": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-hsE4DUgCNZoj1hOdTtHUO5le1mCqAL1rsZuOYk/pxWjMND7t8UastLshuHcohxt/egnS4nBJBWly+7Ta0OZd5A==",
-      "path": "watsontcp/2.0.3",
-      "hashPath": "watsontcp.2.0.3.nupkg.sha512"
+      "sha512": "sha512-3RD2OnKwxT3XJvTayFDnF0YbryzNwGaplhjKykdf+Gv9W22hSVu1HvaSH7vieeqcLoYpHIbGGCuIySK7WtgS1Q==",
+      "path": "watsontcp/2.0.4",
+      "hashPath": "watsontcp.2.0.4.nupkg.sha512"
     },
     "WatsonWebsocket/2.0.0": {
       "type": "package",
@@ -77,7 +77,7 @@
       "path": "watsonwebsocket/2.0.0",
       "hashPath": "watsonwebsocket.2.0.0.nupkg.sha512"
     },
-    "BigQ.Client/3.0.2": {
+    "BigQ.Client/3.0.3": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

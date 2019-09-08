@@ -1,14 +1,14 @@
 {
   "runtimeTarget": {
     "name": ".NETCoreApp,Version=v2.2",
-    "signature": "ef0c6f4b210c224844de188318fa93823d631289"
+    "signature": "80887537e1ce8228605e2e7b2caae41557115a49"
   },
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v2.2": {
       "ServerTest/1.0.0": {
         "dependencies": {
-          "BigQ.Server": "3.0.2"
+          "BigQ.Server": "3.0.3"
         },
         "runtime": {
           "ServerTest.dll": {}
@@ -71,11 +71,11 @@
           }
         }
       },
-      "WatsonTcp/2.0.3": {
+      "WatsonTcp/2.0.4": {
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "2.0.3.0",
-            "fileVersion": "2.0.3.0"
+            "assemblyVersion": "2.0.4.0",
+            "fileVersion": "2.0.4.0"
           }
         }
       },
@@ -87,13 +87,13 @@
           }
         }
       },
-      "BigQ.Server/3.0.2": {
+      "BigQ.Server/3.0.3": {
         "dependencies": {
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.13",
           "System.Data.SQLite": "1.0.111",
           "System.Data.SQLite.Core": "1.0.111",
-          "WatsonTcp": "2.0.3",
+          "WatsonTcp": "2.0.4",
           "WatsonWebsocket": "2.0.0"
         },
         "runtime": {
@@ -143,12 +143,12 @@
       "path": "system.data.sqlite.core/1.0.111",
       "hashPath": "system.data.sqlite.core.1.0.111.nupkg.sha512"
     },
-    "WatsonTcp/2.0.3": {
+    "WatsonTcp/2.0.4": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-hsE4DUgCNZoj1hOdTtHUO5le1mCqAL1rsZuOYk/pxWjMND7t8UastLshuHcohxt/egnS4nBJBWly+7Ta0OZd5A==",
-      "path": "watsontcp/2.0.3",
-      "hashPath": "watsontcp.2.0.3.nupkg.sha512"
+      "sha512": "sha512-3RD2OnKwxT3XJvTayFDnF0YbryzNwGaplhjKykdf+Gv9W22hSVu1HvaSH7vieeqcLoYpHIbGGCuIySK7WtgS1Q==",
+      "path": "watsontcp/2.0.4",
+      "hashPath": "watsontcp.2.0.4.nupkg.sha512"
     },
     "WatsonWebsocket/2.0.0": {
       "type": "package",
@@ -157,7 +157,7 @@
       "path": "watsonwebsocket/2.0.0",
       "hashPath": "watsonwebsocket.2.0.0.nupkg.sha512"
     },
-    "BigQ.Server/3.0.2": {
+    "BigQ.Server/3.0.3": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
