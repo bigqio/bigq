@@ -13,6 +13,7 @@ namespace ClientTest
 {
     class Program
     {
+        static bool debug = false;
         static ClientConfiguration config = null;
         static Client client = null; 
         static Random random = new Random();
@@ -626,15 +627,14 @@ namespace ClientTest
                         config.SyncTimeoutMs = 30000;
 
                         config.TcpServer = new ClientConfiguration.TcpServerSettings();
-                        config.TcpServer.Debug = false;
+                        config.TcpServer.Debug = debug;
                         config.TcpServer.Enable = true;
                         config.TcpServer.Ip = "127.0.0.1";
                         config.TcpServer.Port = 8000;
                     }
 
                     if (client == null || !client.Connected || !client.LoggedIn)
-                    {
-                        Console.WriteLine("Attempting to connect to server");
+                    { 
                         if (client != null) client.Dispose();
 
                         client = new Client(config);
@@ -652,7 +652,7 @@ namespace ClientTest
                         client.Callbacks.ChannelCreated = ChannelCreated;
                         client.Callbacks.ChannelDestroyed = ChannelDestroyed;
 
-                        Console.WriteLine("Client connected, logging in");
+                        Console.WriteLine("Logging in");
                         Message response;
                         if (!client.Login(out response))
                         {
@@ -679,7 +679,7 @@ namespace ClientTest
         static async Task ServerConnected()
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         {
-            Console.WriteLine("Server connected and logged in"); 
+            Console.WriteLine("Server connected"); 
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously

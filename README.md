@@ -13,6 +13,7 @@ BigQ is a essaging platform in C# for TCP, SSL, and Websockets, with unicast, br
 - Task-based callbacks and front-end APIs in both client and server
 - Reduced class members, code reduction and cleanup
 - Better handling of disconnected clients and connection termination
+- Server-side DisconnectClient API
 - Better CLI experience
 - Better protection of class members (internal vs public)
 - Enums for channel visibility and message distribution type

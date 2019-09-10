@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj": {}
+    "C:\\Code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj": {}
   },
   "projects": {
-    "C:\\code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj": {
+    "C:\\Code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj",
+        "projectUniqueName": "C:\\Code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj",
         "projectName": "ServerTest",
-        "projectPath": "C:\\code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj",
+        "projectPath": "C:\\Code\\BigQ\\BigQ-3.0\\ServerTest\\ServerTest.csproj",
         "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-        "outputPath": "C:\\code\\BigQ\\BigQ-3.0\\ServerTest\\obj\\",
+        "outputPath": "C:\\Code\\BigQ\\BigQ-3.0\\ServerTest\\obj\\",
         "projectStyle": "PackageReference",
         "crossTargeting": true,
         "fallbackFolders": [
@@ -36,15 +36,15 @@
         "frameworks": {
           "netcoreapp2.2": {
             "projectReferences": {
-              "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj": {
-                "projectPath": "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj"
+              "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj": {
+                "projectPath": "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj"
               }
             }
           },
           "net462": {
             "projectReferences": {
-              "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj": {
-                "projectPath": "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj"
+              "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj": {
+                "projectPath": "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj"
               }
             }
           }
@@ -79,14 +79,14 @@
         }
       }
     },
-    "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj": {
-      "version": "3.0.3",
+    "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj": {
+      "version": "3.0.3.1",
       "restore": {
-        "projectUniqueName": "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj",
+        "projectUniqueName": "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj",
         "projectName": "BigQ.Server",
-        "projectPath": "C:\\code\\BigQ\\BigQ-3.0\\Server\\Server.csproj",
+        "projectPath": "C:\\Code\\BigQ\\BigQ-3.0\\Server\\Server.csproj",
         "packagesPath": "C:\\Users\\joelc\\.nuget\\packages\\",
-        "outputPath": "C:\\code\\BigQ\\BigQ-3.0\\Server\\obj\\",
+        "outputPath": "C:\\Code\\BigQ\\BigQ-3.0\\Server\\obj\\",
         "projectStyle": "PackageReference",
         "crossTargeting": true,
         "fallbackFolders": [
@@ -143,7 +143,7 @@
             },
             "WatsonTcp": {
               "target": "Package",
-              "version": "[2.0.4, )"
+              "version": "[2.0.5, )"
             },
             "WatsonWebsocket": {
               "target": "Package",
@@ -177,7 +177,7 @@
             },
             "WatsonTcp": {
               "target": "Package",
-              "version": "[2.0.4, )"
+              "version": "[2.0.5, )"
             },
             "WatsonWebsocket": {
               "target": "Package",

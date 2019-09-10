@@ -1,17 +1,17 @@
 {
   "runtimeTarget": {
     "name": ".NETStandard,Version=v2.0/",
-    "signature": "91fcba2641c0fff4d4d1e3f4dd3d2ad3858a3d4a"
+    "signature": "f2b81ec8ef2b6a03cefdd363ecd9a74a80257e78"
   },
   "compilationOptions": {},
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "Client/3.0.3": {
+      "Client/3.0.3.1": {
         "dependencies": {
           "NETStandard.Library": "2.0.3",
           "Newtonsoft.Json": "12.0.2",
-          "WatsonTcp": "2.0.4",
+          "WatsonTcp": "2.0.5",
           "WatsonWebsocket": "2.0.0"
         },
         "runtime": {
@@ -32,11 +32,11 @@
           }
         }
       },
-      "WatsonTcp/2.0.4": {
+      "WatsonTcp/2.0.5": {
         "runtime": {
           "lib/netstandard2.0/WatsonTcp.dll": {
-            "assemblyVersion": "2.0.4.0",
-            "fileVersion": "2.0.4.0"
+            "assemblyVersion": "2.0.5.0",
+            "fileVersion": "2.0.5.0"
           }
         }
       },
@@ -51,7 +51,7 @@
     }
   },
   "libraries": {
-    "Client/3.0.3": {
+    "Client/3.0.3.1": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -77,12 +77,12 @@
       "path": "newtonsoft.json/12.0.2",
       "hashPath": "newtonsoft.json.12.0.2.nupkg.sha512"
     },
-    "WatsonTcp/2.0.4": {
+    "WatsonTcp/2.0.5": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-3RD2OnKwxT3XJvTayFDnF0YbryzNwGaplhjKykdf+Gv9W22hSVu1HvaSH7vieeqcLoYpHIbGGCuIySK7WtgS1Q==",
-      "path": "watsontcp/2.0.4",
-      "hashPath": "watsontcp.2.0.4.nupkg.sha512"
+      "sha512": "sha512-riEiZGByIwdr1WEkIdScNThXnysZiJor1gxIvzILHp8uLb5PrqGbgIJZoCmtHpFZiZPCqxBgs74pinZGukqJ+Q==",
+      "path": "watsontcp/2.0.5",
+      "hashPath": "watsontcp.2.0.5.nupkg.sha512"
     },
     "WatsonWebsocket/2.0.0": {
       "type": "package",

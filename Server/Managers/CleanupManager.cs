@@ -14,8 +14,6 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Members
-
-        private bool _Disposed = false;
          
         private ServerConfiguration _Config;
         private readonly object _ActiveSendMapLock = new object();
@@ -57,30 +55,21 @@ namespace BigQ.Server.Managers
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            if (_TokenSource != null)
+            {
+                if (!_TokenSource.IsCancellationRequested) _TokenSource.Cancel();
+                _TokenSource.Dispose();
+                _TokenSource = null;
+            }
+
+            _Config = null;
+            _ActiveSendMap = null;
         }
 
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _TokenSource.Cancel();
-                _TokenSource.Dispose();
-            }
-
-            _Disposed = true;
-        }
-
+         
         private void CleanupTask()
         {
             try

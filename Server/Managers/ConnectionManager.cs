@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using BigQ.Server.Classes;
@@ -17,11 +18,12 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Members
-
-        private bool _Disposed = false;
-
-        private ServerConfiguration _Config;
          
+        private ServerConfiguration _Config;
+
+        private CancellationTokenSource _TokenSource;
+        private CancellationToken _Token;
+
         private readonly object _ClientsLock;
         private Dictionary<string, ServerClient> _Clients;         // IpPort, Client
 
@@ -48,8 +50,11 @@ namespace BigQ.Server.Managers
             _DestroyLock = new object();
             _DestroyQueue = new Dictionary<string, DateTime>();
 
+            _TokenSource = new CancellationTokenSource();
+            _Token = _TokenSource.Token;
+
             // clean up dangling connections due to race condition
-            Task.Run(() => ProcessDestroyQueue());
+            Task.Run(() => ProcessDestroyQueue(), _Token);
         }
 
         #endregion
@@ -61,8 +66,15 @@ namespace BigQ.Server.Managers
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            if (_TokenSource != null)
+            {
+                if (!_TokenSource.IsCancellationRequested) _TokenSource.Cancel();
+                _TokenSource.Dispose();
+                _TokenSource = null;
+            }
+
+            _Clients = null;
+            _DestroyQueue = null;
         }
 
         /// <summary>
@@ -240,22 +252,7 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                // do work
-            }
-
-            _Disposed = true;
-        }
-
+         
         private void ProcessDestroyQueue()
         {
             while (true)

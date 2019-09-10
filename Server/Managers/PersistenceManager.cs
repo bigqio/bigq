@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using SqliteWrapper;
@@ -21,8 +22,9 @@ namespace BigQ.Server.Managers
 
         #region Private-Members
 
-        private bool _Disposed = false;
-         
+        private CancellationTokenSource _TokenSource;
+        private CancellationToken _Token;
+
         private ServerConfiguration _Config; 
         private DatabaseClient _Database;
 
@@ -44,8 +46,11 @@ namespace BigQ.Server.Managers
             if (String.IsNullOrEmpty(config.Files.PersistenceDatabaseFile)) return;
             if (config.Persistence.ExpirationIntervalMs < 1000) return;
 
+            _TokenSource = new CancellationTokenSource();
+            _Token = _TokenSource.Token;
+
             InitializeDatabase();
-            Task.Run(() => ExpirationTask());
+            Task.Run(() => ExpirationTask(), _Token);
         }
 
         #endregion
@@ -57,8 +62,20 @@ namespace BigQ.Server.Managers
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            if (_TokenSource != null)
+            {
+                if (!_TokenSource.IsCancellationRequested) _TokenSource.Cancel();
+                _TokenSource.Dispose();
+                _TokenSource = null;
+            }
+
+            if (_Database != null)
+            {
+                _Database.Dispose();
+                _Database = null;
+            }
+
+            _Config = null;
         }
 
         /// <summary>
@@ -221,22 +238,7 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                // do work
-            }
-
-            _Disposed = true;
-        }
-
+         
         private void InitializeDatabase()
         {
             _Database = new DatabaseClient(_Config.Files.PersistenceDatabaseFile, _Config.Persistence.DebugDatabase);

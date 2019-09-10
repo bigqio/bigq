@@ -17,8 +17,6 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Members
-
-        private bool _Disposed = false;
          
         private ServerConfiguration _Config;
 
@@ -66,8 +64,23 @@ namespace BigQ.Server.Managers
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            if (_UsersCancellationTokenSource != null)
+            {
+                if (!_UsersCancellationTokenSource.IsCancellationRequested) _UsersCancellationTokenSource.Cancel();
+                _UsersCancellationTokenSource.Dispose();
+                _UsersCancellationTokenSource = null;
+            }
+
+            if (_PermissionsCancellationTokenSource != null)
+            {
+                if (!_PermissionsCancellationTokenSource.IsCancellationRequested) _PermissionsCancellationTokenSource.Cancel();
+                _PermissionsCancellationTokenSource.Dispose();
+                _PermissionsCancellationTokenSource = null;
+            }
+
+            _Users = null;
+            _Permissions = null;
+            _Config = null;
         }
 
         /// <summary>
@@ -200,26 +213,7 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _UsersCancellationTokenSource.Cancel();
-                _UsersCancellationTokenSource.Dispose();
-
-                _PermissionsCancellationTokenSource.Cancel();
-                _PermissionsCancellationTokenSource.Dispose();
-            }
-
-            _Disposed = true;
-        }
-
+         
         private void MonitorUsersFile()
         {
             try

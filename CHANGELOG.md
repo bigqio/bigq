@@ -2,11 +2,17 @@
 
 ## Current Version
 
+v3.0.3.1
+
+- Updated dependencies for additional disconnect fixes for five core scenarios (please see https://github.com/jchristn/TcpTest for details)
+- Better disposal routines and methods
+- Added DisconnectClient API to server
+
+## Previous Versions
+
 v3.0.3
 
 - Updated dependencies (WatsonTcp) to better support graceful and non-graceful termination of client and server (dispose vs ctrl-c)
-
-## Previous Versions
 
 v3.0.x
 

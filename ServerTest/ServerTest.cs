@@ -10,6 +10,7 @@ namespace ServerTest
 {
     class Program
     {
+        static bool debug = false;
         static ServerConfiguration config = null;
         static Server server = null;
 
@@ -39,6 +40,8 @@ namespace ServerTest
 
                 switch (cmd.ToLower())
                 {
+                    #region General-Commands
+
                     case "?":
                         Menu();
                         break;
@@ -52,6 +55,93 @@ namespace ServerTest
                     case "cls":
                         Console.Clear();
                         break;
+
+                    case "dispose":
+                        server.Dispose();
+                        break;
+
+                    case "users file":
+                        users = server.ListUsersFile();
+                        if (users != null && users.Count > 0)
+                        {
+                            foreach (User curr in users)
+                            {
+                                Console.WriteLine("  Email " + curr.Email + " Password " + curr.Password + " Notes " + curr.Notes + " Permission " + curr.Permission);
+                                if (curr.IPWhiteList != null && curr.IPWhiteList.Count > 0)
+                                {
+                                    string whitelist = "  Accepted IP: ";
+                                    foreach (string currIP in curr.IPWhiteList)
+                                    {
+                                        whitelist += currIP + " ";
+                                    }
+                                    Console.WriteLine(whitelist);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "perms file":
+                        perms = server.ListPermissionsFile();
+                        if (perms != null && perms.Count > 0)
+                        {
+                            foreach (Permission curr in perms)
+                            {
+                                string permstr = "  Name " + curr.Name + " Login " + curr.Login + " Permissions ";
+                                if (curr.Permissions != null && curr.Permissions.Count > 0)
+                                {
+                                    foreach (string currstr in curr.Permissions)
+                                    {
+                                        permstr += currstr + " ";
+                                    }
+                                }
+                                else
+                                {
+                                    permstr += "all";
+                                }
+                                Console.WriteLine(permstr);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "clients":
+                        clients = server.ListClients();
+                        if (clients != null)
+                        {
+                            foreach (ServerClient curr in clients)
+                            {
+                                string line =
+                                    "  " + curr.IpPort +
+                                    " " + curr.Name +
+                                    " " + curr.Email +
+                                    " " + curr.ClientGUID +
+                                    " " + curr.Connection.ToString();
+
+                                Console.WriteLine(line);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("(null)");
+                        }
+                        break;
+
+                    case "remove":
+                        string guid = InputString("User GUID:", null, true);
+                        if (String.IsNullOrEmpty(guid)) break;
+                        server.DisconnectClient(guid);
+                        break;
+
+                    #endregion
+
+                    #region Channel-Commands
 
                     case "channels":
                         channels = server.ListChannels();
@@ -141,82 +231,7 @@ namespace ServerTest
                         }
                         break;
 
-                    case "clients":
-                        clients = server.ListClients();
-                        if (clients != null)
-                        {
-                            foreach (ServerClient curr in clients)
-                            {
-                                string line =
-                                    "  " + curr.IpPort +
-                                    " " + curr.Name +
-                                    " " + curr.Email +
-                                    " " + curr.ClientGUID +
-                                    " " + curr.Connection.ToString();
-
-                                Console.WriteLine(line);
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("(null)");
-                        }
-                        break;
-
-                    case "users file":
-                        users = server.ListUsersFile();
-                        if (users != null && users.Count > 0)
-                        {
-                            foreach (User curr in users)
-                            {
-                                Console.WriteLine("  Email " + curr.Email + " Password " + curr.Password + " Notes " + curr.Notes + " Permission " + curr.Permission);
-                                if (curr.IPWhiteList != null && curr.IPWhiteList.Count > 0)
-                                {
-                                    string whitelist = "  Accepted IP: ";
-                                    foreach (string currIP in curr.IPWhiteList)
-                                    {
-                                        whitelist += currIP + " ";
-                                    }
-                                    Console.WriteLine(whitelist);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("(null)");
-                        }
-                        break;
-
-                    case "perms file":
-                        perms = server.ListPermissionsFile();
-                        if (perms != null && perms.Count > 0)
-                        {
-                            foreach (Permission curr in perms)
-                            {
-                                string permstr = "  Name " + curr.Name + " Login " + curr.Login + " Permissions ";
-                                if (curr.Permissions != null && curr.Permissions.Count > 0)
-                                {
-                                    foreach (string currstr in curr.Permissions)
-                                    {
-                                        permstr += currstr + " ";
-                                    }
-                                }
-                                else
-                                {
-                                    permstr += "all";
-                                }
-                                Console.WriteLine(permstr);
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("(null)");
-                        }
-                        break;
-                         
-                    default:
-                        Console.WriteLine("Unknown command");
-                        break;
+                    #endregion 
                 }
             } 
         }
@@ -227,18 +242,18 @@ namespace ServerTest
             Console.WriteLine("General Commands:");
             Console.WriteLine("  q                    Quit the application");
             Console.WriteLine("  cls                  Clear the screen");
+            Console.WriteLine("  dispose              Dispose the server");
             Console.WriteLine("  users file           Show the users file");
-            Console.WriteLine("  perms file           Show the permissions file"); 
+            Console.WriteLine("  perms file           Show the permissions file");
+            Console.WriteLine("  clients              List connected clients");
+            Console.WriteLine("  remove               Remove a client from the server");
             Console.WriteLine("");
             Console.WriteLine("Channel Commands:");
             Console.WriteLine("  channels             List all channels");
             Console.WriteLine("  members              List channel members");
             Console.WriteLine("  subscribers          List channel subscribers");
             Console.WriteLine("  create               Create a channel");
-            Console.WriteLine("  delete               Delete a channel");
-            Console.WriteLine("");
-            Console.WriteLine("Client Commands:");
-            Console.WriteLine("  clients              List connected clients"); 
+            Console.WriteLine("  delete               Delete a channel"); 
             Console.WriteLine("");
         }
 
@@ -410,7 +425,7 @@ namespace ServerTest
             server = null;
               
             config = ServerConfiguration.Default();
-            config.TcpServer.Debug = true;
+            config.TcpServer.Debug = debug;
 
             server = new Server(config);
             server.Callbacks.MessageReceived = MessageReceived;

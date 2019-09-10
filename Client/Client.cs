@@ -103,7 +103,27 @@ namespace BigQ.Client
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
+            if (_WTcpClient != null)
+            {
+                _WTcpClient.Dispose();
+                _WTcpClient = null;
+            }
+
+            if (_WWsClient != null)
+            {
+                _WWsClient.Dispose();
+                _WWsClient = null;
+            }
+
+            if (_CleanupSyncTokenSource != null)
+            {
+                if (!_CleanupSyncTokenSource.IsCancellationRequested) _CleanupSyncTokenSource.Cancel();
+                _CleanupSyncTokenSource.Dispose();
+                _CleanupSyncTokenSource = null;
+            } 
+
+            Connected = false;
+            return;
         }
 
         /// <summary>
@@ -861,20 +881,7 @@ namespace BigQ.Client
         // otherwise you have a lock within a lock!  There should be NO methods
         // outside of this region that have a lock statement
         //
-
-        private bool SyncResponseReady(string guid)
-        {
-            if (String.IsNullOrEmpty(guid)) return false;
-
-            lock (_SyncResponsesLock)
-            {
-                if (_SyncResponses.Count < 1) return false;
-                if (_SyncResponses.ContainsKey(guid)) return true;
-            }
-
-            return false;
-        }
-
+         
         private bool AddSyncRequest(string guid)
         {
             if (String.IsNullOrEmpty(guid)) return false;
@@ -887,19 +894,7 @@ namespace BigQ.Client
 
             return true;
         }
-
-        private bool RemoveSyncRequest(string guid)
-        {
-            if (String.IsNullOrEmpty(guid)) return false;
-
-            lock (_SyncRequestsLock)
-            {
-                if (_SyncRequests.ContainsKey(guid)) _SyncRequests.Remove(guid);
-            }
-
-            return true;
-        }
-
+         
         private bool SyncRequestExists(string guid)
         {
             if (String.IsNullOrEmpty(guid)) return false;
@@ -994,31 +989,7 @@ namespace BigQ.Client
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                try
-                {
-                    if (_WTcpClient != null) _WTcpClient.Dispose();
-                    if (_WWsClient != null) _WWsClient.Dispose(); 
-                }
-                catch (Exception)
-                {
-
-                }
-
-                if (_CleanupSyncTokenSource != null)
-                {
-                    _CleanupSyncTokenSource.Cancel(true);
-                }
-
-                Connected = false;
-                return;
-            }
-        }
-
+         
         private void InitializeClient()
         {
             _Random = new Random((int)DateTime.Now.Ticks);
@@ -1382,14 +1353,7 @@ namespace BigQ.Client
                 return false;
             }
         }
-         
-        private async Task<bool> SendServer(Message request)
-        {
-            if (request == null) throw new ArgumentNullException(nameof(request));
-            request.RecipientGUID = Config.ServerGUID;
-            return await SendMessage(request);
-        }
-         
+          
         private bool SendServerSync(Message request, out Message response)
         {
             response = null;

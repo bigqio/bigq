@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net462</TargetFrameworks>
     <RootNamespace>BigQ.Server</RootNamespace>
-    <Version>3.0.3</Version>
+    <Version>3.0.3.1</Version>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
     <Copyright>(c)2019 Joel Christner</Copyright>
@@ -15,7 +15,7 @@
     <RepositoryUrl>https://github.com/bigqio/bigq</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>mq message queue messaging tcp sockets websockets ssl</PackageTags>
-    <PackageReleaseNotes>Bugfix for lingering connections on client dispose, dependency update</PackageReleaseNotes>
+    <PackageReleaseNotes>Dependency update for better disconnect handling</PackageReleaseNotes>
     <Description>BigQ is a messaging platform using TCP sockets and websockets featuring sync, async, channel, and private communications.  This package includes the BigQ server and associated libraries.</Description>
     <PackageIconUrl>https://raw.githubusercontent.com/bigqio/bigq/master/Assets/logo.png</PackageIconUrl>
   </PropertyGroup>
@@ -25,7 +25,7 @@
     <PackageReference Include="SqliteHelper" Version="1.0.13" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.111" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.111" />
-    <PackageReference Include="WatsonTcp" Version="2.0.4" />
+    <PackageReference Include="WatsonTcp" Version="2.0.5" />
     <PackageReference Include="WatsonWebsocket" Version="2.0.0" />
   </ItemGroup>
 

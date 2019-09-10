@@ -106,8 +106,51 @@ namespace BigQ.Server
         /// Tear down the server and dispose of background workers.
         /// </summary>
         public void Dispose()
-        { 
-            Dispose(true);
+        {
+            if (_WTcpServer != null)
+            {
+                List<string> tcpClients = _WTcpServer.ListClients();
+                if (tcpClients != null && tcpClients.Count > 0)
+                {
+                    foreach (string curr in tcpClients)
+                    {
+                        _WTcpServer.DisconnectClient(curr);
+                    }
+                }
+
+                _WTcpServer.Dispose();
+                _WTcpServer = null;
+            }
+
+            if (_WWsServer != null)
+            {
+                List<string> wsClients = _WWsServer.ListClients().ToList();
+                if (wsClients != null && wsClients.Count > 0)
+                {
+                    foreach (string curr in wsClients)
+                    {
+                        _WWsServer.DisconnectClient(curr);
+                    }
+                }
+
+                _WWsServer.Dispose();
+                _WWsServer = null;
+            }
+             
+            _AuthMgr.Dispose();
+            _ConnMgr.Dispose();
+            _ChannelMgr.Dispose();
+            _PersistenceMgr.Dispose();
+            _ClientActiveSendMap = null;
+
+            if (_CleanupCancellationTokenSource != null)
+            {
+                if (!_CleanupCancellationTokenSource.IsCancellationRequested) _CleanupCancellationTokenSource.Cancel();
+                _CleanupCancellationTokenSource.Dispose();
+                _CleanupCancellationTokenSource = null;
+            }
+
+            return; 
         }
          
         /// <summary>
@@ -213,7 +256,22 @@ namespace BigQ.Server
 
             return RemoveChannel(currentChannel);
         }
-         
+
+        /// <summary>
+        /// Disconnect a client by GUID.
+        /// </summary>
+        /// <param name="guid">Client GUID.</param>
+        public void DisconnectClient(string guid)
+        {
+            if (String.IsNullOrEmpty(guid)) throw new ArgumentNullException(nameof(guid));
+
+            ServerClient client = _ConnMgr.GetClientByGUID(guid);
+            if (client == null) return;
+
+            _ChannelMgr.RemoveClientChannels(guid, out List<Channel> deletedChannels);
+            DestroyClient(client.IpPort);
+        }
+
         #endregion
 
         #region Private-Watson-Callback-Methods
@@ -221,9 +279,17 @@ namespace BigQ.Server
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         private async Task WatsonTcpClientConnected(string ipPort)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
-        { 
+        {
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.Tcp);
-            _ConnMgr.AddClient(currentClient); 
+            _ConnMgr.AddClient(currentClient);
+        }
+
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+        private async Task WatsonTcpSslClientConnected(string ipPort)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        {
+            ServerClient currentClient = new ServerClient(ipPort, ConnectionType.TcpSsl);
+            _ConnMgr.AddClient(currentClient);
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
@@ -236,11 +302,12 @@ namespace BigQ.Server
         }
          
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        private async Task WatsonWebsocketSslClientConnected(string ipPort, IDictionary<string, string> qs)
+        private async Task<bool> WatsonWebsocketSslClientConnected(string ipPort, HttpListenerRequest req)
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         { 
             ServerClient currentClient = new ServerClient(ipPort, ConnectionType.WebsocketSsl);
-            _ConnMgr.AddClient(currentClient);  
+            _ConnMgr.AddClient(currentClient);
+            return true;
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
@@ -353,7 +420,7 @@ namespace BigQ.Server
                     Config.TcpSslServer.PfxCertPassword);
 
                 _WTcpServer.AcceptInvalidCertificates = Config.TcpSslServer.AcceptInvalidCerts;
-                _WTcpServer.ClientConnected = WatsonTcpClientConnected;
+                _WTcpServer.ClientConnected = WatsonTcpSslClientConnected;
                 _WTcpServer.ClientDisconnected = WatsonTcpClientConnected;
                 _WTcpServer.MessageReceived = WatsonMessageReceived;
                 _WTcpServer.Debug = Config.TcpSslServer.Debug;
@@ -389,7 +456,7 @@ namespace BigQ.Server
                     Config.WebsocketSslServer.Port,
                     true);
 
-                _WWsServer.ClientConnected = WatsonWebsocketClientConnected;
+                _WWsServer.ClientConnected = WatsonWebsocketSslClientConnected;
                 _WWsServer.ClientDisconnected = WatsonClientDisconnected;
                 _WWsServer.MessageReceived = WatsonMessageReceived;
                 _WWsServer.AcceptInvalidCertificates = Config.WebsocketSslServer.AcceptInvalidCerts;
@@ -407,7 +474,9 @@ namespace BigQ.Server
             if (String.IsNullOrEmpty(ipPort)) return;
             ServerClient currentClient = _ConnMgr.GetByIpPort(ipPort);
             if (currentClient == null || currentClient == default(ServerClient)) return;
-            
+
+            ServerLeaveEvent(currentClient);
+
             _ConnMgr.RemoveClient(ipPort);
             if (!String.IsNullOrEmpty(currentClient.ClientGUID)) _ChannelMgr.RemoveClient(currentClient.ClientGUID);
 
@@ -426,59 +495,7 @@ namespace BigQ.Server
             currentClient.Dispose(); 
             return;
         }
-          
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                try
-                {
-                    if (_WTcpServer != null)
-                    {
-                        List<string> tcpClients = _WTcpServer.ListClients();
-                        if (tcpClients != null && tcpClients.Count > 0)
-                        {
-                            foreach (string curr in tcpClients)
-                            {
-                                _WTcpServer.DisconnectClient(curr);
-                            }
-                        }
-
-                        _WTcpServer.Dispose();
-                    }
-                }
-                catch (Exception)
-                { 
-                }
-
-                try
-                { 
-                    if (_WWsServer != null)
-                    {
-                        List<string> wsClients = _WWsServer.ListClients().ToList();
-                        if (wsClients != null && wsClients.Count > 0)
-                        {
-                            foreach (string curr in wsClients)
-                            {
-                                _WWsServer.DisconnectClient(curr);
-                            }
-                        }
-
-                        _WWsServer.Dispose();
-                    }
-                }
-                catch (Exception)
-                { 
-                }
-
-                _AuthMgr.Dispose();
-
-                if (_CleanupCancellationTokenSource != null) _CleanupCancellationTokenSource.Cancel();
-
-                return;
-            }
-        }
-
+           
         #endregion
          
         #region Private-Senders-and-Queues
@@ -824,37 +841,7 @@ namespace BigQ.Server
 
             return true;
         }
-
-        private bool ChannelDestroyEvent(List<Channel> channels)
-        {
-            if (channels == null || channels.Count < 1) return false;
-
-            foreach (Channel currChannel in channels)
-            {
-                if (currChannel.Members != null && currChannel.Members.Count > 0)
-                {
-                    foreach (ServerClient currMember in currChannel.Members)
-                    { 
-                        Message msg = _MsgBuilder.ChannelDestroyEvent(currMember, currChannel);
-                        msg.RecipientGUID = currMember.ClientGUID;
-                        bool responseSuccess = SendSystemMessage(msg);
-                    }
-                }
-
-                if (currChannel.Subscribers != null && currChannel.Subscribers.Count > 0)
-                {
-                    foreach (ServerClient currSubscriber in currChannel.Subscribers)
-                    { 
-                        Message msg = _MsgBuilder.ChannelDestroyEvent(currSubscriber, currChannel);
-                        msg.RecipientGUID = currSubscriber.ClientGUID;
-                        bool responseSuccess = SendSystemMessage(msg); 
-                    }
-                }
-            }
-
-            return true;
-        }
-
+         
         private bool ChannelDestroyEvent(ServerClient client, Channel channel)
         {
             if (channel.Visibility == ChannelVisibility.Private) return true;
@@ -1645,7 +1632,9 @@ namespace BigQ.Server
                 else return _MsgBuilder.ChannelDeleteSuccess(client, message, currentChannel); 
             }
             else
-            { 
+            {
+                SubscriberLeaveEvent(client, currentChannel);
+
                 if (!RemoveChannelSubscriber(client, currentChannel)) return _MsgBuilder.ChannelUnsubscribeFailure(client, message, currentChannel); 
                 else
                 { 

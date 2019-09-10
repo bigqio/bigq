@@ -16,9 +16,7 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Members
-
-        private bool _Disposed = false;
-
+         
         private ServerConfiguration _Config; 
 
         private readonly object _ChannelsLock;
@@ -50,8 +48,7 @@ namespace BigQ.Server.Managers
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            _Channels = null;
         }
 
         /// <summary>
@@ -688,21 +685,6 @@ namespace BigQ.Server.Managers
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                // do work
-            }
-
-            _Disposed = true;
-        }
          
         #endregion
     }

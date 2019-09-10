@@ -62,6 +62,7 @@ namespace BigQ.Server.Classes
         /// Indicates whether or not the client is logged in to the server.
         /// </summary>
         public bool LoggedIn { get; set; }
+
         /// <summary>
         /// A blocking collection containing the messages that are queued for delivery to this client.
         /// </summary>
@@ -134,31 +135,31 @@ namespace BigQ.Server.Classes
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
+            if (RamQueueTokenSource != null)
+            {
+                if (!RamQueueTokenSource.IsCancellationRequested) RamQueueTokenSource.Cancel();
+                RamQueueTokenSource.Dispose();
+                RamQueueTokenSource = null;
+            }
+
+            if (DiskQueueTokenSource != null)
+            {
+                if (!DiskQueueTokenSource.IsCancellationRequested) DiskQueueTokenSource.Cancel();
+                DiskQueueTokenSource.Dispose();
+                DiskQueueTokenSource = null;
+            }
+
+            if (MessageQueue != null)
+            {
+                MessageQueue.Dispose();
+                MessageQueue = null;
+            }
         }
 
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                if (RamQueueTokenSource != null)
-                {
-                    RamQueueTokenSource.Cancel(true);
-                }
-
-                if (DiskQueueTokenSource != null)
-                {
-                    DiskQueueTokenSource.Cancel(true);
-                }
-
-                return;
-            }
-        }
-
+         
         #endregion
     }
 }

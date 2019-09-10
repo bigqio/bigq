@@ -9,7 +9,7 @@ namespace BigQ.Client.Classes
     /// Client metadata object used by the server.
     /// </summary>
     [Serializable]
-    public class ServerClient : IDisposable
+    public class ServerClient
     {
         #region Public-Members
          
@@ -106,59 +106,15 @@ namespace BigQ.Client.Classes
         public ServerClient()
         {
         }
-          
-        /// <summary>
-        /// Used by the server, do not use.
-        /// </summary>
-        /// <param name="ipPort">The IP:port of the client.</param>
-        /// <param name="connType">Type of connection.</param>
-        public ServerClient(string ipPort, ConnectionType connType)
-        {
-            if (String.IsNullOrEmpty(ipPort)) throw new ArgumentNullException(nameof(ipPort));
-
-            IpPort = ipPort;
-            Connection = connType;
-
-            MessageQueue = new BlockingCollection<Message>();
-
-            DateTime ts = DateTime.Now.ToUniversalTime();
-            CreatedUtc = ts; 
-        }
-
+           
         #endregion
 
         #region Public-Methods
-
-        /// <summary>
-        /// Tear down the client and dispose of background workers.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-
+         
         #endregion
 
         #region Private-Methods
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                if (RamQueueTokenSource != null)
-                {
-                    RamQueueTokenSource.Cancel(true);
-                }
-
-                if (DiskQueueTokenSource != null)
-                {
-                    DiskQueueTokenSource.Cancel(true);
-                }
-
-                return;
-            }
-        }
-
+         
         #endregion
     }
 }
