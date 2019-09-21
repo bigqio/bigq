@@ -16,3 +16,4 @@ C:\Code\BigQ\BigQ-3.0\Client\obj\Debug\netstandard2.0\Client.AssemblyInfoInputs.
 C:\Code\BigQ\BigQ-3.0\Client\obj\Debug\netstandard2.0\Client.AssemblyInfo.cs
 C:\Code\BigQ\BigQ-3.0\Client\obj\Debug\netstandard2.0\Client.dll
 C:\Code\BigQ\BigQ-3.0\Client\obj\Debug\netstandard2.0\Client.pdb
+C:\code\BigQ\BigQ-3.0\Client\bin\Debug\netstandard2.0\Client.xml

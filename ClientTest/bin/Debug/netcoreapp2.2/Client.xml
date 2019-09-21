@@ -1,0 +1,1227 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Client</name>
+    </assembly>
+    <members>
+        <member name="T:BigQ.Client.Classes.Channel">
+            <summary>
+            Object containing metadata about a channel on BigQ.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.ChannelGUID">
+            <summary>
+            The GUID of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.ChannelName">
+            <summary>
+            The name of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.OwnerGUID">
+            <summary>
+            The GUID of the client (or server) that created the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.CreatedUtc">
+            <summary>
+            The creation time.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.Visibility">
+            <summary>
+            Indicates whether or not the channel is public or private.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.Type">
+            <summary>
+            The message distribution type of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.Members">
+            <summary>
+            Clients that are members of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Channel.Subscribers">
+            <summary>
+            Clients that are subscribers of the channel.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.Channel.#ctor">
+            <summary>
+            Instantiates the object.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ChannelType">
+            <summary>
+            The message distribution type of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ChannelType.Broadcast">
+            <summary>
+            Broadcast channel.  Messages are sent to everyone.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ChannelType.Unicast">
+            <summary>
+            Unicast channel.  Messages are sent to a single subscriber.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ChannelType.Multicast">
+            <summary>
+            Multicast channel.  Messages are sent to all subscribers.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ChannelVisibility">
+            <summary>
+            The visibility of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ChannelVisibility.Public">
+            <summary>
+            Public channel.  Channel will appear in list channels responses.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ChannelVisibility.Private">
+            <summary>
+            Private channel.  Channel will not appear in list channels responses, except for the owner.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ClientConfiguration">
+            <summary>
+            Object containing configuration for a BigQ client instance.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.ClientGUID">
+            <summary>
+            The GUID to use for this client.  If null, a random will will be supplied.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.Email">
+            <summary>
+            The email address to use in authentication.  If null, a random one will be supplied.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.Name">
+            <summary>
+            The client name to appear in sent messages.  If null, a ranodm one will be supplied.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.Password">
+            <summary>
+            The password to use in authentication.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.SyncTimeoutMs">
+            <summary>
+            The amount of time in milliseconds to wait to receive a response to a synchronous messages sent by this client if not explicitly set in a sent message.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.ServerGUID">
+            <summary>
+            The GUID associated with the server (optional).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpServer">
+            <summary>
+            Settings related to the BigQ TCP server (no SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServer">
+            <summary>
+            Settings related to the BigQ TCP server (with SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketServer">
+            <summary>
+            Settings related to the BigQ websocket server (no SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServer">
+            <summary>
+            Settings related to the BigQ websocket server (with SSL).
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ClientConfiguration.TcpServerSettings">
+            <summary>
+            Settings related to the BigQ TCP server (no SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpServerSettings.Enable">
+            <summary>
+            Enable or disable the TCP server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpServerSettings.Ip">
+            <summary>
+            IP address of the server to which this client should connect. 
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpServerSettings.Port">
+            <summary>
+            The port number on which the specified server is listening.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpServerSettings.Debug">
+            <summary>
+            Enable or disable debugging.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings">
+            <summary>
+            Settings related to the BigQ TCP server (with SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.Enable">
+            <summary>
+            Enable or disable the TCP SSL server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.Ip">
+            <summary>
+            IP address of the server to which this client should connect. 
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.Port">
+            <summary>
+            The port number on which the specified server is listening.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.PfxCertFile">
+            <summary>
+            The client certificate (PFX file) the client should use to authenticate itself in SSL connections.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.PfxCertPassword">
+            <summary>
+            The password for the client certificate (PFX file).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.AcceptInvalidCerts">
+            <summary>
+            Indicate whether or not invalid certificates should be accepted.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.TcpSslServerSettings.Debug">
+            <summary>
+            Enable or disable debugging.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ClientConfiguration.WebsocketServerSettings">
+            <summary>
+            Settings related to the BigQ websocket server (no SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketServerSettings.Enable">
+            <summary>
+            Enable or disable the websocket server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketServerSettings.Ip">
+            <summary>
+            IP address of the server to which this client should connect. 
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketServerSettings.Port">
+            <summary>
+            The port number on which the specified server is listening.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketServerSettings.Debug">
+            <summary>
+            Enable or disable debugging.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings">
+            <summary>
+            Settings related to the BigQ websocket server (with SSL).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.Enable">
+            <summary>
+            Enable or disable the websocket SSL server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.Ip">
+            <summary>
+            IP address of the server to which this client should connect. 
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.Port">
+            <summary>
+            The port number on which the specified server is listening.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.PfxCertFile">
+            <summary>
+            The client certificate (PFX file) the client should use to authenticate itself in SSL connections.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.PfxCertPassword">
+            <summary>
+            The password for the client certificate (PFX file).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.AcceptInvalidCerts">
+            <summary>
+            Indicate whether or not invalid certificates should be accepted.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ClientConfiguration.WebsocketSslServerSettings.Debug">
+            <summary>
+            Enable or disable debugging.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.ClientConfiguration.SaveConfig(System.String)">
+            <summary>
+            Save the current configuration to the specified file.
+            </summary>
+            <param name="file">The file you wish to write.</param>
+        </member>
+        <member name="M:BigQ.Client.Classes.ClientConfiguration.ValidateConfig">
+            <summary>
+            Validates the current configuration object to ensure nothing required is missing and no invalid values are supplied.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.ClientConfiguration.LoadConfig(System.String)">
+            <summary>
+            Loads a configuration object from the filesystem.
+            </summary>
+            <param name="file">The file you wish to load.</param>
+            <returns></returns>
+        </member>
+        <member name="M:BigQ.Client.Classes.ClientConfiguration.Default">
+            <summary>
+            Supplies a default, valid client configuration.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:BigQ.Client.Classes.ConnectionType">
+            <summary>
+            The type of connection.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ConnectionType.Tcp">
+            <summary>
+            Connected via TCP without SSL.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ConnectionType.TcpSsl">
+            <summary>
+            Connected via TCP with SSL.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ConnectionType.Websocket">
+            <summary>
+            Connected via Websocket without SSL.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ConnectionType.WebsocketSsl">
+            <summary>
+            Connected via Websocket with SSL.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.EventTypes">
+            <summary>
+            The available event types.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.ClientJoinedServer">
+            <summary>
+            Client has joined the server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.ClientLeftServer">
+            <summary>
+            Client has left the server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.ClientJoinedChannel">
+            <summary>
+            Client has joined the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.ClientLeftChannel">
+            <summary>
+            Client has left the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.SubscriberJoinedChannel">
+            <summary>
+            Subscriber has joined the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.SubscriberLeftChannel">
+            <summary>
+            Subscriber has left the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.ChannelCreated">
+            <summary>
+            A channel has been created.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.EventTypes.ChannelDestroyed">
+            <summary>
+            A channel has been destroyed.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.EventData">
+            <summary>
+            Object containing metadata about an event that occurred on BigQ.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.EventData.EventType">
+            <summary>
+            The type of event.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.EventData.Data">
+            <summary>
+            Event-related data.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.EventData.#ctor">
+            <summary>
+            Do not use.  Used internally by BigQ libraries.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.EventData.ToString">
+            <summary>
+            Returns a string formatted with event details.
+            </summary>
+            <returns>Returns a string formatted with event details.</returns>
+        </member>
+        <member name="M:BigQ.Client.Classes.EventData.ToBytes(BigQ.Client.Classes.EventTypes,System.Object)">
+            <summary>
+            Create a byte array containing an EventData object.
+            </summary>
+            <param name="eventType">The type of event.</param>
+            <param name="data">The data associated with the event.</param>
+            <returns></returns>
+        </member>
+        <member name="T:BigQ.Client.Classes.ErrorTypes">
+            <summary>
+            Types of errors included in error responses.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.Unknown">
+            <summary>
+            Unknown error.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.ServerError">
+            <summary>
+            An error has occurred on the server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.RecipientNotFound">
+            <summary>
+            The recipient was not found.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.ChannelNotFound">
+            <summary>
+            The channel was not found.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.BadRequest">
+            <summary>
+            Bad request.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.AuthenticationFailed">
+            <summary>
+            Authentication failed.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.AuthorizationFailed">
+            <summary>
+            Authorization failed.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.LoginRequired">
+            <summary>
+            Login required.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnknownCommand">
+            <summary>
+            Unknown command.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.NotAChannelMember">
+            <summary>
+            The recipient is not a channel member.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToQueue">
+            <summary>
+            Unable to queue the message.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.NoChannelMembers">
+            <summary>
+            The channel has no members.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.NoChannelSubscribers">
+            <summary>
+            The channel has no subscribers.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.ChannelAlreadyExists">
+            <summary>
+            The channel already exists.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToCreateChannel">
+            <summary>
+            Unable to create the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToDeleteChannel">
+            <summary>
+            Unable to delete the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToJoinChannel">
+            <summary>
+            Unable to join the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToLeaveChannel">
+            <summary>
+            Unable to leave the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToSubscribeChannel">
+            <summary>
+            Unable to subscribe to the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.UnableToUnsubscribeChannel">
+            <summary>
+            Unable to unsubscribe from the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ErrorTypes.DataError">
+            <summary>
+            There is an error in the supplied data.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.FailureData">
+            <summary>
+            Object containing details about an encountered error.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.FailureData.Success">
+            <summary>
+            Indicates whether or not the response succeeded or failed.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.FailureData.ErrorType">
+            <summary>
+            The type of error referenced in the message.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.FailureData.ErrorDetail">
+            <summary>
+            Additional detail or context about the error.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.FailureData.Data">
+            <summary>
+            Failure response data.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.FailureData.#ctor">
+            <summary>
+            Instantiates the object.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.FailureData.ToBytes(BigQ.Client.Classes.ErrorTypes,System.String,System.Object)">
+            <summary>
+            Create a byte array containng an error object.
+            </summary>
+            <param name="error">The type of error.</param>
+            <param name="detail">Additional detail related to the error.</param>
+            <param name="data">Additional data related to the error.</param>
+            <returns></returns>
+        </member>
+        <member name="T:BigQ.Client.Classes.Message">
+            <summary>
+            Object containing metadata and data from a message sent from one client to another on BigQ.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.Email">
+            <summary>
+            Email address of the client.  Primarily used in authentication (future).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.Password">
+            <summary>
+            Password of the client.  Primarily used in authentication (future).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.Command">
+            <summary>
+            Command issued by the sender.  Primarily used in messages directed toward the server or events.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.CreatedUtc">
+            <summary>
+            Timestamp indicating when the message was created.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.Success">
+            <summary>
+            Contained in a response message to indicate if the request message was successful.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.SyncRequest">
+            <summary>
+            Set by the sender to indicate if the message should be handled synchronously by the receiver (i.e. the sender is blocking while waiting for a response).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.SyncResponse">
+            <summary>
+            Set by the recipient to indicate that the message is a response to a synchronous request message.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.SyncTimeoutMs">
+            <summary>
+            The amount of time in milliseconds to wait to receive a response to this message, if synchronous.  This parameter will override the value in the client configuration. 
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.Persist">
+            <summary>
+            Indicates whether or not the message should be stored persistently if unable to immediately deliver.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.ExpirationUtc">
+            <summary>
+            Timestamp indicating when the persistent message should expire.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.MessageID">
+            <summary>
+            Unique identifier for the message.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.ConversationID">
+            <summary>
+            Reserved for future use.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.MessageSeqnum">
+            <summary>
+            Reserved for future use.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.SenderGUID">
+            <summary>
+            Unique identifier for the sender.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.SenderName">
+            <summary>
+            The name of the sender.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.RecipientGUID">
+            <summary>
+            Unique identifier for the recipient.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.ChannelGUID">
+            <summary>
+            Unique identifier for the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.ChannelName">
+            <summary>
+            The name of the channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.UserHeaders">
+            <summary>
+            Dictionary containing key/value pairs for user-supplied headers (anything starting with x-).
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.ContentType">
+            <summary>
+            Contains the content-type of the message data; specified by the sender.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.ContentLength">
+            <summary>
+            Contains the number of bytes in the data payload.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.Message.Data">
+            <summary>
+            The data payload.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.Message.#ctor">
+            <summary>
+            Instantiate the object.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.Message.#ctor(System.Byte[])">
+            <summary>
+            Converts a byte array to a populated BigQMessage object.
+            </summary>
+            <param name="bytes">The byte array containing the message data.</param>
+        </member>
+        <member name="M:BigQ.Client.Classes.Message.ToString">
+            <summary>
+            Creates a formatted string containing information about the message.
+            </summary>
+            <returns>A formatted string containing information about the message.</returns>
+        </member>
+        <member name="M:BigQ.Client.Classes.Message.ToBytes">
+            <summary>
+            Creates a byte array that can be transmitted to a stream (such as a socket) from a populated BigQMessage object.
+            </summary>
+            <returns>A byte array that can be transmitted to a stream.</returns>
+        </member>
+        <member name="M:BigQ.Client.Classes.Message.Redact">
+            <summary>
+            Redacts credentials from a message.
+            </summary> 
+        </member>
+        <member name="T:BigQ.Client.Classes.MessageCommand">
+            <summary>
+            Message commands.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.Echo">
+            <summary>
+            Echo the request back to the sender.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.Login">
+            <summary>
+            Login message.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.Event">
+            <summary>
+            An event has fired.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.HeartbeatRequest">
+            <summary>
+            Heartbeat request.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.JoinChannel">
+            <summary>
+            Join the specified channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.LeaveChannel">
+            <summary>
+            Leave the specified channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.SubscribeChannel">
+            <summary>
+            Subscribe to the specified channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.UnsubscribeChannel">
+            <summary>
+            Unsubscribe from the specified channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.CreateChannel">
+            <summary>
+            Create a channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.DeleteChannel">
+            <summary>
+            Delete a channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.ListClients">
+            <summary>
+            List clients connected to the server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.ListChannels">
+            <summary>
+            List channels visible to me.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.ListChannelMembers">
+            <summary>
+            List members of a channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.ListChannelSubscribers">
+            <summary>
+            List subscribers of a channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.IsClientConnected">
+            <summary>
+            Determine if a client is connected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.MessagePrivate">
+            <summary>
+            Send a private message.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.MessageChannel">
+            <summary>
+            Send a message to a channel.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.MessageCommand.Unknown">
+            <summary>
+            Unknown.
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.ServerClient">
+            <summary>
+            Client metadata object used by the server.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.Email">
+            <summary>
+            The email address associated with the client.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.Password">
+            <summary>
+            The password associated with the client.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.ClientGUID">
+            <summary>
+            The GUID associated with the client.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.Name">
+            <summary>
+            The name associated with the client.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.ServerGUID">
+            <summary>
+            The GUID associated with the server.  
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.IpPort">
+            <summary>
+            The client's source IP address and port (i.e. 10.1.1.1:5033).
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.Connection">
+            <summary>
+            The type of connection.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.CreatedUtc">
+            <summary>
+            The UTC timestamp of when this client object was created.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.Connected">
+            <summary>
+            Indicates whether or not the client is connected to the server.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.ServerClient.LoggedIn">
+            <summary>
+            Indicates whether or not the client is logged in to the server.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ServerClient.MessageQueue">
+            <summary>
+            A blocking collection containing the messages that are queued for delivery to this client.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ServerClient.RamQueueTokenSource">
+            <summary>
+            Managed by the server to destroy the thread processing the client queue when the client is shutting down.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ServerClient.RamQueueToken">
+            <summary>
+            Managed by the server to destroy the thread processing the client queue when the client is shutting down.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ServerClient.DiskQueueTokenSource">
+            <summary>
+            Managed by the server to destroy the thread processing the client queue when the client is shutting down.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Classes.ServerClient.DiskQueueToken">
+            <summary>
+            Managed by the server to destroy the thread processing the client queue when the client is shutting down.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.ServerClient.#ctor">
+            <summary>
+            This constructor is used by BigQServer.  Do not use it in client applications!
+            </summary>
+        </member>
+        <member name="T:BigQ.Client.Classes.SuccessData">
+            <summary>
+            Object containing details about a successful request.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.SuccessData.Success">
+            <summary>
+            Indicates whether or not the request succeeded or failed.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Classes.SuccessData.Data">
+            <summary>
+            Success response data.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Classes.SuccessData.ToBytes(System.String,System.Object)">
+            <summary>
+            Create a byte array containing a success response object.
+            </summary>
+            <param name="detail">Details related to the response.</param>
+            <param name="data">Response data.</param>
+            <returns></returns>
+        </member>
+        <member name="T:BigQ.Client.Client">
+            <summary>
+            BigQ client object.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Client.Config">
+            <summary>
+            Contains configuration-related variables for the client.  
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.Client.Callbacks">
+            <summary>
+            Callback methods used when certain events occur.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Client.Connection">
+            <summary>
+            The type of connection.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Client.Connected">
+            <summary>
+            Indicates whether or not the client is connected to the server.  Do not modify this field.
+            </summary>
+        </member>
+        <member name="P:BigQ.Client.Client.LoggedIn">
+            <summary>
+            Indicates whether or not the client is logged in to the server.  Do not modify this field.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Client.#ctor">
+            <summary>
+            Start an instance of the BigQ client process with default configuration.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Client.#ctor(BigQ.Client.Classes.ClientConfiguration)">
+            <summary>
+            Start an instance of the BigQ client process.
+            </summary>
+            <param name="config">Populated client configuration object.</param>
+        </member>
+        <member name="M:BigQ.Client.Client.Dispose">
+            <summary>
+            Tear down the client and dispose of background workers.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.Client.Echo">
+            <summary>
+            Generates an echo request to the server, which should result in an asynchronous echo response.  Typically used to validate connectivity.
+            </summary>
+            <returns>Boolean indicating success.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Login(BigQ.Client.Classes.Message@)">
+            <summary>
+            Login to the server.
+            </summary>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating if the login was successful.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.ListClients">
+            <summary>
+            Retrieve a list of all clients on the server.
+            </summary>  
+            <returns>The list of clients received from the server.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.ListChannels">
+            <summary>
+            Retrieve a list of all channels on the server.
+            </summary> 
+            <returns>The list of channels received from the server.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.ListMembers(System.String)">
+            <summary>
+            Retrieve a list of all members in a specific channel.
+            </summary>
+            <param name="guid">The GUID of the channel.</param> 
+            <returns>The list of clients that are members in the specified channel on the server.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.ListSubscribers(System.String)">
+            <summary>
+            Retrieve a list of all subscribers in a specific channel.
+            </summary>
+            <param name="guid">The GUID of the channel.</param> 
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Join(System.String,BigQ.Client.Classes.Message@)">
+            <summary>
+            Join a specified channel on the server.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Subscribe(System.String,BigQ.Client.Classes.Message@)">
+            <summary>
+            Subscribe to multicast messages on a specified channel on the server.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Leave(System.String,BigQ.Client.Classes.Message@)">
+            <summary>
+            Leave a channel on the server to which you are joined.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Unsubscribe(System.String,BigQ.Client.Classes.Message@)">
+            <summary>
+            Unsubscribe from multicast messages on a specified channel on the server.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Create(BigQ.Client.Classes.ChannelType,System.String,System.Boolean,BigQ.Client.Classes.Message@)">
+            <summary>
+            Create a channel.
+            </summary>
+            <param name="channelType">ChannelType.</param>
+            <param name="name">The name you wish to assign to the new channel.</param>
+            <param name="isPrivate">Whether or not the channel is private (true) or public (false).</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Delete(System.String,BigQ.Client.Classes.Message@)">
+            <summary>
+            Delete a channel you own on the server.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Send(System.String,System.String)">
+            <summary>
+            Send a private message to another user on this server asynchronously.
+            </summary>
+            <param name="guid">The GUID of the recipient user.</param>
+            <param name="data">The data you wish to send to the user (string or byte array).</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Send(System.String,System.Byte[])">
+            <summary>
+            Send a private message to another user on this server asynchronously.
+            </summary>
+            <param name="guid">The GUID of the recipient user.</param>
+            <param name="data">The data you wish to send to the user (string or byte array).</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Send(System.String,System.String,System.String,System.Boolean)">
+            <summary>
+            Send a private message to another user on this server asynchronously, and queue persistently until expiration.
+            </summary>
+            <param name="guid">The GUID of the recipient user.</param>
+            <param name="contentType">The content type of the data.</param>
+            <param name="data">The data you wish to send to the user (string or byte array).</param>
+            <param name="persist">True to persist until expiration.</param>
+            <returns>Boolean indicating whether or not the message was stored persistently.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.Send(System.String,System.String,System.Byte[],System.Boolean)">
+            <summary>
+            Send a private message to another user on this server asynchronously, and queue persistently until expiration.
+            </summary>
+            <param name="guid">The GUID of the recipient user.</param>
+            <param name="contentType">The content type of the data.</param>
+            <param name="data">The data you wish to send to the user (string or byte array).</param>
+            <param name="persist">True to persist until expiration.</param>
+            <returns>Boolean indicating whether or not the message was stored persistently.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.SendSync(System.String,System.String,System.String@)">
+            <summary>
+            Send a private message to another user on this server synchronously.
+            </summary>
+            <param name="guid">The GUID of the recipient user.</param>
+            <param name="data">The data you wish to send to the user (string or byte array).</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.SendSync(System.String,System.Byte[],System.Byte[]@)">
+            <summary>
+            Send a private message to another user on this server synchronously.
+            </summary>
+            <param name="guid">The GUID of the recipient user.</param>
+            <param name="data">The data you wish to send to the user (string or byte array).</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.SendChannel(System.String,System.String)">
+            <summary>
+            Send an async message to a channel, which is in turn sent to recipients based on channel configuration.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="data">The data you wish to send to the channel (string or byte array).</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.SendChannel(System.String,System.Byte[])">
+            <summary>
+            Send an async message to a channel, which is in turn sent to recipients based on channel configuration.
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="data">The data you wish to send to the channel (string or byte array).</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.SendChannelSync(System.String,System.String,System.String@)">
+            <summary>
+            Send a sync message to a channel, which is in turn sent to recipients based on channel configuration. 
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="data">The data you wish to send to the channel (string or byte array).</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.SendChannelSync(System.String,System.Byte[],System.Byte[]@)">
+            <summary>
+            Send a sync message to a channel, which is in turn sent to recipients based on channel configuration. 
+            </summary>
+            <param name="guid">The GUID of the channel.</param>
+            <param name="data">The data you wish to send to the channel (string or byte array).</param>
+            <param name="response">The full response message received from the server.</param>
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="M:BigQ.Client.Client.IsClientConnected(System.String)">
+            <summary>
+            Discern whether or not a given client is connected.
+            </summary>
+            <param name="guid">The GUID of the client.</param> 
+            <returns>Boolean indicating whether or not the call succeeded.</returns>
+        </member>
+        <member name="T:BigQ.Client.ClientCallbacks">
+            <summary>
+            BigQ client callbacks object.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.AsyncMessageReceived">
+            <summary>
+            Delegate method called when an asynchronous message is received.
+            The message is the first parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.SyncMessageReceived">
+            <summary>
+            Delegate method called when a synchronous message is received.
+            The message is the first parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ServerDisconnected">
+            <summary>
+            Delegate method called when the server connection is severed.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ServerConnected">
+            <summary>
+            Delegate method called when the server connection is restored.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ClientJoinedServer">
+            <summary>
+            Delegate method called when a client joins the server.
+            The client GUID is the first parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ClientLeftServer">
+            <summary>
+            Delegate method called when a client leaves the server.
+            The client GUID is the first parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ClientJoinedChannel">
+            <summary>
+            Delegate method called when a client joins a channel.
+            The client GUID is the first parameter.
+            The channel GUID is the second parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ClientLeftChannel">
+            <summary>
+            Delegate method called when a client leaves a channel.
+            The client GUID is the first parameter.
+            The channel GUID is the second parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.SubscriberJoinedChannel">
+            <summary>
+            Delegate method called when a subscriber joins a channel.
+            The client GUID is the first parameter.
+            The channel GUID is the second parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.SubscriberLeftChannel">
+            <summary>
+            Delegate method called when a subscriber leaves a channel.
+            The client GUID is the first parameter.
+            The channel GUID is the second parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ChannelCreated">
+            <summary>
+            Delegate method called when a public channel is created.
+            The channel GUID is the first parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="F:BigQ.Client.ClientCallbacks.ChannelDestroyed">
+            <summary>
+            Delegate method called when a public channel is destroyed.
+            The channel GUID is the first parameter.
+            A response of true is expected.
+            </summary>
+        </member>
+        <member name="M:BigQ.Client.ClientCallbacks.#ctor">
+            <summary>
+            Instantiates the object.
+            </summary>
+        </member>
+    </members>
+</doc>

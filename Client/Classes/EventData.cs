@@ -14,20 +14,44 @@ namespace BigQ.Client.Classes
     [JsonConverter(typeof(StringEnumConverter))]
     public enum EventTypes
     {
+        /// <summary>
+        /// Client has joined the server.
+        /// </summary>
         [EnumMember(Value = "ClientJoinedServer")]
         ClientJoinedServer,
+        /// <summary>
+        /// Client has left the server.
+        /// </summary>
         [EnumMember(Value = "ClientLeftServer")]
         ClientLeftServer,
+        /// <summary>
+        /// Client has joined the channel.
+        /// </summary>
         [EnumMember(Value = "ClientJoinedChannel")]
         ClientJoinedChannel,
+        /// <summary>
+        /// Client has left the channel.
+        /// </summary>
         [EnumMember(Value = "ClientLeftChannel")]
         ClientLeftChannel,
+        /// <summary>
+        /// Subscriber has joined the channel.
+        /// </summary>
         [EnumMember(Value = "SubscriberJoinedChannel")]
         SubscriberJoinedChannel,
+        /// <summary>
+        /// Subscriber has left the channel.
+        /// </summary>
         [EnumMember(Value = "SubscriberLeftChannel")]
         SubscriberLeftChannel,
+        /// <summary>
+        /// A channel has been created.
+        /// </summary>
         [EnumMember(Value = "ChannelCreated")]
         ChannelCreated,
+        /// <summary>
+        /// A channel has been destroyed.
+        /// </summary>
         [EnumMember(Value = "ChannelDestroyed")]
         ChannelDestroyed
     }

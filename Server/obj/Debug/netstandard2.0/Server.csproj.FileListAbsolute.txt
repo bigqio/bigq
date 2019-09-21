@@ -16,3 +16,4 @@ C:\Code\BigQ\BigQ-3.0\Server\obj\Debug\netstandard2.0\Server.AssemblyInfoInputs.
 C:\Code\BigQ\BigQ-3.0\Server\obj\Debug\netstandard2.0\Server.AssemblyInfo.cs
 C:\Code\BigQ\BigQ-3.0\Server\obj\Debug\netstandard2.0\Server.dll
 C:\Code\BigQ\BigQ-3.0\Server\obj\Debug\netstandard2.0\Server.pdb
+C:\code\BigQ\BigQ-3.0\Server\bin\Debug\netstandard2.0\Server.xml

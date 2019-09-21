@@ -59,6 +59,9 @@ namespace BigQ.Client.Classes
 
         #region Constructors-and-Factories
 
+        /// <summary>
+        /// Instantiates the object.
+        /// </summary>
         public Channel()
         {
             DateTime ts = DateTime.Now.ToUniversalTime();
@@ -69,9 +72,9 @@ namespace BigQ.Client.Classes
 
         #endregion
 
-        #region Public-Methods
+        #region Internal-Methods
 
-        public static Channel FromMessage(ServerClient currentClient, Message currentMessage)
+        internal static Channel FromMessage(ServerClient currentClient, Message currentMessage)
         {
             if (currentClient == null) throw new ArgumentNullException(nameof(currentClient));
             if (currentMessage == null) throw new ArgumentNullException(nameof(currentMessage));

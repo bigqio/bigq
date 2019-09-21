@@ -18,13 +18,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace BigQ.Server.Classes
-{
-    /// <summary>
-    /// A series of helpful methods for BigQ.
-    /// </summary>
-    public static class Common
-    {  
-        public static T DeserializeJson<T>(string json)
+{ 
+    internal static class Common
+    {
+        internal static T DeserializeJson<T>(string json)
         {
             // Newtonsoft
             JsonSerializerSettings settings = new JsonSerializerSettings();
@@ -37,7 +34,7 @@ namespace BigQ.Server.Classes
             // return (T)ser.Deserialize<T>(json);
         }
 
-        public static T DeserializeJson<T>(byte[] bytes)
+        internal static T DeserializeJson<T>(byte[] bytes)
         {
             // Newtonsoft
             JsonSerializerSettings settings = new JsonSerializerSettings();
@@ -50,7 +47,7 @@ namespace BigQ.Server.Classes
             // return (T)ser.Deserialize<T>(Encoding.UTF8.GetString(bytes));
         }
 
-        public static string SerializeJson(object obj)
+        internal static string SerializeJson(object obj)
         {
             // Newtonsoft
             JsonSerializerSettings settings = new JsonSerializerSettings();
@@ -65,14 +62,14 @@ namespace BigQ.Server.Classes
             // return json;
         }
 
-        public static string BytesToHex(byte[] ba)
+        internal static string BytesToHex(byte[] ba)
         {
             if (ba == null || ba.Length < 1) return null;
             string hex = BitConverter.ToString(ba);
             return hex.Replace("-", "");
         }
 
-        public static byte[] HexToBytes(string hex)
+        internal static byte[] HexToBytes(string hex)
         {
             if (String.IsNullOrEmpty(hex)) return null;
             int numChars = hex.Length;

@@ -8,7 +8,7 @@
     ".NETCoreApp,Version=v2.2": {
       "ServerTest/1.0.0": {
         "dependencies": {
-          "BigQ.Server": "3.0.3.1"
+          "BigQ.Server": "3.0.3.2"
         },
         "runtime": {
           "ServerTest.dll": {}
@@ -87,7 +87,7 @@
           }
         }
       },
-      "BigQ.Server/3.0.3.1": {
+      "BigQ.Server/3.0.3.2": {
         "dependencies": {
           "Newtonsoft.Json": "12.0.2",
           "SqliteHelper": "1.0.13",
@@ -157,7 +157,7 @@
       "path": "watsonwebsocket/2.0.0",
       "hashPath": "watsonwebsocket.2.0.0.nupkg.sha512"
     },
-    "BigQ.Server/3.0.3.1": {
+    "BigQ.Server/3.0.3.2": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

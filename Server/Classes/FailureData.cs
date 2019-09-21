@@ -14,46 +14,109 @@ namespace BigQ.Server.Classes
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ErrorTypes
     {
+        /// <summary>
+        /// Unknown error.
+        /// </summary>
         [EnumMember(Value = "Unknown")]
         Unknown,
+        /// <summary>
+        /// An error has occurred on the server.
+        /// </summary>
         [EnumMember(Value = "ServerError")]
         ServerError,
+        /// <summary>
+        /// The recipient was not found.
+        /// </summary>
         [EnumMember(Value = "RecipientNotFound")]
         RecipientNotFound,
+        /// <summary>
+        /// The channel was not found.
+        /// </summary>
         [EnumMember(Value = "ChannelNotFound")]
         ChannelNotFound,
+        /// <summary>
+        /// Bad request.
+        /// </summary>
         [EnumMember(Value = "BadRequest")]
         BadRequest,
+        /// <summary>
+        /// Authentication failed.
+        /// </summary>
         [EnumMember(Value = "AuthenticationFailed")]
         AuthenticationFailed,
+        /// <summary>
+        /// Authorization failed.
+        /// </summary>
         [EnumMember(Value = "AuthorizationFailed")]
         AuthorizationFailed,
+        /// <summary>
+        /// Login required.
+        /// </summary>
         [EnumMember(Value = "LoginRequired")]
         LoginRequired,
+        /// <summary>
+        /// Unknown command.
+        /// </summary>
         [EnumMember(Value = "UnknownCommand")]
         UnknownCommand,
+        /// <summary>
+        /// The recipient is not a channel member.
+        /// </summary>
         [EnumMember(Value = "NotAChannelMember")]
         NotAChannelMember,
+        /// <summary>
+        /// Unable to queue the message.
+        /// </summary>
         [EnumMember(Value = "UnableToQueue")]
         UnableToQueue,
+        /// <summary>
+        /// The channel has no members.
+        /// </summary>
         [EnumMember(Value = "NoChannelMembers")]
         NoChannelMembers,
+        /// <summary>
+        /// The channel has no subscribers.
+        /// </summary>
         [EnumMember(Value = "NoChannelSubscribers")]
         NoChannelSubscribers,
+        /// <summary>
+        /// The channel already exists.
+        /// </summary>
         [EnumMember(Value = "ChannelAlreadyExists")]
         ChannelAlreadyExists,
+        /// <summary>
+        /// Unable to create the channel.
+        /// </summary>
         [EnumMember(Value = "UnableToCreateChannel")]
         UnableToCreateChannel,
+        /// <summary>
+        /// Unable to delete the channel.
+        /// </summary>
         [EnumMember(Value = "UnableToDeleteChannel")]
         UnableToDeleteChannel,
+        /// <summary>
+        /// Unable to join the channel.
+        /// </summary>
         [EnumMember(Value = "UnableToJoinChannel")]
         UnableToJoinChannel,
+        /// <summary>
+        /// Unable to leave the channel.
+        /// </summary>
         [EnumMember(Value = "UnableToLeaveChannel")]
         UnableToLeaveChannel,
+        /// <summary>
+        /// Unable to subscribe to the channel.
+        /// </summary>
         [EnumMember(Value = "UnableToSubscribeChannel")]
         UnableToSubscribeChannel,
+        /// <summary>
+        /// Unable to unsubscribe from the channel.
+        /// </summary>
         [EnumMember(Value = "UnableToUnsubscribeChannel")]
         UnableToUnsubscribeChannel,
+        /// <summary>
+        /// There is an error in the supplied data.
+        /// </summary>
         [EnumMember(Value = "DataError")]
         DataError
     }
@@ -94,6 +157,9 @@ namespace BigQ.Server.Classes
 
         #region Constructors-and-Factories
 
+        /// <summary>
+        /// Instantiates the object.
+        /// </summary>
         public FailureData()
         {
 

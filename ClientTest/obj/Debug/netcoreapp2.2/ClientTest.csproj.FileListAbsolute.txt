@@ -34,3 +34,4 @@ C:\Code\BigQ\BigQ-3.0\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.AssemblyInfo
 C:\Code\BigQ\BigQ-3.0\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.csproj.CopyComplete
 C:\Code\BigQ\BigQ-3.0\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.dll
 C:\Code\BigQ\BigQ-3.0\ClientTest\obj\Debug\netcoreapp2.2\ClientTest.pdb
+C:\code\BigQ\BigQ-3.0\ClientTest\bin\Debug\netcoreapp2.2\Client.xml

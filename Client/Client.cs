@@ -102,7 +102,7 @@ namespace BigQ.Client
         /// Tear down the client and dispose of background workers.
         /// </summary>
         public void Dispose()
-        {
+        { 
             if (_WTcpClient != null)
             {
                 _WTcpClient.Dispose();
@@ -120,9 +120,9 @@ namespace BigQ.Client
                 if (!_CleanupSyncTokenSource.IsCancellationRequested) _CleanupSyncTokenSource.Cancel();
                 _CleanupSyncTokenSource.Dispose();
                 _CleanupSyncTokenSource = null;
-            } 
+            }
 
-            Connected = false;
+            Connected = false; 
             return;
         }
 
@@ -308,9 +308,7 @@ namespace BigQ.Client
         /// <summary>
         /// Retrieve a list of all subscribers in a specific channel.
         /// </summary>
-        /// <param name="guid">The GUID of the channel.</param>
-        /// <param name="response">The full response message received from the server.</param>
-        /// <param name="clients">The list of clients subscribed to the specified channel on the server.</param>
+        /// <param name="guid">The GUID of the channel.</param> 
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public List<ServerClient> ListSubscribers(string guid)
         {
@@ -809,8 +807,7 @@ namespace BigQ.Client
         /// <summary>
         /// Discern whether or not a given client is connected.
         /// </summary>
-        /// <param name="guid">The GUID of the client.</param>
-        /// <param name="response">The full response message received from the server.</param>
+        /// <param name="guid">The GUID of the client.</param> 
         /// <returns>Boolean indicating whether or not the call succeeded.</returns>
         public bool IsClientConnected(string guid)
         { 

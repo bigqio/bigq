@@ -32,3 +32,4 @@ C:\Code\BigQ\BigQ-3.0\ServerTest\obj\Debug\netcoreapp2.2\ServerTest.AssemblyInfo
 C:\Code\BigQ\BigQ-3.0\ServerTest\obj\Debug\netcoreapp2.2\ServerTest.csproj.CopyComplete
 C:\Code\BigQ\BigQ-3.0\ServerTest\obj\Debug\netcoreapp2.2\ServerTest.dll
 C:\Code\BigQ\BigQ-3.0\ServerTest\obj\Debug\netcoreapp2.2\ServerTest.pdb
+C:\code\BigQ\BigQ-3.0\ServerTest\bin\Debug\netcoreapp2.2\Server.xml

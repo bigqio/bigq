@@ -419,6 +419,7 @@ namespace BigQ.Server.Managers
         /// Remove channels associated with the GUID of a ServerClient object.
         /// </summary>
         /// <param name="ownerGuid">GUID of the ServerClient object.</param>
+        /// <param name="affectedChannels">Channels affected by this operation.</param>
         /// <returns>Boolean indicating success.</returns>
         public bool RemoveClientChannels(string ownerGuid, out List<Channel> affectedChannels)
         {

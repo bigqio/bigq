@@ -661,8 +661,7 @@ namespace BigQ.Client.Classes
         
         /// <summary>
         /// Redacts credentials from a message.
-        /// </summary>
-        /// <param name="msg">Message object.</param>
+        /// </summary> 
         public Message Redact()
         {
             Email = null;

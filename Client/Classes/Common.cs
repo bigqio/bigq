@@ -18,13 +18,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace BigQ.Client.Classes
-{
-    /// <summary>
-    /// A series of helpful methods for BigQ.
-    /// </summary>
-    public static class Common
-    {  
-        public static T DeserializeJson<T>(string json)
+{ 
+    internal static class Common
+    {
+        internal static T DeserializeJson<T>(string json)
         {
             // Newtonsoft
             JsonSerializerSettings settings = new JsonSerializerSettings();
@@ -37,7 +34,7 @@ namespace BigQ.Client.Classes
             // return (T)ser.Deserialize<T>(json);
         }
 
-        public static T DeserializeJson<T>(byte[] bytes)
+        internal static T DeserializeJson<T>(byte[] bytes)
         {
             // Newtonsoft
             JsonSerializerSettings settings = new JsonSerializerSettings();
@@ -50,7 +47,7 @@ namespace BigQ.Client.Classes
             // return (T)ser.Deserialize<T>(Encoding.UTF8.GetString(bytes));
         }
 
-        public static string SerializeJson(object obj)
+        internal static string SerializeJson(object obj)
         {
             // Newtonsoft
             JsonSerializerSettings settings = new JsonSerializerSettings();

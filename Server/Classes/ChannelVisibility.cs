@@ -10,8 +10,14 @@ namespace BigQ.Server.Classes
     [JsonConverter(typeof(StringEnumConverter))]
     public enum ChannelVisibility
     {
+        /// <summary>
+        /// Public channel.  Channel will appear in list channels responses.
+        /// </summary>
         [EnumMember(Value = "Public")]
         Public,
+        /// <summary>
+        /// Private channel.  Channel will not appear in list channels responses, except for the owner.
+        /// </summary>
         [EnumMember(Value = "Private")]
         Private
     }

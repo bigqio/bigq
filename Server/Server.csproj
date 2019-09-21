@@ -3,11 +3,11 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net462</TargetFrameworks>
     <RootNamespace>BigQ.Server</RootNamespace>
-    <Version>3.0.3.1</Version>
+    <Version>3.0.3.2</Version>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
     <Copyright>(c)2019 Joel Christner</Copyright>
-    <PackageLicenseUrl>https://github.com/bigqio/bigq/blob/master/LICENSE.TXT</PackageLicenseUrl>
+    <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/bigqio/bigq</PackageProjectUrl>
     <PackageId>BigQ.Server</PackageId>
     <Product>BigQ.Server</Product>
@@ -35,11 +35,23 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\LICENSE.md">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
   <PropertyGroup> 
     <ContentSQLiteInteropFiles>true</ContentSQLiteInteropFiles>
     <CopySQLiteInteropFiles>false</CopySQLiteInteropFiles>
     <CleanSQLiteInteropFiles>false</CleanSQLiteInteropFiles>
     <CollectSQLiteInteropFiles>false</CollectSQLiteInteropFiles>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netstandard2.0|AnyCPU'">
+    <DocumentationFile>C:\code\BigQ\BigQ-3.0\Server\Server.xml</DocumentationFile>
   </PropertyGroup>
   
 </Project>

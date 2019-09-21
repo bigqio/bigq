@@ -1,15 +1,12 @@
 ﻿using System;
 
 namespace BigQ.Server.Classes
-{
-    /// <summary>
-    /// Message builder.
-    /// </summary>
-    public class MessageBuilder
+{ 
+    internal class MessageBuilder
     {
         #region Public-Members
-
-        public string ServerGUID { get; set; }
+         
+        internal string ServerGUID { get; set; }
 
         #endregion
 
@@ -19,7 +16,7 @@ namespace BigQ.Server.Classes
 
         #region Constructors-and-Factories
 
-        public MessageBuilder(string serverGuid)
+        internal MessageBuilder(string serverGuid)
         {
             if (String.IsNullOrEmpty(serverGuid)) throw new ArgumentNullException(nameof(serverGuid));
 
