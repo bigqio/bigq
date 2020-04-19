@@ -2,9 +2,10 @@
 
 # BigQ
 
-[![NuGet](https://img.shields.io/nuget/v/FeatureToggle.svg)](https://www.nuget.org/packages/BigQ.Server) BigQ.Server on NuGet
-
-[![NuGet](https://img.shields.io/nuget/v/FeatureToggle.svg)](https://www.nuget.org/packages/BigQ.Client) BigQ.Client on NuGet
+|   | Version | Downloads |
+|---|---|---|
+| BigQ.Client | [![NuGet Version](https://img.shields.io/nuget/v/BigQ.Client.svg?style=flat)](https://www.nuget.org/packages/BigQ.Client/) | [![NuGet](https://img.shields.io/nuget/dt/BigQ.Client.svg)](https://www.nuget.org/packages/BigQ.Client) |
+| BigQ.Server | [![NuGet Version](https://img.shields.io/nuget/v/BigQ.Server.svg?style=flat)](https://www.nuget.org/packages/BigQ.Server/) | [![NuGet](https://img.shields.io/nuget/dt/BigQ.Server.svg)](https://www.nuget.org/packages/BigQ.Server) |  
 
 BigQ is a essaging platform in C# for TCP, SSL, and Websockets, with unicast, broadcast, multicast, publisher/subscriber messaging and integrated framing, built for both .NET Core and .NET Framework.
 
